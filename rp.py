@@ -141,25 +141,60 @@ if len(sys.argv) >= 2:
 	if sys.argv[1] == "update":
 		# Вывод в лог заголовка: обновление.
 		logging.info("====== Updating ======")
-		# Инициализация проверки обновлений.
-		UpdateChecker = Updater(Settings)
-		# Получение списка обновлённых тайтлов.
-		UpdatedTitlesList = UpdateChecker.GetUpdatesList()
-		# Индекс обрабатываемого тайтла.
-		CurrentTitleIndex = 0
-		# Вывод в лог заголовка: парсинг.
-		logging.info("====== Parcing ======")
 
-		# Парсинг обновлённых тайтлов.
-		for Slug in UpdatedTitlesList:
-			# Инкремент текущего индекса.
-			CurrentTitleIndex += 1
-			# Генерация сообщения.
-			ExternalMessage = InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
-			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
-			# Сохранение локальных файлов тайтла.
-			LocalTitle.Save()
+		# Обновить все локальные файлы.
+		if sys.argv[2] == "-local":
+			# Получение списка файлов в директории.
+			TitlesList = os.listdir("Titles\\")
+			# Фильтрация только файлов формата JSON.
+			TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
+			# Индекс обрабатываемого тайтла.
+			CurrentTitleIndex = 0
+			# Запись в лог сообщения о количестве локальных тайтлов.
+			logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
+			# Вывод в лог заголовка: парсинг.
+			logging.info("====== Parcing ======")
+
+			# Парсинг обновлённых тайтлов.
+			for Slug in TitlesList:
+				# Инкремент текущего индекса.
+				CurrentTitleIndex += 1
+				# Очистка терминала.
+				Cls()
+				# Вывод в терминал прогресса.
+				print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)))
+				# Генерация сообщения.
+				ExternalMessage = InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+				# Парсинг тайтла.
+				LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
+				# Сохранение локальных файлов тайтла.
+				LocalTitle.Save()
+
+				# Выжидание указанного интервала, если не все обложки загружены.
+				if CurrentTitleIndex < len(TitlesList):
+					time.sleep(Settings["delay"])
+
+		# Обновить изменённые на сервере за последнее время тайтлы.
+		else:
+			# Инициализация проверки обновлений.
+			UpdateChecker = Updater(Settings)
+			# Получение списка обновлённых тайтлов.
+			UpdatedTitlesList = UpdateChecker.GetUpdatesList()
+			# Индекс обрабатываемого тайтла.
+			CurrentTitleIndex = 0
+			# Вывод в лог заголовка: парсинг.
+			logging.info("====== Parcing ======")
+
+			# Парсинг обновлённых тайтлов.
+			for Slug in UpdatedTitlesList:
+				# Инкремент текущего индекса.
+				CurrentTitleIndex += 1
+				# Генерация сообщения.
+				ExternalMessage = InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
+				# Парсинг тайтла.
+				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
+				# Сохранение локальных файлов тайтла.
+				LocalTitle.Save()
 
 # Обработка исключения: недостаточно аргументов.
 elif len(sys.argv) == 1:

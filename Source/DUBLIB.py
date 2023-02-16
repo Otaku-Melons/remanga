@@ -1,6 +1,3 @@
-from random_user_agent.params import SoftwareName, OperatingSystem
-from random_user_agent.user_agent import UserAgent
-
 import sys
 import os
 import re

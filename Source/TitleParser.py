@@ -28,6 +28,8 @@ class TitleParser:
 	__Slug = None
 	# Сообщение из внешнего обработчика.
 	__Message = ""
+	# Состояние: получено ли описание тайтла.
+	__IsActive = None
 	
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
@@ -99,7 +101,7 @@ class TitleParser:
 		# Описание тайтла.
 		Description = None
 		# Ответ запроса.
-		Response = None
+		Response = True
 
 		# Выполнение запроса с прокси-сервером, если указано, или без него.
 		if self.__Settings["use-proxy"] == True:
@@ -113,6 +115,12 @@ class TitleParser:
 			Description = dict(json.loads(Response.text))["content"]
 			# Запись в лог сообщения о запросе описания тайтла.
 			logging.info("Title: \"" + self.__Slug + "\". Request title description... Done.")
+
+		# Обработка ошибки доступа в виду отсутствия токена авторизации.
+		elif Response.status_code == 401:
+			self.__IsActive = False
+
+		# Обработка любой другой ошибки запроса.
 		else:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
 			logging.error("Unable to request title description: \"" + TitlesAPI + "\". Response code: " + str(Response.status_code) + ".")
@@ -183,6 +191,9 @@ class TitleParser:
 			"authorization": self.__Settings["authorization"]
 			}
 
+		#---> Настройка среды и логирование.
+		#==========================================================================================#
+
 		# Удаление существующего файла, если указано.
 		if ForceMode == True and os.path.exists("Titles\\" + Slug + ".json"):
 			os.remove("Titles\\" + Slug + ".json")
@@ -198,160 +209,178 @@ class TitleParser:
 		#==========================================================================================#
 		# Получение описания тайтла.
 		self.__Title = self.__GetTitleDescription()
-		# Создание ключа для последующего помещения туда глав.
-		self.__Title["chapters"] = dict()
 
-		# Генерация ветвей и заполнение их данными о главах.
-		for Branch in self.__Title["branches"]:
-			self.__Title["chapters"][str(Branch["id"])] = self.__GetBranchData(str(Branch["id"]), str(Branch["count_chapters"]))
+		# Проверка доступности тайтла без токена авторизации.
+		if self.__IsActive == False:
+			# Запись в лог сообщения о невозможности получить доступ к 18+ тайтлу без токена авторизации.
+			logging.error("Title: \"" + self.__Slug + "\". Authorization token required!")
 
-		#---> Дополнение каркаса данными о страницах глав.
-		#==========================================================================================#
+		# Если токен доступен, продолжить обработку.
+		else:
 
-		# Слияние локальной и удалённой ветвей.
-		if os.path.exists("Titles\\" + self.__Slug + ".json"):
-			self.__Title = self.__MergeBranches()
+			# Создание ключа для последующего помещения туда глав.
+			self.__Title["chapters"] = dict()
 
-		# Получение недостающих данных о страницах глав.
-		if Amending == True:
-			self.AmendChapters()
+			# Генерация ветвей и заполнение их данными о главах.
+			for Branch in self.__Title["branches"]:
+				self.__Title["chapters"][str(Branch["id"])] = self.__GetBranchData(str(Branch["id"]), str(Branch["count_chapters"]))
+
+				#---> Дополнение каркаса данными о страницах глав.
+				#==========================================================================================#
+
+				# Слияние локальной и удалённой ветвей.
+				if os.path.exists("Titles\\" + self.__Slug + ".json"):
+					self.__Title = self.__MergeBranches()
+
+				# Получение недостающих данных о страницах глав.
+				if Amending == True:
+					self.AmendChapters()
 
 	# Проверяет все главы на наличие описанных страниц и дополняет их, если это необходимо.
 	def AmendChapters(self):
-		# Список ID ветвей.
-		BranchesID = list()
-		# Счётчик глав, для которых были получены страницы.
-		UpdatedChaptersCounter = 0
-		# Запись в лог сообщения о старте получения информации о страницах глав.
-		logging.info("Title: \"" + self.__Slug + "\". Amending...")
 
-		# Заполнение списка ID ветвей.
-		for Branch in self.__Title["branches"]:
-			BranchesID.append(str(Branch["id"]))
+		# Если парсер активен.
+		if self.__IsActive == True:
+			# Список ID ветвей.
+			BranchesID = list()
+			# Счётчик глав, для которых были получены страницы.
+			UpdatedChaptersCounter = 0
+			# Запись в лог сообщения о старте получения информации о страницах глав.
+			logging.info("Title: \"" + self.__Slug + "\". Amending...")
 
-		# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
-		for BranchID in BranchesID:
-			for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
-				# Очистка терминала.
-				Cls()
-				# Вывод в терминал прогресса.
-				print(self.__Message + "Amending chapters: " + str(ChapterIndex + 1) + " / " + str(len(self.__Title["chapters"][BranchID])))
+			# Заполнение списка ID ветвей.
+			for Branch in self.__Title["branches"]:
+				BranchesID.append(str(Branch["id"]))
 
-				# Проверка отсутствия описанных страниц.
-				if "slides" not in self.__Title["chapters"][BranchID][ChapterIndex].keys():
+			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
+			for BranchID in BranchesID:
+				for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
+					# Очистка терминала.
+					Cls()
+					# Вывод в терминал прогресса.
+					print(self.__Message + "Amending chapters: " + str(ChapterIndex + 1) + " / " + str(len(self.__Title["chapters"][BranchID])))
 
-					# Проверка главы на платность.
-					if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
-						# Получение информации о страницах главы.
-						self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["pages"]
-						# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
-						logging.info("Title: \"" + self.__Slug + "\". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
-						# Инкремент счётчика.
-						UpdatedChaptersCounter += 1
-						# Выжидание указанного интервала.
-						time.sleep(self.__Settings["delay"])
-					else:
-						# Запись в лог сообщения о платной главе.
-						logging.warning("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
+					# Проверка отсутствия описанных страниц.
+					if "slides" not in self.__Title["chapters"][BranchID][ChapterIndex].keys():
 
-		# Запись в лог сообщения о количестве дополненных глав.
-		logging.info("Title: \"" + self.__Slug + "\". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
+						# Проверка главы на платность.
+						if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+							# Получение информации о страницах главы.
+							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["pages"]
+							# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
+							logging.info("Title: \"" + self.__Slug + "\". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
+							# Инкремент счётчика.
+							UpdatedChaptersCounter += 1
+							# Выжидание указанного интервала.
+							time.sleep(self.__Settings["delay"])
+						else:
+							# Запись в лог сообщения о платной главе.
+							logging.warning("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
+
+			# Запись в лог сообщения о количестве дополненных глав.
+			logging.info("Title: \"" + self.__Slug + "\". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
 
 	# Загружает обложки тайтла.
 	def DownloadCovers(self):
-		# Список URL обложек.
-		CoversURL = list()
-		# Очистка терминала.
-		Cls()
-		# Вывод сообщения из внешнего обработчика и заголовка.
-		print(self.__Message, end = "")
-		# Ответ запроса.
-		Response = None
-		# Счётчик загруженных обложек.
-		DownloadedCoversCounter = 0
-		# Запись URL обложек.
-		CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
-		CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
-		CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
 
-		# Скачивание обложек.
-		for URL in CoversURL:
+		# Если парсер активен.
+		if self.__IsActive == True:
+			# Список URL обложек.
+			CoversURL = list()
+			# Очистка терминала.
+			Cls()
+			# Вывод сообщения из внешнего обработчика и заголовка.
+			print(self.__Message, end = "")
+			# Ответ запроса.
+			Response = None
+			# Счётчик загруженных обложек.
+			DownloadedCoversCounter = 0
+			# Запись URL обложек.
+			CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
+			CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
+			CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
 
-			# Проверка существования файлов.
-			if os.path.exists("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1]) == False or os.path.exists("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1]) == True and self.__ForceMode == True:
-				# Вывод в терминал URL загружаемой обложки.
-				print("Downloading cover: \"" + URL + "\"... ", end = "")
+			# Скачивание обложек.
+			for URL in CoversURL:
 
-				# Выполнение запроса с прокси-сервером, если указано, или без него.
-				if self.__Settings["use-proxy"] == True:
-					Response = requests.get(URL, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
-				else:
-					Response = requests.get(URL, headers = self.__RequestHeaders)
+				# Проверка существования файлов.
+				if os.path.exists("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1]) == False or os.path.exists("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1]) == True and self.__ForceMode == True:
+					# Вывод в терминал URL загружаемой обложки.
+					print("Downloading cover: \"" + URL + "\"... ", end = "")
 
-				# Проверка успешности запроса.
-				if Response.status_code == 200:
+					# Выполнение запроса с прокси-сервером, если указано, или без него.
+					if self.__Settings["use-proxy"] == True:
+						Response = requests.get(URL, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
+					else:
+						Response = requests.get(URL, headers = self.__RequestHeaders)
 
-					# Создание папки для обложек.
-					if not os.path.exists("Covers"):
-						os.makedirs("Covers")
+					# Проверка успешности запроса.
+					if Response.status_code == 200:
 
-					# Создание папки с алиасом тайтла в качестве названия.
-					if not os.path.exists("Covers\\" + self.__Slug):
-						os.makedirs("Covers\\" + self.__Slug)
+						# Создание папки для обложек.
+						if not os.path.exists("Covers"):
+							os.makedirs("Covers")
 
-					# Открытие потока записи.
-					with open("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1], "wb") as FileWrite:
-						# Запись изображения.
-						FileWrite.write(Response.content)
-						# Инкремент счётчика загруженных обложек.
-						DownloadedCoversCounter += 1
+						# Создание папки с алиасом тайтла в качестве названия.
+						if not os.path.exists("Covers\\" + self.__Slug):
+							os.makedirs("Covers\\" + self.__Slug)
+
+						# Открытие потока записи.
+						with open("Covers\\" + self.__Slug + "\\" + URL.split('/')[-1], "wb") as FileWrite:
+							# Запись изображения.
+							FileWrite.write(Response.content)
+							# Инкремент счётчика загруженных обложек.
+							DownloadedCoversCounter += 1
+							# Вывод в терминал сообщения об успешной загрузке.
+							print("Done.")
+
+					else:
+						# Запись в лог сообщения о неудачной попытке загрузки обложки.
+						logging.error("Title: \"" + self.__Slug + "\". Unable download cover: \"" + URL + "\". Response code: " + str(Response.status_code == 200) + ".")
 						# Вывод в терминал сообщения об успешной загрузке.
-						print("Done.")
+						print("Failure!")
 
 				else:
-					# Запись в лог сообщения о неудачной попытке загрузки обложки.
-					logging.error("Title: \"" + self.__Slug + "\". Unable download cover: \"" + URL + "\". Response code: " + str(Response.status_code == 200) + ".")
-					# Вывод в терминал сообщения об успешной загрузке.
-					print("Failure!")
+					# Вывод в терминал URL загружаемой обложки.
+					print("Cover already exist: \"" + URL + "\". Skipped. ")
 
-			else:
-				# Вывод в терминал URL загружаемой обложки.
-				print("Cover already exist: \"" + URL + "\". Skipped. ")
+				# Выжидание указанного интервала, если не все обложки загружены.
+				if DownloadedCoversCounter < 3:
+					time.sleep(self.__Settings["delay"])
 
-			# Выжидание указанного интервала, если не все обложки загружены.
-			if DownloadedCoversCounter < 3:
-				time.sleep(self.__Settings["delay"])
-
-		# Запись в лог сообщения о количестве загруженных обложек.
-		logging.info("Title: \"" + self.__Slug + "\". Covers downloaded: " + str(DownloadedCoversCounter) + ".")
+			# Запись в лог сообщения о количестве загруженных обложек.
+			logging.info("Title: \"" + self.__Slug + "\". Covers downloaded: " + str(DownloadedCoversCounter) + ".")
 
 	# Сохраняет локальный JSON файл.
 	def Save(self, DownloadCovers: bool = True):
-		# Список ID ветвей.
-		BranchesID = list()
 
-		# Создание папки для тайтлов.
-		if os.path.exists("Titles") == False:
-			os.makedirs("Titles")
+		# Если парсер активен.
+		if self.__IsActive == True:
+			# Список ID ветвей.
+			BranchesID = list()
 
-		# Заполнение списка ID ветвей.
-		for Branch in self.__Title["branches"]:
-			BranchesID.append(str(Branch["id"]))
+			# Создание папки для тайтлов.
+			if os.path.exists("Titles") == False:
+				os.makedirs("Titles")
 
-		# Инвертирование порядка глав в ветвях.
-		for BranchID in BranchesID:
-			self.__Title["chapters"][BranchID].reverse()
+			# Заполнение списка ID ветвей.
+			for Branch in self.__Title["branches"]:
+				BranchesID.append(str(Branch["id"]))
 
-		# Если указано, скачать обложки.
-		if DownloadCovers == True:
-			self.DownloadCovers()
+			# Инвертирование порядка глав в ветвях.
+			for BranchID in BranchesID:
+				self.__Title["chapters"][BranchID].reverse()
 
-		# Сохранение локального файла JSON.
-		with open("Titles\\" + self.__Slug + ".json", "w", encoding = "utf-8") as FileWrite:
-			json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = 2, separators = (',', ': '))
+			# Если указано, скачать обложки.
+			if DownloadCovers == True:
+				self.DownloadCovers()
 
-			# Запись в лог сообщения о создании или обновлении локального файла.
-			if self.__IsMerged == True:
-				logging.info("Title: \"" + self.__Slug + "\". Updated.")
-			else:
-				logging.info("Title: \"" + self.__Slug + "\". Parced.")
+			# Сохранение локального файла JSON.
+			with open("Titles\\" + self.__Slug + ".json", "w", encoding = "utf-8") as FileWrite:
+				json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = 2, separators = (',', ': '))
+
+				# Запись в лог сообщения о создании или обновлении локального файла.
+				if self.__IsMerged == True:
+					logging.info("Title: \"" + self.__Slug + "\". Updated.")
+				else:
+					logging.info("Title: \"" + self.__Slug + "\". Parced.")
