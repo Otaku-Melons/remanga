@@ -26,7 +26,7 @@ class ColoredPrinter(object):
 		self.NewLineAfterPrint = False
 
 	# Вывод в консоль.
-	def Print(self, Text: str(), TextColor: str(), BackgroundColor: str() = ""):
+	def Print(self, Text: str, TextColor: str, BackgroundColor: str = ""):
 		# Если передан цвет для фота, то создать соответствующий модификатор.
 		if BackgroundColor != "":
 			BackgroundColor = "\033[4" + BackgroundColor + "m"
@@ -52,7 +52,7 @@ def Cls():
 	os.system('cls' if os.name == 'nt' else 'clear')
 
 # Удаляет теги HTML из строки.
-def RemoveHTML(TextHTML):
+def RemoveHTML(TextHTML: str) -> str:
 	# Регулярное выражение фильтрации тегов HTML.
 	TagsHTML = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
 	# Удаление найденных по регулярному выражению тегов.
@@ -63,6 +63,6 @@ def RemoveHTML(TextHTML):
 # Выключает ПК: работает на Windows и Linux.
 def Shutdown():
 	if sys.platform == "linux" or sys.platform == "linux2":
-		os.system('sudo shutdown now')
+		os.system("sudo shutdown now")
 	elif sys.platform == "win32":
 		os.system("shutdown /s")

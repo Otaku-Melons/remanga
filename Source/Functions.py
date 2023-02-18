@@ -1,12 +1,20 @@
 from random_user_agent.params import SoftwareName, OperatingSystem
 from random_user_agent.user_agent import UserAgent
 
+# Возвращает случайное значение заголовка User-Agent.
+def GetRandomUserAgent() -> str:
+	SoftwareNames = [SoftwareName.CHROME.value]
+	OperatingSystems = [OperatingSystem.WINDOWS.value, OperatingSystem.LINUX.value]   
+	UserAgentRotator = UserAgent(software_names = SoftwareNames, operating_systems = OperatingSystems, limit = 100)
+
+	return str(UserAgentRotator.get_random_user_agent()).strip('"')
+
 # Усекает число до определённого количества знаков после запятой.
-def ToFixedFloat(FloatNumber, Digits = 0):
+def ToFixedFloat(FloatNumber: float, Digits: int = 0) -> float:
 	return float(f"{FloatNumber:.{Digits}f}")
 
 # Проевращает число секунд в строку-дескриптор времени по формату [<x> hours <y> minuts <z> seconds].
-def SecondsToTimeString(Seconds):
+def SecondsToTimeString(Seconds: float) -> str:
 	# Количество часов.
 	Hours = int(Seconds / 3600.0)
 	Seconds -= Hours * 3600
@@ -27,11 +35,3 @@ def SecondsToTimeString(Seconds):
 		TimeString += str(Seconds) + " seconds"
 
 	return TimeString
-
-# Возвращает случайное значение заголовка User-Agent.
-def GetRandomUserAgent():
-	SoftwareNames = [SoftwareName.CHROME.value]
-	OperatingSystems = [OperatingSystem.WINDOWS.value, OperatingSystem.LINUX.value]   
-	UserAgentRotator = UserAgent(software_names = SoftwareNames, operating_systems = OperatingSystems, limit = 100)
-
-	return str(UserAgentRotator.get_random_user_agent()).strip('"')

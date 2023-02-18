@@ -3,10 +3,5 @@
 	"tome-to-tom": true,
 	"delay": 5,
 	"use-proxy": false,
-    "proxy": [
-		{
-			"https": "1.1.1.1:8080"
-		}
-	],
 	"check-updates-period": 60
 }

@@ -56,7 +56,6 @@ Settings = {
 	"tome-to-tom": True,
 	"delay": 5,
 	"use-proxy": False,
-    "proxy": [],
 	"check-updates-period": 60
 	}
 
@@ -143,7 +142,7 @@ if len(sys.argv) >= 2:
 		logging.info("====== Updating ======")
 
 		# Обновить все локальные файлы.
-		if sys.argv[2] == "-local":
+		if len(sys.argv) >= 3 and sys.argv[2] == "-local":
 			# Получение списка файлов в директории.
 			TitlesList = os.listdir("Titles\\")
 			# Фильтрация только файлов формата JSON.

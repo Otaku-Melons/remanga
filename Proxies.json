@@ -1,0 +1,13 @@
+{
+	"example": [
+		{
+			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{port}"
+		},
+		{
+			"https": "{IP}:{port}"
+		}
+	],
+	"proxies": [],
+	"forbidden-proxies": [],
+	"unvalid-proxies": []
+}

@@ -1,6 +1,8 @@
 from Functions import GetRandomUserAgent
+from retry import retry
 from DUBLIB import Cls
 
+import cloudscraper
 import requests
 import logging
 import random
@@ -29,7 +31,7 @@ class TitleParser:
 	# Сообщение из внешнего обработчика.
 	__Message = ""
 	# Состояние: получено ли описание тайтла.
-	__IsActive = None
+	__IsActive = True
 	
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
@@ -41,14 +43,8 @@ class TitleParser:
 		ChaptersAPI = "https://api.remanga.org/api/titles/chapters/" + str(ChepterID)
 		# Описание ветви перевода.
 		ChapterData = None
-		# Ответ запроса.
-		Response = None
-
-		# Выполнение запроса с прокси-сервером, если указано, или без него.
-		if self.__Settings["use-proxy"] == True:
-			Response = requests.get(ChaptersAPI, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
-		else:
-			Response = requests.get(ChaptersAPI, headers = self.__RequestHeaders)
+		# Выполнение запроса.
+		Response = self.__RequestData(ChaptersAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -66,14 +62,8 @@ class TitleParser:
 		ChaptersAPI = "https://api.remanga.org/api/titles/chapters/?branch_id=" + BranchID + "&count=" + ChaptersCount + "&ordering=-index&page=1&user_data=1"
 		# Описание ветви перевода.
 		BranchData = None
-		# Ответ запроса.
-		Response = None
-
-		# Выполнение запроса с прокси-сервером, если указано, или без него.
-		if self.__Settings["use-proxy"] == True:
-			Response = requests.get(ChaptersAPI, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
-		else:
-			Response = requests.get(ChaptersAPI, headers = self.__RequestHeaders)
+		# Выполнение запроса.
+		Response = self.__RequestData(ChaptersAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -88,6 +78,7 @@ class TitleParser:
 
 			# Сохранение форматированного результата.
 			BranchData = dict(json.loads(ResponseText))["content"]
+
 		else:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
 			logging.error("Unable to request branch data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
@@ -100,14 +91,8 @@ class TitleParser:
 		TitlesAPI = "https://api.remanga.org/api/titles/" + self.__Slug
 		# Описание тайтла.
 		Description = None
-		# Ответ запроса.
-		Response = True
-
-		# Выполнение запроса с прокси-сервером, если указано, или без него.
-		if self.__Settings["use-proxy"] == True:
-			Response = requests.get(TitlesAPI, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
-		else:
-			Response = requests.get(TitlesAPI, headers = self.__RequestHeaders)
+		# Выполнение запроса.
+		Response = self.__RequestData(TitlesAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -174,6 +159,88 @@ class TitleParser:
 
 		return RemangaTitle
 
+	# Выполняет запрос к серверу Remanga.
+	@retry(requests.exceptions.ProxyError, delay = 5, tries = 3)
+	def __RequestData(self, URL: str, RequestHeaders: dict, UseProxy: bool = False):
+		# Список прокси-серверов.
+		Proxies = dict()
+		# Индекс текущего прокси.
+		CurrentProxyIndex = None
+		# Текущий прокси.
+		CurrentProxy = None
+		# Ответ запроса.
+		Response = None
+
+		# Чтение списка прокси.
+		if UseProxy == True and os.path.exists("Proxies.json"):
+			with open("Proxies.json") as FileRead:
+				Proxies = json.load(FileRead)
+
+		# Обработка ошибки: нет файла с прокси.
+		elif UseProxy == True and os.path.exists("Proxies.json") == False:
+			# Запись в лог сообщения о невалидном прокси.
+			logging.error("Unable to read \"Proxies.json\": file missing.")
+			# Выброс исключения.
+			raise Exception("\"Proxies.json\" required")
+		
+		# Получение текущего прокси.
+		if UseProxy == True and len(Proxies["proxies"]) > 0:
+			# Генерация индекса текущего прокси.
+			CurrentProxyIndex = random.randint(0, len(Proxies["proxies"]) - 1)
+			# Выбор прокси для доступа.
+			CurrentProxy = Proxies["proxies"][CurrentProxyIndex]
+
+		elif UseProxy == True:
+			# Запись в лог сообщения об отсутствующих прокси.
+			logging.error("Proxies required!")
+			# Выброс исключения.
+			raise Exception("List of proxies is empty")
+
+		# Попытка выполнения запроса.
+		try:
+
+			# Создание обходчика Cloudflare.
+			Scraper = cloudscraper.create_scraper(disableCloudflareV1 = True)
+
+			# Выполнение запроса.
+			if UseProxy == True:
+				Response = Scraper.get(URL, headers = RequestHeaders, proxies = CurrentProxy)
+			else:
+				Response = Scraper.get(URL, headers = RequestHeaders)
+
+			# Исключение прокси из разрешённых.
+			if Response.status_code == 403:
+				# Запись в лог сообщения о невалидном прокси.
+				logging.error("Forbidden proxy detected and removed from further requests!")
+				# Перемещение невалидного прокси в соответствующий список.
+				Proxies["forbidden-proxies"].append(CurrentProxy)
+				# Удаление невалидного прокси из изначального списка.
+				Proxies["proxies"].pop(CurrentProxyIndex)
+
+				# Сохранение нового файла прокси-серверов.
+				with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
+					json.dump(Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
+
+				# Выброс исключения.
+				raise requests.exceptions.ProxyError
+
+		except requests.exceptions.ProxyError:
+			# Запись в лог сообщения о невалидном прокси.
+			logging.error("Invalid proxy detected and removed from further requests!")
+			# Перемещение невалидного прокси в соответствующий список.
+			Proxies["unvalid-proxies"].append(CurrentProxy)
+			# Удаление невалидного прокси из изначального списка.
+			Proxies["proxies"].pop(CurrentProxyIndex)
+
+			# Сохранение нового файла прокси-серверов.
+			with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
+				json.dump(Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
+
+			# Выброс исключения.
+			raise requests.exceptions.ProxyError
+
+		return Response
+
 	# Конструктор: строит каркас словаря и проверяет наличие локальных данных.
 	def __init__(self, Settings: dict, Slug: str, ForceMode: bool = True, Message: str = "", Amending: bool = True):
 		# Генерация User-Agent.
@@ -186,9 +253,10 @@ class TitleParser:
 		self.__ForceMode = ForceMode
 		self.__Message = Message + "Current title: " + Slug + "\n\n"
 		self.__RequestHeaders = {
+			"authorization": self.__Settings["authorization"],
+			"content-type": "application/json",
 			"referer": "https://remanga.org/",
-			"User-Agent": UserAgent,
-			"authorization": self.__Settings["authorization"]
+			"User-Agent": UserAgent
 			}
 
 		#---> Настройка среды и логирование.
@@ -200,6 +268,10 @@ class TitleParser:
 			# Запись в лог сообщения о перезаписи файла.
 			logging.info("Title: \"" + self.__Slug + "\". Already exists. Will be overwritten...")
 
+		# Если токена авторизации нет, то удалить заголовок.
+		if self.__RequestHeaders["authorization"] == "":
+			del self.__RequestHeaders["authorization"]
+
 		# Запись в лог сообщения о начале парсинга.
 		logging.info("Title: \"" + self.__Slug + "\". Parcing...")
 		# Запись в лог сообщения об использованном User-Agent.
@@ -210,12 +282,12 @@ class TitleParser:
 		# Получение описания тайтла.
 		self.__Title = self.__GetTitleDescription()
 
-		# Проверка доступности тайтла без токена авторизации.
+		# Проверка доступности тайтла.
 		if self.__IsActive == False:
 			# Запись в лог сообщения о невозможности получить доступ к 18+ тайтлу без токена авторизации.
 			logging.error("Title: \"" + self.__Slug + "\". Authorization token required!")
 
-		# Если токен доступен, продолжить обработку.
+		# Если тайтл доступен, продолжить обработку.
 		else:
 
 			# Создание ключа для последующего помещения туда глав.
@@ -223,18 +295,23 @@ class TitleParser:
 
 			# Генерация ветвей и заполнение их данными о главах.
 			for Branch in self.__Title["branches"]:
-				self.__Title["chapters"][str(Branch["id"])] = self.__GetBranchData(str(Branch["id"]), str(Branch["count_chapters"]))
 
-				#---> Дополнение каркаса данными о страницах глав.
-				#==========================================================================================#
+				# Если в ветви есть главы, то получить её, иначе сформировать искусственно.
+				if Branch["count_chapters"] > 0:
+					self.__Title["chapters"][str(Branch["id"])] = self.__GetBranchData(str(Branch["id"]), str(Branch["count_chapters"]))
+				else:
+					self.__Title["chapters"][str(Branch["id"])] = list()
 
-				# Слияние локальной и удалённой ветвей.
-				if os.path.exists("Titles\\" + self.__Slug + ".json"):
-					self.__Title = self.__MergeBranches()
+			#---> Дополнение каркаса данными о страницах глав.
+			#==========================================================================================#
 
-				# Получение недостающих данных о страницах глав.
-				if Amending == True:
-					self.AmendChapters()
+			# Слияние локальной и удалённой ветвей.
+			if os.path.exists("Titles\\" + self.__Slug + ".json"):
+				self.__Title = self.__MergeBranches()
+
+			# Получение недостающих данных о страницах глав.
+			if Amending == True:
+				self.AmendChapters()
 
 	# Проверяет все главы на наличие описанных страниц и дополняет их, если это необходимо.
 	def AmendChapters(self):
@@ -251,7 +328,7 @@ class TitleParser:
 			# Заполнение списка ID ветвей.
 			for Branch in self.__Title["branches"]:
 				BranchesID.append(str(Branch["id"]))
-
+			
 			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
 			for BranchID in BranchesID:
 				for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
@@ -291,6 +368,9 @@ class TitleParser:
 			Cls()
 			# Вывод сообщения из внешнего обработчика и заголовка.
 			print(self.__Message, end = "")
+			# Модифицированные заголовки для получения изображения.
+			ImageRequestHeaders = self.__RequestHeaders
+			ImageRequestHeaders["content-type"] = "image/jpeg"
 			# Ответ запроса.
 			Response = None
 			# Счётчик загруженных обложек.
@@ -308,11 +388,8 @@ class TitleParser:
 					# Вывод в терминал URL загружаемой обложки.
 					print("Downloading cover: \"" + URL + "\"... ", end = "")
 
-					# Выполнение запроса с прокси-сервером, если указано, или без него.
-					if self.__Settings["use-proxy"] == True:
-						Response = requests.get(URL, headers = self.__RequestHeaders, proxies = self.__Settings["proxy"][random.randint(0, len(self.__Settings["proxy"]) - 1)])
-					else:
-						Response = requests.get(URL, headers = self.__RequestHeaders)
+					# Выполнение запроса.
+					Response = self.__RequestData(URL, ImageRequestHeaders, self.__Settings["use-proxy"])
 
 					# Проверка успешности запроса.
 					if Response.status_code == 200:
@@ -377,7 +454,7 @@ class TitleParser:
 
 			# Сохранение локального файла JSON.
 			with open("Titles\\" + self.__Slug + ".json", "w", encoding = "utf-8") as FileWrite:
-				json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = 2, separators = (',', ': '))
+				json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
 				# Запись в лог сообщения о создании или обновлении локального файла.
 				if self.__IsMerged == True:
