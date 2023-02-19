@@ -1,7 +1,12 @@
 {
 	"authorization": "",
 	"tome-to-tom": true,
-	"delay": 5,
+	"min-delay": 5,
+	"max-delay": 15,
 	"use-proxy": false,
-	"check-updates-period": 60
+	"check-updates-period": 60,
+	"captcha-solver": {
+		"provider": "",
+		"api_key": ""
+	}
 }

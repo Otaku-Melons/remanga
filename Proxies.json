@@ -1,10 +1,10 @@
 {
 	"example": [
 		{
-			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{port}"
+			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{PORT}"
 		},
 		{
-			"https": "{IP}:{port}"
+			"https": "{IP}:{PORT}"
 		}
 	],
 	"proxies": [],

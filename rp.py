@@ -10,9 +10,11 @@ import os
 sys.path.append("Source")
 
 from Functions import SecondsToTimeString
+from ProxyManager import ProxyManager
 from TitleParser import TitleParser
 from Updater import Updater
 from DUBLIB import Shutdown
+from Functions import Wait
 from DUBLIB import Cls
 
 #==========================================================================================#
@@ -171,7 +173,7 @@ if len(sys.argv) >= 2:
 
 				# Выжидание указанного интервала, если не все обложки загружены.
 				if CurrentTitleIndex < len(TitlesList):
-					time.sleep(Settings["delay"])
+					Wait(Settings)
 
 		# Обновить изменённые на сервере за последнее время тайтлы.
 		else:
@@ -194,6 +196,31 @@ if len(sys.argv) >= 2:
 				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
 				LocalTitle.Save()
+
+	# Проверка валидности прокси-серверов.
+	elif sys.argv[1] == "proxval":
+		# Вывод в лог заголовка: обновление.
+		logging.info("====== Validation ======")
+		# Очистка консоли.
+		Cls()
+		# Инициализация менеджера прокси.
+		ProxyManagerObject = ProxyManager(Settings)
+		# Список всех прокси.
+		ProxiesList = ProxyManagerObject.GetProxies()
+
+		# Проверка каждого прокси.
+		for ProxyIndex in range(0, len(ProxiesList)):
+			# Вывод результата.
+			print(ProxiesList[ProxyIndex], "status code:", ProxyManagerObject.ValidateProxy(ProxyIndex))
+
+			# Выжидание интервала.
+			if ProxyIndex < len(ProxiesList) - 1:
+				Wait(Settings)
+
+		# Вывод в терминал сообщения о завершении работы.
+		print("\nStatus codes:\n-1 – server error (502 Bad Gateway for example)\n0 – invalid\n1 – valid\n2 – frobidden\n3 – raise Cloudflare V2 captcha\n\nPress ENTER to exit...")
+		# Пауза.
+		input()
 
 # Обработка исключения: недостаточно аргументов.
 elif len(sys.argv) == 1:

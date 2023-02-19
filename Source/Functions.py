@@ -1,6 +1,13 @@
 from random_user_agent.params import SoftwareName, OperatingSystem
 from random_user_agent.user_agent import UserAgent
 
+import random
+import time
+
+# Выжидает согласно заданному интервалу.
+def Wait(Settings: dict):
+	time.sleep(random.randint(Settings["min-delay"], Settings["max-delay"]))
+
 # Возвращает случайное значение заголовка User-Agent.
 def GetRandomUserAgent() -> str:
 	SoftwareNames = [SoftwareName.CHROME.value]

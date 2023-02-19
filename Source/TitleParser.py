@@ -1,13 +1,10 @@
 from Functions import GetRandomUserAgent
-from retry import retry
+from ProxyManager import ProxyManager
+from Functions import Wait
 from DUBLIB import Cls
 
-import cloudscraper
-import requests
 import logging
-import random
 import json
-import time
 import os
 
 class TitleParser:
@@ -32,6 +29,8 @@ class TitleParser:
 	__Message = ""
 	# Состояние: получено ли описание тайтла.
 	__IsActive = True
+	# Менеджер запросов через прокси.
+	__ProxyManager = None
 	
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
@@ -44,7 +43,7 @@ class TitleParser:
 		# Описание ветви перевода.
 		ChapterData = None
 		# Выполнение запроса.
-		Response = self.__RequestData(ChaptersAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
+		Response = self.__ProxyManager.Request(ChaptersAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -52,7 +51,10 @@ class TitleParser:
 			ChapterData = dict(json.loads(Response.text))["content"]
 		else:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
-			logging.error("Unable to request chater data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
+			logging.error("Unable to request chapter data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
+
+		# Выжидание указанного интервала.
+		Wait(self.__Settings)
 
 		return ChapterData
 
@@ -63,7 +65,7 @@ class TitleParser:
 		# Описание ветви перевода.
 		BranchData = None
 		# Выполнение запроса.
-		Response = self.__RequestData(ChaptersAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
+		Response = self.__ProxyManager.Request(ChaptersAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -83,6 +85,9 @@ class TitleParser:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
 			logging.error("Unable to request branch data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
 
+		# Выжидание указанного интервала.
+		Wait(self.__Settings)
+
 		return BranchData
 
 	# Возвращает словарь описания тайтла.
@@ -92,7 +97,7 @@ class TitleParser:
 		# Описание тайтла.
 		Description = None
 		# Выполнение запроса.
-		Response = self.__RequestData(TitlesAPI, self.__RequestHeaders, self.__Settings["use-proxy"])
+		Response = self.__ProxyManager.Request(TitlesAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -109,6 +114,9 @@ class TitleParser:
 		else:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
 			logging.error("Unable to request title description: \"" + TitlesAPI + "\". Response code: " + str(Response.status_code) + ".")
+
+		# Выжидание указанного интервала.
+		Wait(self.__Settings)
 
 		return Description
 
@@ -159,94 +167,12 @@ class TitleParser:
 
 		return RemangaTitle
 
-	# Выполняет запрос к серверу Remanga.
-	@retry(requests.exceptions.ProxyError, delay = 5, tries = 3)
-	def __RequestData(self, URL: str, RequestHeaders: dict, UseProxy: bool = False):
-		# Список прокси-серверов.
-		Proxies = dict()
-		# Индекс текущего прокси.
-		CurrentProxyIndex = None
-		# Текущий прокси.
-		CurrentProxy = None
-		# Ответ запроса.
-		Response = None
-
-		# Чтение списка прокси.
-		if UseProxy == True and os.path.exists("Proxies.json"):
-			with open("Proxies.json") as FileRead:
-				Proxies = json.load(FileRead)
-
-		# Обработка ошибки: нет файла с прокси.
-		elif UseProxy == True and os.path.exists("Proxies.json") == False:
-			# Запись в лог сообщения о невалидном прокси.
-			logging.error("Unable to read \"Proxies.json\": file missing.")
-			# Выброс исключения.
-			raise Exception("\"Proxies.json\" required")
-		
-		# Получение текущего прокси.
-		if UseProxy == True and len(Proxies["proxies"]) > 0:
-			# Генерация индекса текущего прокси.
-			CurrentProxyIndex = random.randint(0, len(Proxies["proxies"]) - 1)
-			# Выбор прокси для доступа.
-			CurrentProxy = Proxies["proxies"][CurrentProxyIndex]
-
-		elif UseProxy == True:
-			# Запись в лог сообщения об отсутствующих прокси.
-			logging.error("Proxies required!")
-			# Выброс исключения.
-			raise Exception("List of proxies is empty")
-
-		# Попытка выполнения запроса.
-		try:
-
-			# Создание обходчика Cloudflare.
-			Scraper = cloudscraper.create_scraper(disableCloudflareV1 = True)
-
-			# Выполнение запроса.
-			if UseProxy == True:
-				Response = Scraper.get(URL, headers = RequestHeaders, proxies = CurrentProxy)
-			else:
-				Response = Scraper.get(URL, headers = RequestHeaders)
-
-			# Исключение прокси из разрешённых.
-			if Response.status_code == 403:
-				# Запись в лог сообщения о невалидном прокси.
-				logging.error("Forbidden proxy detected and removed from further requests!")
-				# Перемещение невалидного прокси в соответствующий список.
-				Proxies["forbidden-proxies"].append(CurrentProxy)
-				# Удаление невалидного прокси из изначального списка.
-				Proxies["proxies"].pop(CurrentProxyIndex)
-
-				# Сохранение нового файла прокси-серверов.
-				with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
-					json.dump(Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
-
-				# Выброс исключения.
-				raise requests.exceptions.ProxyError
-
-		except requests.exceptions.ProxyError:
-			# Запись в лог сообщения о невалидном прокси.
-			logging.error("Invalid proxy detected and removed from further requests!")
-			# Перемещение невалидного прокси в соответствующий список.
-			Proxies["unvalid-proxies"].append(CurrentProxy)
-			# Удаление невалидного прокси из изначального списка.
-			Proxies["proxies"].pop(CurrentProxyIndex)
-
-			# Сохранение нового файла прокси-серверов.
-			with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
-				json.dump(Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
-
-			# Выброс исключения.
-			raise requests.exceptions.ProxyError
-
-		return Response
-
 	# Конструктор: строит каркас словаря и проверяет наличие локальных данных.
 	def __init__(self, Settings: dict, Slug: str, ForceMode: bool = True, Message: str = "", Amending: bool = True):
 		# Генерация User-Agent.
 		UserAgent = GetRandomUserAgent()
 
-		#---> Передача аргументов.
+		#---> Генерация свойств.
 		#==========================================================================================#
 		self.__Settings = Settings
 		self.__Slug = Slug
@@ -254,10 +180,25 @@ class TitleParser:
 		self.__Message = Message + "Current title: " + Slug + "\n\n"
 		self.__RequestHeaders = {
 			"authorization": self.__Settings["authorization"],
+			"accept": "*/*",
+			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",
-			"referer": "https://remanga.org/",
+			"preference": "0",
+			"sec-ch-ua": "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\", \"Yandex\";v=\"23\"",
+			"sec-ch-ua-mobile": "?0",
+			"sec-ch-ua-platform": "\"Windows\"",
+			"sec-fetch-dest": "empty",
+			"sec-fetch-mode": "cors",
+			"sec-fetch-site": "same-site",
+			"referrer": "https://remanga.org/",
+			"referrerPolicy": "strict-origin-when-cross-origin",
+			"body": None,
+			"method": "GET",
+			"mode": "cors",
+			"credentials": "omit",
 			"User-Agent": UserAgent
 			}
+		self.__ProxyManager = ProxyManager(Settings)
 
 		#---> Настройка среды и логирование.
 		#==========================================================================================#
@@ -349,7 +290,7 @@ class TitleParser:
 							# Инкремент счётчика.
 							UpdatedChaptersCounter += 1
 							# Выжидание указанного интервала.
-							time.sleep(self.__Settings["delay"])
+							Wait(self.__Settings)
 						else:
 							# Запись в лог сообщения о платной главе.
 							logging.warning("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
@@ -389,7 +330,7 @@ class TitleParser:
 					print("Downloading cover: \"" + URL + "\"... ", end = "")
 
 					# Выполнение запроса.
-					Response = self.__RequestData(URL, ImageRequestHeaders, self.__Settings["use-proxy"])
+					Response = self.__ProxyManager.Request(URL, Headers = ImageRequestHeaders)
 
 					# Проверка успешности запроса.
 					if Response.status_code == 200:
@@ -423,7 +364,7 @@ class TitleParser:
 
 				# Выжидание указанного интервала, если не все обложки загружены.
 				if DownloadedCoversCounter < 3:
-					time.sleep(self.__Settings["delay"])
+					Wait(self.__Settings)
 
 			# Запись в лог сообщения о количестве загруженных обложек.
 			logging.info("Title: \"" + self.__Slug + "\". Covers downloaded: " + str(DownloadedCoversCounter) + ".")
@@ -451,6 +392,11 @@ class TitleParser:
 			# Если указано, скачать обложки.
 			if DownloadCovers == True:
 				self.DownloadCovers()
+
+			# Оставить только имена файлов в полях URL обложек.
+			self.__Title["img"]["high"] = self.__Title["img"]["high"].split('/')[-1]
+			self.__Title["img"]["mid"] = self.__Title["img"]["high"].split('/')[-1]
+			self.__Title["img"]["low"] = self.__Title["img"]["high"].split('/')[-1]
 
 			# Сохранение локального файла JSON.
 			with open("Titles\\" + self.__Slug + ".json", "w", encoding = "utf-8") as FileWrite:
