@@ -119,7 +119,7 @@ class ProxyManager:
 
 		# Обработка ошибки: ошибка со стороны сервера.
 		except requests.exceptions.HTTPError:
-			StatusCode = -1
+			StatusCode = 4
 
 		return Response, StatusCode
 
@@ -167,7 +167,7 @@ class ProxyManager:
 		elif proxies_type == "valid":
 			return self.__Proxies["proxies"]
 		elif proxies_type == "all":
-			return self.__Proxies["proxies"] + self.__Proxies["forbidden-proxies"] + self.__Proxies["unvalid-proxies"]
+			return self.__Proxies["proxies"] + self.__Proxies["forbidden-proxies"] + self.__Proxies["invalid-proxies"]
 
 	# Проводит запрос к API Remanga и интерпретирует результаты.
 	def Request(self, URL: str, Headers: dict = __RequestHeaders):
@@ -230,7 +230,7 @@ class ProxyManager:
 
 		# Обработка ошибки: ошибка со стороны сервера.
 		except requests.exceptions.HTTPError:
-			StatusCode = -1
+			StatusCode = 4
 
 		return StatusCode
 

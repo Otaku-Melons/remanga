@@ -36,7 +36,7 @@ CurrentDate = datetime.datetime.now()
 # Время запуска скрипта.
 StartTime = time.time()
 # Формирование пути к файлу лога.
-LogFilename = "Logs\\" + str(CurrentDate)[:-7] + ".log"
+LogFilename = "Logs/" + str(CurrentDate)[:-7] + ".log"
 LogFilename = LogFilename.replace(':', '-')
 # Установка конфигнурации.
 logging.basicConfig(filename = LogFilename, encoding = "utf-8", level = logging.INFO)
@@ -55,24 +55,37 @@ logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 # Хранилище настроек.
 Settings = {
 	"authorization": "",
-	"tome-to-tom": True,
-	"delay": 5,
+	"native-formatting": True,
+	"min-delay": 5,
+	"max-delay": 15,
 	"use-proxy": False,
-	"check-updates-period": 60
+	"check-updates-period": 60,
+	"use-id-instead-slug": False,
+	"covers-directory": "",
+	"JSON-directory": "",
+	"captcha-solver": {
+		"provider": "",
+		"api_key": ""
 	}
+}
 
 # Проверка доступности файла.
 if os.path.exists("Settings.json"):
+
 	# Открытие файла настроек.
 	with open("Settings.json") as FileRead:
+		# Чтение настроек.
 		Settings = json.load(FileRead)
-		# Проверка успешной загрузки файла.
-		if Settings == None:
-			# Запись в лог ошибки о невозможности прочитать битый файл.
-			logging.error("Unable to read \"Settings.json\". File is broken.")
-		else:
-			# Запись в лог сообщения об успешном чтении файла настроек.
-			logging.info("Settings file was found.")
+		# Запись в лог сообщения об успешном чтении файла настроек.
+		logging.info("Settings file was found.")
+
+		# Интерпретация выходной директории обложек.
+		if Settings["covers-directory"] == "":
+			Settings["covers-directory"] = "Covers/"
+
+		# Интерпретация выходной директории обложек.
+		if Settings["JSON-directory"] == "":
+			Settings["JSON-directory"] = "Titles/"
 
 #==========================================================================================#
 # >>>>> ОБРАБОТКА СПЕЦИАЛЬНЫХ ФЛАГОВ <<<<< #
@@ -122,7 +135,7 @@ if len(sys.argv) >= 3:
 		# Вывод в лог заголовка: парсинг.
 		logging.info("====== Parcing ======")
 		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_ForceMode)
+		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.Save()
 
@@ -131,7 +144,7 @@ if len(sys.argv) >= 3:
 		# Вывод в лог заголовка: парсинг.
 		logging.info("====== Parcing ======")
 		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_ForceMode, Amending = False)
+		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.DownloadCovers()
 
@@ -146,7 +159,7 @@ if len(sys.argv) >= 2:
 		# Обновить все локальные файлы.
 		if len(sys.argv) >= 3 and sys.argv[2] == "-local":
 			# Получение списка файлов в директории.
-			TitlesList = os.listdir("Titles\\")
+			TitlesList = os.listdir(Settings["JSON-directory"])
 			# Фильтрация только файлов формата JSON.
 			TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
 			# Индекс обрабатываемого тайтла.
@@ -155,24 +168,38 @@ if len(sys.argv) >= 2:
 			logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
 			# Вывод в лог заголовка: парсинг.
 			logging.info("====== Parcing ======")
+			# Алиасы тайтлов.
+			TitlesSlugs = list()
+
+			# Чтение всех алиасов из локальных файлов.
+			for File in TitlesList:
+				# Открытие локального описательного файла JSON.
+				with open(Settings["JSON-directory"] + File, encoding = "utf-8") as FileRead:
+					# JSON файл тайтла.
+					LocalTitle = json.load(FileRead)
+					# Помещение алиаса в список.
+					if "slug" in LocalTitle.keys():
+						TitlesSlugs.append(str(LocalTitle["slug"]))
+					elif "dir" in LocalTitle.keys():
+						TitlesSlugs.append(str(LocalTitle["dir"]))
 
 			# Парсинг обновлённых тайтлов.
-			for Slug in TitlesList:
+			for Slug in TitlesSlugs:
 				# Инкремент текущего индекса.
 				CurrentTitleIndex += 1
 				# Очистка терминала.
 				Cls()
 				# Вывод в терминал прогресса.
-				print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)))
+				print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesSlugs)))
 				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesSlugs)) + "\n"
 				# Парсинг тайтла.
 				LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
 				LocalTitle.Save()
 
 				# Выжидание указанного интервала, если не все обложки загружены.
-				if CurrentTitleIndex < len(TitlesList):
+				if CurrentTitleIndex < len(TitlesSlugs):
 					Wait(Settings)
 
 		# Обновить изменённые на сервере за последнее время тайтлы.
@@ -191,7 +218,7 @@ if len(sys.argv) >= 2:
 				# Инкремент текущего индекса.
 				CurrentTitleIndex += 1
 				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
+				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
 				# Парсинг тайтла.
 				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
@@ -218,7 +245,7 @@ if len(sys.argv) >= 2:
 				Wait(Settings)
 
 		# Вывод в терминал сообщения о завершении работы.
-		print("\nStatus codes:\n-1 – server error (502 Bad Gateway for example)\n0 – invalid\n1 – valid\n2 – frobidden\n3 – raise Cloudflare V2 captcha\n\nPress ENTER to exit...")
+		print("\nStatus codes:\n0 – invalid\n1 – valid\n2 – frobidden\n3 – raise Cloudflare V2 captcha4 – server error (502 Bad Gateway for example)\n\n\nPress ENTER to exit...")
 		# Пауза.
 		input()
 

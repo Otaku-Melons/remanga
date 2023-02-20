@@ -51,6 +51,22 @@ class ColoredPrinter(object):
 def Cls():
 	os.system('cls' if os.name == 'nt' else 'clear')
 
+# Переименовывает ключ в словаре, сохраняя исходный порядок.
+def RenameDictKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:
+	# Результат выполнения.
+	Result = dict()
+
+	# Перебор элементов словаря по списку ключей.
+	for Key in Dictionary.keys():
+
+		# Если нашли нужный ключ, то переместить значение по новому ключу в результат, иначе просто копировать.
+		if Key == OldKey:
+			Result[NewKey] = Dictionary[OldKey]
+		else:
+			Result[Key] = Dictionary[Key]
+
+	return Result
+
 # Удаляет теги HTML из строки.
 def RemoveHTML(TextHTML: str) -> str:
 	# Регулярное выражение фильтрации тегов HTML.

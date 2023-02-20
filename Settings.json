@@ -1,10 +1,13 @@
 {
 	"authorization": "",
-	"tome-to-tom": true,
+	"native-formatting": true,
 	"min-delay": 5,
 	"max-delay": 15,
 	"use-proxy": false,
 	"check-updates-period": 60,
+	"use-id-instead-slug": false,
+	"covers-directory": "",
+	"JSON-directory": "",
 	"captcha-solver": {
 		"provider": "",
 		"api_key": ""
