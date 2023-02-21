@@ -39,10 +39,29 @@ class TitleParser:
 	# Заголовок тайтла для логов и вывода в терминал.
 	__TitleHeader = None
 	# Перечисление статусов тайтла.
-	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND"]
+	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND", "", "LICENSED"]
 	# Перечисление типов тайтла.
 	__Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
-	
+	# Перечисление жанров, обозначающих однополые отношения.
+	__HomoGenres = [
+			{
+				"id": 43,
+				"name": "Яой"
+			},
+			{
+				"id": 29,
+				"name": "Сёдзё-ай"
+			},
+			{
+				"id": 31,
+				"name": "Сёнэн-ай"
+			},
+			{
+				"id": 41,
+				"name": "Юри"
+			}
+		]
+
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
 	#==========================================================================================#
@@ -71,9 +90,11 @@ class TitleParser:
 		Description = RenameDictKey(Description, "categories", "tags")
 		Description = RenameDictKey(Description, "is_yaoi", "isYaoi")
 		Description = RenameDictKey(Description, "is_erotic", "isHentai")
+		Description = RenameDictKey(Description, "can_post_comments", "isHomo")
 
 		Description["status"] = self.__Statuses[Description["status"]["id"]]
 		Description["type"] = self.__Types[Description["type"]["id"]]
+		Description["isHomo"] = self.__IsHomo(Description)
 
 		return Description
 
@@ -103,7 +124,7 @@ class TitleParser:
 	# Возвращает описание ветви перевода.
 	def __GetBranchData(self, BranchID: str, ChaptersCount: int) -> dict:
 		# Описание ветви перевода.
-		BranchData = None
+		BranchData = list()
 
 		# Получение всех страниц ветви.
 		for BranchPage in range(0, int(ChaptersCount / 100) + 1):
@@ -120,11 +141,13 @@ class TitleParser:
 				logging.info("Title: \"" + self.__TitleHeader + "\". Request title branches... Done.")
 
 				# Сохранение форматированного результата.
-				BranchData = dict(json.loads(ResponseText))["content"]
+				CurrentBranchData = dict(json.loads(ResponseText))["content"]
 
 				# Переименовать ключ тома, если указано настройками.
 				if self.__Settings["native-formatting"] == False:
-					BranchData = self.__FormatBranch(BranchData)
+					BranchData += self.__FormatBranch(CurrentBranchData)
+				else:
+					BranchData += CurrentBranchData
 
 			else:
 				# Запись в лог сообщения о том, что не удалось выполнить запрос.
@@ -177,6 +200,17 @@ class TitleParser:
 		Wait(self.__Settings)
 
 		return Description
+
+	# Проверяет, имеет ли тайтл описание однополых отношений.
+	def __IsHomo(self, Description: dict) -> bool:
+
+		# Проверка жанров на представителей однополых отношений.
+		for TitleGenre in Description["genres"]:
+			for HomoGenre in self.__HomoGenres:
+				if HomoGenre == TitleGenre:
+					return True
+
+		return False
 
 	# Выполняет слияние ветвей переводов.
 	def __MergeBranches(self, UsedTitleName: str) -> dict:
@@ -273,11 +307,6 @@ class TitleParser:
 		#==========================================================================================#
 		# Получение описания тайтла.
 		self.__Title = self.__GetTitleDescription()
-		# Получение ID тайтла.
-		self.__ID = str(self.__Title["id"])
-		self.__TitleHeader = self.__TitleHeader + f" (ID: {self.__ID})"
-		# Изменение заголовка тайтла.
-		self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
 
 		# Проверка доступности тайтла.
 		if self.__IsActive == False:
@@ -286,6 +315,12 @@ class TitleParser:
 
 		# Если тайтл доступен, продолжить обработку.
 		else:
+
+			# Получение ID тайтла.
+			self.__ID = str(self.__Title["id"])
+			self.__TitleHeader = self.__TitleHeader + f" (ID: {self.__ID})"
+			# Изменение заголовка тайтла.
+			self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
 
 			# Создание ключа для последующего помещения туда глав.
 			self.__Title["chapters"] = dict()
