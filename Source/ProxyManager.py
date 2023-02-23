@@ -41,9 +41,9 @@ class ProxyManager:
 	def __AutoSetCurrentProxy(self):
 		
 		# Проверка наличия рабочих прокси.
-		if len(self.__Proxies["proxies"]) > 0:
+		if self.__Settings["use-proxy"] == True and len(self.__Proxies["proxies"]) > 0:
 			self.__CurrentProxy = self.__Proxies["proxies"][0]
-		else:
+		elif self.__Settings["use-proxy"] == True and len(self.__Proxies["proxies"]) == 0:
 			# Лог: отсутствуют валидные прокси.
 			logging.error("Valid proxies required!")
 			# Выброс исключения.
@@ -56,7 +56,7 @@ class ProxyManager:
 		# Добавление кода ошибки в описание прокси.
 		Proxy["last-validation-code"] = Status
 		# Помещение прокси в новый список.
-		self.__Proxies["forbidden-proxies"] = Proxy
+		self.__Proxies["forbidden-proxies"].append(Proxy)
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Выбор нового прокси.
@@ -69,7 +69,7 @@ class ProxyManager:
 		# Добавление кода ошибки в описание прокси.
 		Proxy["last-validation-code"] = Status
 		# Помещение прокси в новый список.
-		self.__Proxies["invalid-proxies"] = Proxy
+		self.__Proxies["invalid-proxies"].append(Proxy)
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Выбор нового прокси.
@@ -158,6 +158,9 @@ class ProxyManager:
 		with open("Proxies.json") as FileRead:
 			self.__Proxies = json.load(FileRead)
 
+		# Выбор текущего прокси.
+		self.__AutoSetCurrentProxy()
+
 	# Возвращает список прокси.
 	def GetProxies(self, proxies_type = "all"):
 		if proxies_type == "invalid":
@@ -176,21 +179,24 @@ class ProxyManager:
 		# Статус ответа.
 		Status = None
 		
-		# Выполнение запроса с прокси или без.
-		if self.__Settings["use-proxy"]:
-			Response, Status = self.__RequestData(URL, Headers, self.__CurrentProxy)
-		else:
-			Response, Status = self.__RequestData(URL, Headers)
+		# Повторять пока не будет получен ответ или не выбросится исключение.
+		while Response == None:
 
-		# Обработка статусов ответа.
-		if Status == -1:
-			raise requests.exceptions.HTTPError
-		elif Status == 0:
-			self.__BlockProxyAsInvalid(self.__CurrentProxy)
-		elif Status == 1:
-			pass
-		elif Status in [2, 3]:
-			self.__BlockProxyAsForbidden(self.__CurrentProxy)
+			# Выполнение запроса с прокси или без.
+			if self.__Settings["use-proxy"]:
+				Response, Status = self.__RequestData(URL, Headers, self.__CurrentProxy)
+			else:
+				Response, Status = self.__RequestData(URL, Headers)
+
+			# Обработка статусов ответа.
+			if Status == -1:
+				raise requests.exceptions.HTTPError
+			elif Status == 0:
+				self.__BlockProxyAsInvalid(self.__CurrentProxy, Status)
+			elif Status == 1:
+				pass
+			elif Status in [2, 3]:
+				self.__BlockProxyAsForbidden(self.__CurrentProxy, Status)
 
 		return Response
 
