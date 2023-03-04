@@ -32,7 +32,7 @@ if sys.version_info < PythonMinimalVersion:
 #==========================================================================================#
 
 # Создать директорию для логов, если такая отсутствует.
-if os.path.exists("Logs/"):
+if os.path.exists("Logs/") is False:
 	os.makedirs("Logs")
 
 # Получение текущей даты.

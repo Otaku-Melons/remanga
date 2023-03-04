@@ -548,6 +548,12 @@ class TitleParser:
 				self.__Title["img"]["mid"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
 				self.__Title["img"]["low"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
 
+			# Если нативное форматирование отключено, то записать только первую ветвь тайтла.
+			if self.__Settings["native-formatting"] is False:
+				self.__Title = RenameDictKey(self.__Title, "avg_rating", "branchId")
+				self.__Title["branchId"] = self.__Title["branches"][0]["id"]
+				self.__Title["chapters"] = self.__Title["chapters"][str(self.__Title["branchId"])]
+
 			# Сохранение локального файла JSON.
 			with open(self.__Settings["JSON-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
 				json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
