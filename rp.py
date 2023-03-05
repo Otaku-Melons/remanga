@@ -10,7 +10,7 @@ import os
 sys.path.append("Source")
 
 from Functions import SecondsToTimeString
-from ProxyManager import ProxyManager
+from RequestsManager import RequestsManager
 from TitleParser import TitleParser
 from Updater import Updater
 from DUBLIB import Shutdown
@@ -56,6 +56,8 @@ logging.info("Starting with Python " + str(sys.version_info.major) + "." + str(s
 logging.info("Script started at " + str(CurrentDate)[:-7] + ".")
 # Запись команды, использовавшейся для запуска скрипта.
 logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
+# Расположении папки установки веб-драйвера в директории скрипта.
+os.environ["WDM_LOCAL"] = "1"
 # Хранилище настроек.
 Settings = {
 	"authorization": "",
@@ -248,14 +250,14 @@ if len(sys.argv) >= 2:
 		# Очистка консоли.
 		Cls()
 		# Инициализация менеджера прокси.
-		ProxyManagerObject = ProxyManager(Settings)
+		RequestsManagerObject = RequestsManager(Settings)
 		# Список всех прокси.
-		ProxiesList = ProxyManagerObject.GetProxies()
+		ProxiesList = RequestsManagerObject.GetProxies()
 
 		# Проверка каждого прокси.
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
-			print(ProxiesList[ProxyIndex], "status code:", ProxyManagerObject.ValidateProxy(ProxyIndex))
+			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxyIndex))
 
 			# Выжидание интервала.
 			if ProxyIndex < len(ProxiesList) - 1:
