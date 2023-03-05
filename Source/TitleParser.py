@@ -232,25 +232,35 @@ class TitleParser:
 			# JSON файл тайтла.
 			LocalTitle = json.load(FileRead)
 
-			# Заполнение списка ID ветвей удалённого JSON.
-			for Branch in LocalTitle["branches"]:
-				LocalBranchesID.append(str(Branch["id"]))
+			# Перемещение информации о слайдах в нативном форматировании.
+			if self.__Settings["native-formatting"] is True:
 
-			# Перемещение информации о слайдах.
-			for BranchID in LocalBranchesID:
-				for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
+				# Заполнение списка ID ветвей локального JSON.
+				for Branch in LocalTitle["branches"]:
+					LocalBranchesID.append(str(Branch["id"]))
 
-					# Проверка главы на платность.
-					if LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
-						# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
-						RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
+				# Для каждой ветви совершить слияние.
+				for BranchID in LocalBranchesID:
+					for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
 
-						# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
-						if RemangaTitleChapterIndex != None:
-							# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
-							RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
-							# Инкремент счётчика.
-							MergedChaptersCounter += 1
+						# Проверка главы на платность.
+						if LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+							# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
+							RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
+
+							# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
+							if RemangaTitleChapterIndex != None:
+								# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
+								RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
+								# Инкремент счётчика.
+								MergedChaptersCounter += 1
+
+			# Перемещение информации о слайдах в не нативном форматировании.
+			else:
+				# Очистка записей о главах для переформатирования.
+				RemangaTitle["chapters"] = dict()
+				# Запись искуственного ключа ветви и принадлежащих ей глав.
+				RemangaTitle["chapters"][str(LocalTitle["branchId"])] = LocalTitle["chapters"]
 
 		# Запись в лог сообщения о завершении объединения локального и удалённого файлов.
 		if MergedChaptersCounter > 0:
@@ -359,9 +369,12 @@ class TitleParser:
 			# Запись в лог сообщения о старте получения информации о страницах глав.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Amending...")
 
-			# Заполнение списка ID ветвей.
-			for Branch in self.__Title["branches"]:
-				BranchesID.append(str(Branch["id"]))
+			# Заполнение списка ID ветвей в зависимости от выбранного форматирования.
+			if self.__Settings["native-formatting"] is True:
+				for Branch in self.__Title["branches"]:
+					BranchesID.append(str(Branch["id"]))
+			else:
+				BranchesID.append(str(self.__Title["branches"][0]["id"]))
 			
 			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
 			for BranchID in BranchesID:
@@ -530,13 +543,16 @@ class TitleParser:
 			if os.path.exists(self.__Settings["JSON-directory"]) == False:
 				os.makedirs(self.__Settings["JSON-directory"])
 
-			# Заполнение списка ID ветвей.
-			for Branch in self.__Title["branches"]:
-				BranchesID.append(str(Branch["id"]))
+			# Заполнение списка ID ветвей в зависимости от выбранного форматирования.
+			if self.__Settings["native-formatting"] is True:
+				for Branch in self.__Title["branches"]:
+					BranchesID.append(str(Branch["id"]))
+			else:
+				BranchesID.append(str(self.__Title["branches"][0]["id"]))
 
 			# Инвертирование порядка глав в ветвях.
 			for BranchID in BranchesID:
-				self.__Title["chapters"][BranchID].reverse()
+				self.__Title["chapters"][BranchID] = sorted(self.__Title["chapters"][BranchID], key = lambda d: d["id"]) 
 
 			# Если указано, скачать обложки.
 			if DownloadCovers == True:
