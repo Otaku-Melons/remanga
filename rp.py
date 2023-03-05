@@ -63,6 +63,7 @@ Settings = {
 	"min-delay": 5,
 	"max-delay": 15,
 	"use-proxy": False,
+	"selenium-mode": False,
 	"check-updates-period": 60,
 	"use-id-instead-slug": False,
 	"covers-directory": "",
@@ -91,6 +92,18 @@ if os.path.exists("Settings.json"):
 		if Settings["JSON-directory"] == "":
 			Settings["JSON-directory"] = "Titles/"
 
+		# Запись в шапку лога выбранного режима форматирования.
+		if Settings["native-formatting"] is True:
+			logging.info("Native formatting: ON.")
+		else:
+			logging.info("Native formatting: OFF.")
+
+		# Запись в шапку лога выбранного режима запросов.
+		if Settings["selenium-mode"] is True:
+			logging.info("Requests type: Selenium (Google Chrome JavaScript interpreter).")
+		else:
+			logging.info("Requests type: requests (Python library).")
+
 #==========================================================================================#
 # >>>>> ОБРАБОТКА СПЕЦИАЛЬНЫХ ФЛАГОВ <<<<< #
 #==========================================================================================#
@@ -109,12 +122,12 @@ if "-f" in sys.argv:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения о включении режима перезаписи.
-	logging.info("Force mode: ON")
+	logging.info("Force mode: ON.")
 	# Установка сообщения для внутренних функций.
 	InFuncMessage_ForceMode = "Force mode: ON\n"
 else:
 	# Запись в лог сообщения об отключённом режиме перезаписи.
-	logging.info("Force mode: OFF")
+	logging.info("Force mode: OFF.")
 	# Установка сообщения для внутренних функций.
 	InFuncMessage_ForceMode = "Force mode: OFF\n"
 

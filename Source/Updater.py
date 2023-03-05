@@ -1,5 +1,5 @@
+from RequestsManager import RequestsManager
 from Functions import GetRandomUserAgent
-from ProxyManager import ProxyManager
 from Functions import Wait
 
 import logging
@@ -16,7 +16,7 @@ class Updater:
 	# Заголовки запроса.
 	__RequestHeaders = None
 	# Менеджер запросов через прокси.
-	__ProxyManager = None
+	__RequestsManager = None
 
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
@@ -59,7 +59,7 @@ class Updater:
 			"credentials": "omit",
 			"User-Agent": UserAgent
 			}
-		self.__ProxyManager = ProxyManager(Settings)
+		self.__RequestsManager = RequestsManager(Settings)
 
 		# Если токена авторизации нет, то удалить заголовок.
 		if self.__RequestHeaders["authorization"] == "":
@@ -85,7 +85,7 @@ class Updater:
 			# Формирование адреса для текущего запроса.
 			CurrentRequestAPI = LastChaptersAPI.replace("[REPLACEBLE]", str(Page))
 			# Выполнение запроса.
-			Response = self.__ProxyManager.Request(CurrentRequestAPI)
+			Response = self.__RequestsManager.Request(CurrentRequestAPI)
 			
 			# Проверка успешности запроса.
 			if Response.status_code == 200:

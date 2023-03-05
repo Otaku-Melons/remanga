@@ -1,6 +1,6 @@
+from RequestsManager import RequestsManager
 from Functions import GetRandomUserAgent
 from Functions import MergeListOfLists
-from ProxyManager import ProxyManager
 from DUBLIB import RenameDictKey
 from Functions import Wait
 from DUBLIB import Cls
@@ -33,7 +33,7 @@ class TitleParser:
 	# Состояние: получено ли описание тайтла.
 	__IsActive = True
 	# Менеджер запросов через прокси.
-	__ProxyManager = None
+	__RequestsManager = None
 	# ID тайтла.
 	__ID = None
 	# Заголовок тайтла для логов и вывода в терминал.
@@ -105,7 +105,7 @@ class TitleParser:
 		# Описание ветви перевода.
 		ChapterData = None
 		# Выполнение запроса.
-		Response = self.__ProxyManager.Request(ChaptersAPI)
+		Response = self.__RequestsManager.Request(ChaptersAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -131,7 +131,7 @@ class TitleParser:
 			# Модификатор для доступа к API глав.
 			ChaptersAPI = "https://api.remanga.org/api/titles/chapters/?branch_id=" + BranchID + "&count=" + str(ChaptersCount) + "&ordering=-index&page=" + str(BranchPage + 1) + "&user_data=1"
 			# Выполнение запроса.
-			Response = self.__ProxyManager.Request(ChaptersAPI)
+			Response = self.__RequestsManager.Request(ChaptersAPI)
 
 			# Проверка успешности запроса.
 			if Response.status_code == 200:
@@ -175,7 +175,7 @@ class TitleParser:
 		# Описание тайтла.
 		Description = None
 		# Выполнение запроса.
-		Response = self.__ProxyManager.Request(TitlesAPI)
+		Response = self.__RequestsManager.Request(TitlesAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -302,7 +302,7 @@ class TitleParser:
 			"credentials": "omit",
 			"User-Agent": UserAgent
 			}
-		self.__ProxyManager = ProxyManager(Settings)
+		self.__RequestsManager = RequestsManager(Settings)
 
 		# Если токена авторизации нет, то удалить заголовок.
 		if self.__RequestHeaders["authorization"] == "":
@@ -459,7 +459,7 @@ class TitleParser:
 					print("Downloading cover: \"" + URL + "\"... ", end = "")
 
 					# Выполнение запроса.
-					Response = self.__ProxyManager.Request(URL, Headers = ImageRequestHeaders)
+					Response = self.__RequestsManager.Request(URL, Headers = ImageRequestHeaders)
 
 					# Проверка успешности запроса.
 					if Response.status_code == 200:
