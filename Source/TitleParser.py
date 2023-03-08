@@ -1,9 +1,9 @@
-from RequestsManager import RequestsManager
-from Functions import GetRandomUserAgent
-from Functions import MergeListOfLists
-from DUBLIB import RenameDictKey
-from Functions import Wait
-from DUBLIB import Cls
+from Source.RequestsManager import RequestsManager
+from Source.Functions import GetRandomUserAgent
+from Source.Functions import MergeListOfLists
+from Source.DUBLIB import RenameDictKey
+from Source.Functions import Wait
+from Source.DUBLIB import Cls
 
 import logging
 import shutil
@@ -38,6 +38,8 @@ class TitleParser:
 	__ID = None
 	# Заголовок тайтла для логов и вывода в терминал.
 	__TitleHeader = None
+	# ID ветви в не нативном форматировании при обновлении тайтла (нужен для сохранения завязки на старую ветвь).
+	__NonNativeBranchID = None
 	# Перечисление статусов тайтла.
 	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND", "", "LICENSED"]
 	# Перечисление типов тайтла.
@@ -261,6 +263,22 @@ class TitleParser:
 				RemangaTitle["chapters"] = dict()
 				# Запись искуственного ключа ветви и принадлежащих ей глав.
 				RemangaTitle["chapters"][str(LocalTitle["branchId"])] = LocalTitle["chapters"]
+				# Записать наследуемый ID ветви.
+				self.__NonNativeBranchID = str(LocalTitle["branchId"])
+
+				#---> Проверка: является ли текущая ветвь самой длинной.
+				#==========================================================================================#
+				# Копия ветвей тайтла.
+				BranchesBufer = RemangaTitle["branches"]
+				# Сортировка копии по количеству глав.
+				BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
+
+				# Проверка несоответствия текущей ветви и длиннейшей.
+				if self.__NonNativeBranchID != str(BranchesBufer[0]["id"]):
+					# Получение ID ветви с большим количеством глав.
+					BranchID = str(BranchesBufer[0]["id"])
+					# Запись в лог: доступна ветвь с большим количеством глав.
+					logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
 
 		# Запись в лог сообщения о завершении объединения локального и удалённого файлов.
 		if MergedChaptersCounter > 0:
@@ -288,18 +306,8 @@ class TitleParser:
 			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",
 			"preference": "0",
-			"sec-ch-ua": "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\", \"Yandex\";v=\"23\"",
-			"sec-ch-ua-mobile": "?0",
-			"sec-ch-ua-platform": "\"Windows\"",
-			"sec-fetch-dest": "empty",
-			"sec-fetch-mode": "cors",
-			"sec-fetch-site": "same-site",
-			"referrer": "https://remanga.org/",
+			"referer": "https://remanga.org/",
 			"referrerPolicy": "strict-origin-when-cross-origin",
-			"body": None,
-			"method": "GET",
-			"mode": "cors",
-			"credentials": "omit",
 			"User-Agent": UserAgent
 			}
 		self.__RequestsManager = RequestsManager(Settings)
@@ -328,6 +336,7 @@ class TitleParser:
 
 			# Получение ID тайтла.
 			self.__ID = str(self.__Title["id"])
+			# Формирование заголовка тайтла для вывода в консоль.
 			self.__TitleHeader = self.__TitleHeader + f" (ID: {self.__ID})"
 			# Изменение заголовка тайтла.
 			self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
@@ -374,7 +383,7 @@ class TitleParser:
 				for Branch in self.__Title["branches"]:
 					BranchesID.append(str(Branch["id"]))
 			else:
-				BranchesID.append(str(self.__Title["branches"][0]["id"]))
+				BranchesID.append(self.__NonNativeBranchID)
 			
 			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
 			for BranchID in BranchesID:
@@ -473,7 +482,7 @@ class TitleParser:
 							os.makedirs(self.__Settings["covers-directory"] + UsedTitleName)
 
 						# Открытие потока записи.
-						with open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
+						with open(self.__Settings["covers-directory"] + "/" + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
 							# Запись изображения.
 							FileWrite.write(Response.content)
 							# Инкремент счётчика загруженных обложек.
@@ -548,7 +557,7 @@ class TitleParser:
 				for Branch in self.__Title["branches"]:
 					BranchesID.append(str(Branch["id"]))
 			else:
-				BranchesID.append(str(self.__Title["branches"][0]["id"]))
+				BranchesID.append(self.__NonNativeBranchID)
 
 			# Инвертирование порядка глав в ветвях.
 			for BranchID in BranchesID:
@@ -559,7 +568,7 @@ class TitleParser:
 				self.DownloadCovers()
 
 			# Отформатировать URL обложек.
-			if self.__Settings["native-formatting"] == False:
+			if self.__Settings["native-formatting"] is False:
 				self.__Title["img"]["high"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
 				self.__Title["img"]["mid"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
 				self.__Title["img"]["low"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
@@ -568,7 +577,7 @@ class TitleParser:
 			if self.__Settings["native-formatting"] is False:
 				self.__Title = RenameDictKey(self.__Title, "avg_rating", "branchId")
 				self.__Title["branchId"] = self.__Title["branches"][0]["id"]
-				self.__Title["chapters"] = self.__Title["chapters"][str(self.__Title["branchId"])]
+				self.__Title["chapters"] = self.__Title["chapters"][self.__NonNativeBranchID]
 
 			# Сохранение локального файла JSON.
 			with open(self.__Settings["JSON-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
