@@ -1,3 +1,5 @@
+web-driver-manager
 random_user_agent
 cloudscraper
+Selenium
 retry

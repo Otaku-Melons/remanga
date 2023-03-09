@@ -7,15 +7,13 @@ import time
 import sys
 import os
 
-sys.path.append("Source")
-
-from Functions import SecondsToTimeString
-from RequestsManager import RequestsManager
-from TitleParser import TitleParser
-from Updater import Updater
-from DUBLIB import Shutdown
-from Functions import Wait
-from DUBLIB import Cls
+from Source.Functions import SecondsToTimeString
+from Source.RequestsManager import RequestsManager
+from Source.TitleParser import TitleParser
+from Source.DUBLIB import Shutdown
+from Source.Updater import Updater
+from Source.Functions import Wait
+from Source.DUBLIB import Cls
 
 #==========================================================================================#
 # >>>>> ПРОВЕРКА ВЕРСИИ PYTHON <<<<< #
@@ -58,6 +56,8 @@ logging.info("Script started at " + str(CurrentDate)[:-7] + ".")
 logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 # Расположении папки установки веб-драйвера в директории скрипта.
 os.environ["WDM_LOCAL"] = "1"
+# Отключение логов WebDriver.
+os.environ["WDM_LOG"] = str(logging.NOTSET)
 # Хранилище настроек.
 Settings = {
 	"authorization": "",
@@ -73,7 +73,8 @@ Settings = {
 	"captcha-solver": {
 		"provider": "",
 		"api_key": ""
-	}
+	},
+	"debug": True
 }
 
 # Проверка доступности файла.
@@ -286,6 +287,11 @@ Cls()
 EndTime = time.time()
 # Запись времени завершения работы скрипта.
 logging.info("Script finished at " + str(datetime.datetime.now())[:-7] + ". Execution time: " + SecondsToTimeString(EndTime - StartTime) + ".")
+
+# Удаление остаточных файлов.
+if os.path.exists("ProxyExtension.zip"):
+	#os.remove("ProxyExtension.zip")
+	pass
 
 # Выключение ПК, если установлен соответствующий флаг.
 if IsShutdowAfterEnd == True:

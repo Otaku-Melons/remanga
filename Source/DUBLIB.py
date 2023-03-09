@@ -49,7 +49,7 @@ class ColoredPrinter(object):
 
 # Очищает консоль.
 def Cls():
-	os.system('cls' if os.name == 'nt' else 'clear')
+	os.system("cls" if os.name == "nt" else "clear")
 
 # Переименовывает ключ в словаре, сохраняя исходный порядок.
 def RenameDictKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:

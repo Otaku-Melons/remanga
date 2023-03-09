@@ -1,6 +1,6 @@
-from RequestsManager import RequestsManager
-from Functions import GetRandomUserAgent
-from Functions import Wait
+from Source.RequestsManager import RequestsManager
+from Source.Functions import GetRandomUserAgent
+from Source.Functions import Wait
 
 import logging
 import json
@@ -45,18 +45,8 @@ class Updater:
 			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",
 			"preference": "0",
-			"sec-ch-ua": "\"Not?A_Brand\";v=\"8\", \"Chromium\";v=\"108\", \"Yandex\";v=\"23\"",
-			"sec-ch-ua-mobile": "?0",
-			"sec-ch-ua-platform": "\"Windows\"",
-			"sec-fetch-dest": "empty",
-			"sec-fetch-mode": "cors",
-			"sec-fetch-site": "same-site",
-			"referrer": "https://remanga.org/",
+			"referer": "https://remanga.org/",
 			"referrerPolicy": "strict-origin-when-cross-origin",
-			"body": None,
-			"method": "GET",
-			"mode": "cors",
-			"credentials": "omit",
 			"User-Agent": UserAgent
 			}
 		self.__RequestsManager = RequestsManager(Settings)
@@ -122,5 +112,8 @@ class Updater:
 			elif Response.status_code == 200:
 				# Запись в лог сообщения о завершении проверки обновлений.
 				logging.info("On " + str(Page) + " pages updates notes found: " + str(UpdatesCounter) + ".")
+
+		# Завершает сеанс запроса.
+		self.__RequestsManager.Close()
 
 		return Updates

@@ -16,34 +16,35 @@ class TitleParser:
 	# >>>>> СВОЙСТВА <<<<< #
 	#==========================================================================================#
 
+	# Перечисление типов тайтла.
+	__Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
+	# Перечисление статусов тайтла.
+	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND", "", "LICENSED"]
+	# ID ветви в не нативном форматировании при обновлении тайтла (нужен для сохранения завязки на старую ветвь).
+	__NonNativeBranchID = None
+	# Менеджер запросов через прокси.
+	__RequestsManager = None
 	# Заголовки запроса.
 	__RequestHeaders = None
+	# Заголовок тайтла для логов и вывода в терминал.
+	__TitleHeader = None
+	# Состояние: включена ли перезапись файлов.
+	__ForceMode = True
 	# Состояние: проводилось ли слияние с локальным файлом.
 	__IsMerged = False
 	# Глобальные настройки.
 	__Settings = dict()
-	# Состояние: включена ли перезапись файлов.
-	__ForceMode = True
-	# Словарь описания тайтла.
-	__Title = dict()
-	# Алиас тайтла.
-	__Slug = None
-	# Сообщение из внешнего обработчика.
-	__Message = ""
 	# Состояние: получено ли описание тайтла.
 	__IsActive = True
-	# Менеджер запросов через прокси.
-	__RequestsManager = None
+	# Словарь описания тайтла.
+	__Title = dict()
+	# Сообщение из внешнего обработчика.
+	__Message = ""
+	# Алиас тайтла.
+	__Slug = None
 	# ID тайтла.
 	__ID = None
-	# Заголовок тайтла для логов и вывода в терминал.
-	__TitleHeader = None
-	# ID ветви в не нативном форматировании при обновлении тайтла (нужен для сохранения завязки на старую ветвь).
-	__NonNativeBranchID = None
-	# Перечисление статусов тайтла.
-	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND", "", "LICENSED"]
-	# Перечисление типов тайтла.
-	__Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
+	
 	# Перечисление жанров, обозначающих однополые отношения.
 	__HomoGenres = [
 			{
@@ -329,7 +330,7 @@ class TitleParser:
 		# Проверка доступности тайтла.
 		if self.__IsActive == False:
 			# Запись в лог сообщения о невозможности получить доступ к 18+ тайтлу без токена авторизации.
-			logging.error("Title: \"" + self.__TitleHeader + "\". Authorization token required!")
+			logging.warning("Title: \"" + self.__TitleHeader + "\". Authorization token required!")
 
 		# Если тайтл доступен, продолжить обработку.
 		else:
@@ -356,11 +357,13 @@ class TitleParser:
 			#---> Дополнение каркаса данными о страницах глав.
 			#==========================================================================================#
 
-			# Слияние локальной и удалённой ветвей.
+			# Слияние локальной и удалённой ветвей, либо выбор текущей ветви.
 			if os.path.exists(self.__Settings["JSON-directory"] + Slug + ".json"):
 				self.__Title = self.__MergeBranches(Slug)
 			elif os.path.exists(self.__Settings["JSON-directory"] + self.__ID + ".json"):
 				self.__Title = self.__MergeBranches(self.__ID)
+			elif self.__Settings["native-formatting"] is False:
+				self.__NonNativeBranchID = str(self.__Title["branches"][0]["id"])
 
 			# Получение недостающих данных о страницах глав.
 			if Amending == True:
@@ -588,3 +591,6 @@ class TitleParser:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Parced.")
+
+		# Завершает сеанс запроса.
+		self.__RequestsManager.Close()
