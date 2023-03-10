@@ -3,9 +3,9 @@
 
 ## Порядок установки и использования
 1. Установить Python версии не старше 3.9. При установке рекомендуется добавить в PATH.
-2. В среду исполнения установить следующие пакеты вручную или при помощи файла _requirements.txt_: web-driver-manager, random_user_agent, cloudscraper, Selenium, retry.
+2. В среду исполнения установить следующие пакеты вручную или при помощи файла _requirements.txt_: webdriver-manager, random_user_agent, cloudscraper, Selenium, retry.
 ```
-pip install web-driver-manager
+pip install webdriver-manager
 pip install random_user_agent
 pip install cloudscraper
 pip install Selenium
@@ -100,12 +100,12 @@ ___
 ```
 "covers-directory": ""
 ```
-Указывает, куда сохранять обложки тайтлов. При пустом значении будет создана папка _Covers_ в исполняемой директории скрипта. Рекомендуется оформлять в соответствии с принципами UNIX-систем, описанными [здесь](http://cs.mipt.ru/advanced_python/lessons/lab02.html#cd).
+Указывает, куда сохранять обложки тайтлов. При пустом значении будет создана папка _Covers_ в исполняемой директории скрипта. Рекомендуется оформлять в соответствии с принципами путей в Linux, описанными [здесь](http://cs.mipt.ru/advanced_python/lessons/lab02.html#cd).
 ___
 ```
 "JSON-directory": ""
 ```
-Указывает, куда сохранять JSON-файлы тайтлов. При пустом значении будет создана папка Titles в исполняемой директории скрипта. Рекомендуется оформлять в соответствии с принципами UNIX-систем, описанными [здесь](http://cs.mipt.ru/advanced_python/lessons/lab02.html#cd).
+Указывает, куда сохранять JSON-файлы тайтлов. При пустом значении будет создана папка Titles в исполняемой директории скрипта. Рекомендуется оформлять в соответствии с принципами путей в Linux, описанными [здесь](http://cs.mipt.ru/advanced_python/lessons/lab02.html#cd).
 ___
 ```
 "captcha-solver": {

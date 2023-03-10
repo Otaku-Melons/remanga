@@ -260,12 +260,23 @@ class TitleParser:
 
 			# Перемещение информации о слайдах в не нативном форматировании.
 			else:
-				# Очистка записей о главах для переформатирования.
-				RemangaTitle["chapters"] = dict()
-				# Запись искуственного ключа ветви и принадлежащих ей глав.
-				RemangaTitle["chapters"][str(LocalTitle["branchId"])] = LocalTitle["chapters"]
 				# Записать наследуемый ID ветви.
 				self.__NonNativeBranchID = str(LocalTitle["branchId"])
+				
+				# Для каждой главы из локального файла совершить слияние.
+				for ChapterIndex in range(0, len(LocalTitle["chapters"])):
+
+					# Проверка главы на платность.
+					if LocalTitle["chapters"][ChapterIndex]["is_paid"] == False:
+						# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
+						RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][self.__NonNativeBranchID], LocalTitle["chapters"][ChapterIndex]["id"])
+
+						# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
+						if RemangaTitleChapterIndex != None:
+							# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
+							RemangaTitle["chapters"][self.__NonNativeBranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][ChapterIndex]["slides"]
+							# Инкремент счётчика.
+							MergedChaptersCounter += 1
 
 				#---> Проверка: является ли текущая ветвь самой длинной.
 				#==========================================================================================#
@@ -485,7 +496,7 @@ class TitleParser:
 							os.makedirs(self.__Settings["covers-directory"] + UsedTitleName)
 
 						# Открытие потока записи.
-						with open(self.__Settings["covers-directory"] + "/" + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
+						with open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
 							# Запись изображения.
 							FileWrite.write(Response.content)
 							# Инкремент счётчика загруженных обложек.

@@ -1,4 +1,4 @@
-web-driver-manager
+webdriver-manager
 random_user_agent
 cloudscraper
 Selenium
