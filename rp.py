@@ -87,13 +87,17 @@ if os.path.exists("Settings.json"):
 		# Запись в лог сообщения об успешном чтении файла настроек.
 		logging.info("Settings file was found.")
 
-		# Интерпретация выходной директории обложек.
+		# Интерпретация выходной директории обложек и коррекция пути.
 		if Settings["covers-directory"] == "":
 			Settings["covers-directory"] = "Covers/"
+		elif Settings["covers-directory"][-1] != '/':
+			Settings["covers-directory"] += "/"
 
-		# Интерпретация выходной директории обложек.
+		# Интерпретация выходной директории обложек и коррекция пути.
 		if Settings["JSON-directory"] == "":
 			Settings["JSON-directory"] = "Titles/"
+		elif Settings["JSON-directory"][-1] != '/':
+			Settings["JSON-directory"] += "/"
 
 		# Запись в шапку лога выбранного режима форматирования.
 		if Settings["native-formatting"] is True:
@@ -103,7 +107,7 @@ if os.path.exists("Settings.json"):
 
 		# Запись в шапку лога выбранного режима запросов.
 		if Settings["selenium-mode"] is True:
-			logging.info("Requests type: Selenium (Google Chrome JavaScript interpreter).")
+			logging.info("Requests type: Selenium (JavaScript interpreter in Google Chrome).")
 		else:
 			logging.info("Requests type: requests (Python library).")
 
@@ -128,6 +132,7 @@ if "-f" in sys.argv:
 	logging.info("Force mode: ON.")
 	# Установка сообщения для внутренних функций.
 	InFuncMessage_ForceMode = "Force mode: ON\n"
+
 else:
 	# Запись в лог сообщения об отключённом режиме перезаписи.
 	logging.info("Force mode: OFF.")
@@ -290,8 +295,7 @@ logging.info("Script finished at " + str(datetime.datetime.now())[:-7] + ". Exec
 
 # Удаление остаточных файлов.
 if os.path.exists("ProxyExtension.zip"):
-	#os.remove("ProxyExtension.zip")
-	pass
+	os.remove("ProxyExtension.zip")
 
 # Выключение ПК, если установлен соответствующий флаг.
 if IsShutdowAfterEnd == True:

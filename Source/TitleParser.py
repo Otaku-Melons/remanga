@@ -267,7 +267,7 @@ class TitleParser:
 				for ChapterIndex in range(0, len(LocalTitle["chapters"])):
 
 					# Проверка главы на платность.
-					if LocalTitle["chapters"][ChapterIndex]["is_paid"] == False:
+					if "is_paid" in LocalTitle["chapters"][ChapterIndex].keys() and LocalTitle["chapters"][ChapterIndex]["is_paid"] == False:
 						# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
 						RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][self.__NonNativeBranchID], LocalTitle["chapters"][ChapterIndex]["id"])
 

@@ -3,10 +3,10 @@
 
 ## Порядок установки и использования
 1. Установить Python версии не старше 3.9. При установке рекомендуется добавить в PATH.
-2. В среду исполнения установить следующие пакеты вручную или при помощи файла _requirements.txt_: webdriver-manager, random_user_agent, cloudscraper, Selenium, retry.
+2. В среду исполнения установить следующие пакеты вручную или при помощи файла _requirements.txt_: random_user_agent, webdriver-manager, cloudscraper, Selenium, retry.
 ```
-pip install webdriver-manager
 pip install random_user_agent
+pip install webdriver-manager
 pip install cloudscraper
 pip install Selenium
 pip install retry

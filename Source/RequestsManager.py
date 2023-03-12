@@ -30,14 +30,14 @@ class RequestsManager:
 	# >>>>> СВОЙСТВА <<<<< #
 	#==========================================================================================#
 
-	# Глобальные настройки.
-	__Settings = dict()
 	# Заголовки запроса.
 	__RequestHeaders = None
-	# Хранилище прокси.
-	__Proxies = dict()
 	# Текущий прокси.
 	__CurrentProxy = None
+	# Глобальные настройки.
+	__Settings = dict()
+	# Хранилище прокси.
+	__Proxies = dict()
 	# Эземпляр браузера, управляемого Selenium.
 	__Browser = None
 
@@ -200,13 +200,17 @@ class RequestsManager:
 
 	# Непосредственно выполняет запрос к серверу через библиотеку requests.
 	@retry((SeleniumExceptions.JavascriptException, requests.exceptions.HTTPError), delay = 15, tries = 3)
-	def __RequestDataWith_requests(self, URL: str, Headers: dict, Proxy: dict = dict()):
+	def __RequestDataWith_requests(self, URL: str, Headers: dict, Proxy: dict):
 		# Сессия с обходом Cloudflare.
 		Scraper = cloudscraper.create_scraper()
 		# Статус ответа.
 		StatusCode = None
 		# Ответ сервера.
 		Response = None
+
+		# Интерпретация прокси.
+		if Proxy is None:
+			Proxy = dict()
 
 		try:
 			# Попытка выполнения запроса.
@@ -243,13 +247,17 @@ class RequestsManager:
 
 	# Непосредственно выполняет запрос к серверу через JavaScript в браузере Google Chrome.
 	@retry((requests.exceptions.ProxyError, SeleniumExceptions.WebDriverException), delay = 15, tries = 3)
-	def __RequestDataWith_ChromeJavaScript(self, URL: str, Headers: dict, Proxy: dict = dict()):
+	def __RequestDataWith_ChromeJavaScript(self, URL: str, Headers: dict, Proxy: dict):
 		# Статус ответа.
 		StatusCode = None
 		# Ответ сервера.
 		Response = ResponseEmulation()
 		# Скрипт XHR запроса.
 		Script = self.__BuildXHR(URL, Headers, Headers["content-type"])
+
+		# Интерпретация прокси.
+		if Proxy is None:
+			Proxy = dict()
 
 		try:
 
@@ -306,7 +314,7 @@ class RequestsManager:
 		with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
 			json.dump(self.__Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
-	# Конструктор: читает список прокси-серверов.
+	# Конструктор: читает список прокси и нициализирует менеджер.
 	def __init__(self, Settings: dict):
 		# Генерация User-Agent.
 		UserAgent = GetRandomUserAgent()
@@ -371,14 +379,10 @@ class RequestsManager:
 		while Response == None:
 
 			# Выполнение запроса с прокси или без.
-			if self.__Settings["use-proxy"] is True and self.__Settings["selenium-mode"] is False:
-				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
-			elif self.__Settings["use-proxy"] is True and self.__Settings["selenium-mode"] is True:
+			if self.__Settings["selenium-mode"] is True:
 				Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
-			elif self.__Settings["use-proxy"] is False and self.__Settings["selenium-mode"] is True:
-				Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers)
-			elif self.__Settings["use-proxy"] is False and self.__Settings["selenium-mode"] is False:
-				Response, Status = self.__RequestDataWith_requests(URL, Headers)
+			else:
+				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
 
 			# Обработка статусов ответа в режиме Selenium.
 			if self.__Settings["selenium-mode"] is True:
