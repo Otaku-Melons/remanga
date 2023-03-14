@@ -64,7 +64,7 @@ class RequestsManager:
 		# Добавление кода ошибки в описание прокси.
 		Proxy["last-validation-code"] = Status
 		# Помещение прокси в новый список.
-		self.__Proxies["forbidden-proxies"].append(Proxy)
+		self.__Proxies["invalid-proxies"].append(Proxy)
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Выбор нового прокси.
@@ -77,7 +77,7 @@ class RequestsManager:
 		# Добавление кода ошибки в описание прокси.
 		Proxy["last-validation-code"] = Status
 		# Помещение прокси в новый список.
-		self.__Proxies["invalid-proxies"].append(Proxy)
+		self.__Proxies["forbidden-proxies"].append(Proxy)
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Выбор нового прокси.
@@ -196,7 +196,11 @@ class RequestsManager:
 			ChromeOptions.add_argument("--headless=new")
 
 		# Инициализация веб-драйвера.
-		self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = ChromeOptions)
+		try:
+			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = ChromeOptions)
+
+		except FileNotFoundError:
+			logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
 
 	# Непосредственно выполняет запрос к серверу через библиотеку requests.
 	@retry((SeleniumExceptions.JavascriptException, requests.exceptions.HTTPError), delay = 15, tries = 3)
