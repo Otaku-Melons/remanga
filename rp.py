@@ -7,12 +7,12 @@ import time
 import sys
 import os
 
-from Source.Functions import SecondsToTimeString
 from Source.RequestsManager import RequestsManager
+from Source.Functions import SecondsToTimeString
 from Source.TitleParser import TitleParser
 from Source.DUBLIB import Shutdown
-from Source.Updater import Updater
 from Source.Functions import Wait
+from Source.Updater import Updater
 from Source.DUBLIB import Cls
 
 #==========================================================================================#
@@ -125,7 +125,7 @@ IsForceModeActivated = False
 InFuncMessage_ForceMode = ""
 
 # Обработка флага: режим перезаписи.
-if "-f" in sys.argv:
+if "-f" in sys.argv and "proxval" not in sys.argv:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения о включении режима перезаписи.
@@ -256,21 +256,29 @@ if len(sys.argv) >= 2:
 		# Очистка консоли.
 		Cls()
 		# Инициализация менеджера прокси.
-		RequestsManagerObject = RequestsManager(Settings)
+		RequestsManagerObject = RequestsManager(Settings, True)
 		# Список всех прокси.
 		ProxiesList = RequestsManagerObject.GetProxies()
+		# Переключатель: обновлять ли файл определений прокси.
+		IsUpdateProxiesFile = False
+
+		# Проверка флага для обновления файла определений прокси.
+		if "-f" in sys.argv:
+			IsUpdateProxiesFile = True
 
 		# Проверка каждого прокси.
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
-			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxyIndex))
+			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
 
 			# Выжидание интервала.
 			if ProxyIndex < len(ProxiesList) - 1:
 				Wait(Settings)
 
 		# Вывод в терминал сообщения о завершении работы.
-		print("\nStatus codes:\n0 – invalid\n1 – valid\n2 – frobidden\n3 – raise Cloudflare V2 captcha4 – server error (502 Bad Gateway for example)\n\n\nPress ENTER to exit...")
+		print("\nStatus codes:\n0 – invalid\n1 – valid\n2 – forbidden\n3 – raise Cloudflare V2 captcha\n4 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
+		# Закрытие менеджера.
+		RequestsManagerObject.Close()
 		# Пауза.
 		input()
 
