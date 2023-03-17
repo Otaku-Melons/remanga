@@ -40,7 +40,7 @@ class Updater:
 		#==========================================================================================#
 		self.__Settings = Settings
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization"],
+			"authorization": self.__Settings["authorization-token"],
 			"accept": "*/*",
 			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",

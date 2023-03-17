@@ -10,6 +10,7 @@ import os
 from Source.RequestsManager import RequestsManager
 from Source.Functions import SecondsToTimeString
 from Source.TitleParser import TitleParser
+from Source.Formatter import Formatter
 from Source.DUBLIB import Shutdown
 from Source.Functions import Wait
 from Source.Updater import Updater
@@ -60,8 +61,8 @@ os.environ["WDM_LOCAL"] = "1"
 os.environ["WDM_LOG"] = str(logging.NOTSET)
 # Хранилище настроек.
 Settings = {
-	"authorization": "",
-	"native-formatting": True,
+	"authorization-token": "",
+	"format": "dmp-v1",
 	"min-delay": 5,
 	"max-delay": 15,
 	"use-proxy": False,
@@ -69,7 +70,7 @@ Settings = {
 	"check-updates-period": 60,
 	"use-id-instead-slug": False,
 	"covers-directory": "",
-	"JSON-directory": "",
+	"titles-directory": "",
 	"captcha-solver": {
 		"provider": "",
 		"api_key": ""
@@ -94,22 +95,19 @@ if os.path.exists("Settings.json"):
 			Settings["covers-directory"] += "/"
 
 		# Интерпретация выходной директории обложек и коррекция пути.
-		if Settings["JSON-directory"] == "":
-			Settings["JSON-directory"] = "Titles/"
-		elif Settings["JSON-directory"][-1] != '/':
-			Settings["JSON-directory"] += "/"
-
-		# Запись в шапку лога выбранного режима форматирования.
-		if Settings["native-formatting"] is True:
-			logging.info("Native formatting: ON.")
-		else:
-			logging.info("Native formatting: OFF.")
+		if Settings["titles-directory"] == "":
+			Settings["titles-directory"] = "Titles/"
+		elif Settings["titles-directory"][-1] != '/':
+			Settings["titles-directory"] += "/"
 
 		# Запись в шапку лога выбранного режима запросов.
 		if Settings["selenium-mode"] is True:
 			logging.info("Requests type: Selenium (JavaScript interpreter in Google Chrome).")
 		else:
 			logging.info("Requests type: requests (Python library).")
+
+		# Запись в шапку лога формата выходного файла.
+		logging.info("Output file format: \"" + Settings["format"] + "\".")
 
 #==========================================================================================#
 # >>>>> ОБРАБОТКА СПЕЦИАЛЬНЫХ ФЛАГОВ <<<<< #
@@ -173,18 +171,50 @@ if len(sys.argv) >= 3:
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.DownloadCovers()
 
-# Однокомпонентные команды: update.
+# Однокомпонентные команды: convert, proxval, update.
 if len(sys.argv) >= 2:
 
+	# Конвертирование описательных тайтлов в указанный формат.
+	if sys.argv[1] == "convert":
+		# Структура тайтла.
+		Title = None
+		
+		# Добавление расширения к файлу в случае отсутствия такового.
+		if ".json" not in sys.argv[2]:
+			sys.argv[2] += ".json"
+
+		# Чтение тайтла.
+		with open(Settings["titles-directory"] + sys.argv[2], encoding = "utf-8") as FileRead:
+			# Декодирование файла.
+			Title = json.load(FileRead)
+			# Исходный формат.
+			SourceFormat = None
+
+			# Определение исходного формата.
+			if sys.argv[3] == "-auto":
+				SourceFormat = Title["format"]
+			else:
+				SourceFormat = sys.argv[3]
+
+			# Создание объекта форматирования.
+			FormatterObject = Formatter(Settings, Title, Format = SourceFormat)
+			# Конвертирование структуры тайтла.
+			Title = FormatterObject.Convert(sys.argv[4])
+
+		# Сохранение переформатированного описательного файла.
+		with open(Settings["titles-directory"] + sys.argv[2], "w", encoding = "utf-8") as FileWrite:
+			json.dump(Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
+
+
 	# Парсинг тайтлов, обновлённых за указанный в настройках интервал.
-	if sys.argv[1] == "update":
+	elif sys.argv[1] == "update":
 		# Вывод в лог заголовка: обновление.
 		logging.info("====== Updating ======")
 
 		# Обновить все локальные файлы.
 		if len(sys.argv) >= 3 and sys.argv[2] == "-local":
 			# Получение списка файлов в директории.
-			TitlesList = os.listdir(Settings["JSON-directory"])
+			TitlesList = os.listdir(Settings["titles-directory"])
 			# Фильтрация только файлов формата JSON.
 			TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
 			# Индекс обрабатываемого тайтла.
@@ -199,7 +229,7 @@ if len(sys.argv) >= 2:
 			# Чтение всех алиасов из локальных файлов.
 			for File in TitlesList:
 				# Открытие локального описательного файла JSON.
-				with open(Settings["JSON-directory"] + File, encoding = "utf-8") as FileRead:
+				with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
 					# JSON файл тайтла.
 					LocalTitle = json.load(FileRead)
 					# Помещение алиаса в список.

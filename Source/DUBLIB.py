@@ -51,6 +51,16 @@ class ColoredPrinter(object):
 def Cls():
 	os.system("cls" if os.name == "nt" else "clear")
 
+# Объединяет словари без перезаписи.
+def MergeDictionaries(DictionaryOne: dict, DictionaryTwo: dict) -> dict:
+
+	# Скопировать значения отсутствующих в оригинале ключей.
+	for Key in DictionaryTwo.keys():
+		if Key not in DictionaryOne.keys():
+			DictionaryOne[Key] = DictionaryTwo[Key]
+
+	return DictionaryOne
+
 # Переименовывает ключ в словаре, сохраняя исходный порядок.
 def RenameDictKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:
 	# Результат выполнения.

@@ -2,4 +2,5 @@ webdriver-manager
 random_user_agent
 cloudscraper
 Selenium
+Pillow
 retry

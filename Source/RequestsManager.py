@@ -56,8 +56,8 @@ class RequestsManager:
 	__Proxies = dict()
 	# Эземпляр браузера, управляемого Selenium.
 	__Browser = None
-	# Переключатель: обновлять ли файл определений прокси при нахождении валидного прокси.
-	__IsUpdateFile = False
+	# Состояние: идёт ли верификация.
+	__IsProxval = False
 
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
@@ -197,9 +197,9 @@ class RequestsManager:
 		# Обработка статусов ответа в режиме Selenium.
 		if self.__Settings["selenium-mode"] is True:
 			if StatusCode == 0 and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsInvalid(self.__CurrentProxy, StatusCode)
+				self.__BlockProxyAsInvalid(Proxy, StatusCode)
 				self.__InitializeWebDriver()
-			elif StatusCode == 0 and Proxy is not None:
+			elif StatusCode == 0 and self.__IsProxval is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
 				self.__InitializeWebDriver()
 			elif StatusCode == 1:
@@ -208,13 +208,13 @@ class RequestsManager:
 		# Обработка статусов ответа в режиме requests.
 		else: 
 			if StatusCode == 0 and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsInvalid(self.__CurrentProxy, StatusCode)
-			elif StatusCode == 0 and Proxy is not None:
+				self.__BlockProxyAsInvalid(Proxy, StatusCode)
+			elif StatusCode == 0 and self.__IsProxval is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
 			elif StatusCode == 1:
 				self.__RestoreProxyAsValid(Proxy)
 			elif StatusCode in [2, 3] and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsForbidden(self.__CurrentProxy, StatusCode)
+				self.__BlockProxyAsForbidden(Proxy, StatusCode)
 			elif StatusCode == 4:
 				raise requests.exceptions.HTTPError
 
@@ -360,7 +360,7 @@ class RequestsManager:
 	def __RestoreProxyAsValid(self, Proxy: dict):
 
 		# Проверка наличия прокси в валидном списке.
-		if Proxy not in self.__Proxies["proxies"]:
+		if self.__Proxies != dict() and Proxy not in self.__Proxies["proxies"]:
 
 			# Удаление прокси из списка недоступных.
 			if Proxy in self.__Proxies["forbidden-proxies"]:
@@ -389,7 +389,7 @@ class RequestsManager:
 		#==========================================================================================#
 		self.__Settings = Settings
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization"],
+			"authorization": self.__Settings["authorization-token"],
 			"accept": "*/*",
 			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",
@@ -464,7 +464,7 @@ class RequestsManager:
 				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
 
 			# Обработка кода статуса запроса.
-			self.__ProcessStatusCode(Status)
+			self.__ProcessStatusCode(Status, self.__CurrentProxy)
 
 		return Response
 
@@ -474,6 +474,8 @@ class RequestsManager:
 		URL = "https://api.remanga.org/api/titles/last-chapters/?page=1&count=20"
 		# Возвращает код статуса прокси: 0 – недоступен, 1 – валиден, 2 – заблокирован, 3 – запрошена капча Cloudflare V2. 
 		StatusCode = None
+		# Изменение состояния валидации.
+		self.__IsProxval = True
 		# Заголовки запроса.
 		Headers = {
 			"accept": "*/*",

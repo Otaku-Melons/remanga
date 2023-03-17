@@ -9,5 +9,5 @@
 	],
 	"proxies": [],
 	"forbidden-proxies": [],
-	"unvalid-proxies": []
+	"invalid-proxies": []
 }

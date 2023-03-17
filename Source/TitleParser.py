@@ -1,7 +1,7 @@
 from Source.RequestsManager import RequestsManager
 from Source.Functions import GetRandomUserAgent
 from Source.Functions import MergeListOfLists
-from Source.DUBLIB import RenameDictKey
+from Source.Formatter import Formatter
 from Source.Functions import Wait
 from Source.DUBLIB import Cls
 
@@ -16,12 +16,8 @@ class TitleParser:
 	# >>>>> СВОЙСТВА <<<<< #
 	#==========================================================================================#
 
-	# Перечисление типов тайтла.
-	__Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
-	# Перечисление статусов тайтла.
-	__Statuses = ["COMPLETED", "ACTIVE", "ABANDONED", "NOT_FOUND", "", "LICENSED"]
-	# ID ветви в не нативном форматировании при обновлении тайтла (нужен для сохранения завязки на старую ветвь).
-	__NonNativeBranchID = None
+	# Количество скопированных из локального файла глав.
+	__MergedChaptersCount  = 0
 	# Менеджер запросов через прокси.
 	__RequestsManager = None
 	# Заголовки запроса.
@@ -30,8 +26,6 @@ class TitleParser:
 	__TitleHeader = None
 	# Состояние: включена ли перезапись файлов.
 	__ForceMode = True
-	# Состояние: проводилось ли слияние с локальным файлом.
-	__IsMerged = False
 	# Глобальные настройки.
 	__Settings = dict()
 	# Состояние: получено ли описание тайтла.
@@ -44,62 +38,10 @@ class TitleParser:
 	__Slug = None
 	# ID тайтла.
 	__ID = None
-	
-	# Перечисление жанров, обозначающих однополые отношения.
-	__HomoGenres = [
-			{
-				"id": 43,
-				"name": "Яой"
-			},
-			{
-				"id": 29,
-				"name": "Сёдзё-ай"
-			},
-			{
-				"id": 31,
-				"name": "Сёнэн-ай"
-			},
-			{
-				"id": 41,
-				"name": "Юри"
-			}
-		]
 
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
 	#==========================================================================================#
-
-	# Форматирует ветвь согласно требованиям обходчика.
-	def __FormatBranch(self, Branch: dict) -> dict:
-		
-		# Пройтись по всем элементам.
-		for ChapterIndex in range(0, len(Branch)):
-			Branch[ChapterIndex] = RenameDictKey(Branch[ChapterIndex], "tome", "tom")
-			Branch[ChapterIndex]["chapter"] = float(Branch[ChapterIndex]["chapter"])
-
-			# Усечение нуля у float.
-			if ".0" in str(Branch[ChapterIndex]["chapter"]):
-				Branch[ChapterIndex]["chapter"] = int(Branch[ChapterIndex]["chapter"])
-
-		return Branch
-
-	# Форматирует описание согласно требованиям обходчика.
-	def __FormatDescription(self, Description: dict) -> dict:
-		Description = RenameDictKey(Description, "rus_name", "rusTitle")
-		Description = RenameDictKey(Description, "en_name", "engTitle")
-		Description = RenameDictKey(Description, "another_name", "alternativeTitle")
-		Description = RenameDictKey(Description, "description", "desc")
-		Description = RenameDictKey(Description, "dir", "slug")
-		Description = RenameDictKey(Description, "categories", "tags")
-		Description = RenameDictKey(Description, "is_yaoi", "isYaoi")
-		Description = RenameDictKey(Description, "is_erotic", "isHentai")
-		Description = RenameDictKey(Description, "can_post_comments", "isHomo")
-
-		Description["status"] = self.__Statuses[Description["status"]["id"]]
-		Description["type"] = self.__Types[Description["type"]["id"]]
-		Description["isHomo"] = self.__IsHomo(Description)
-
-		return Description
 
 	# Возвращает структуру главы.
 	def __GetChapterData(self, ChepterID: str) -> dict:
@@ -124,10 +66,21 @@ class TitleParser:
 
 		return ChapterData
 
+	# Возвращает количество глав во всех ветвях тайтла.
+	def __GetChaptersCountInAllBranches(self) -> int:
+		# Количество глав.
+		AllBranchesChaptersCount = 0
+
+		# Подсчёт.
+		for Branch in self.__Title["chapters"].keys():
+			AllBranchesChaptersCount += len(self.__Title["chapters"][str(Branch)])
+
+		return AllBranchesChaptersCount
+
 	# Возвращает описание ветви перевода.
 	def __GetBranchData(self, BranchID: str, ChaptersCount: int) -> dict:
 		# Описание ветви перевода.
-		BranchData = list()
+		BranchData = None
 
 		# Получение всех страниц ветви.
 		for BranchPage in range(0, int(ChaptersCount / 100) + 1):
@@ -140,17 +93,16 @@ class TitleParser:
 			if Response.status_code == 200:
 				# Получение текста с ответом.
 				ResponseText = Response.text
-				# Запись в лог сообщения о запросе ветвей тайтла.
-				logging.info("Title: \"" + self.__TitleHeader + "\". Request title branches... Done.")
 
 				# Сохранение форматированного результата.
 				CurrentBranchData = dict(json.loads(ResponseText))["content"]
 
-				# Переименовать ключ тома, если указано настройками.
-				if self.__Settings["native-formatting"] == False:
-					BranchData += self.__FormatBranch(CurrentBranchData)
-				else:
-					BranchData += CurrentBranchData
+				# Форматирование переменной (нужно для верной обработки ошибки в логах, когда не удалось выполнить запрос).
+				if BranchData is None:
+					BranchData = list()
+
+				# Дополнение информации о ветви новой страницей.
+				BranchData += CurrentBranchData
 
 			else:
 				# Запись в лог сообщения о том, что не удалось выполнить запрос.
@@ -158,6 +110,10 @@ class TitleParser:
 
 			# Выжидание указанного интервала.
 			Wait(self.__Settings)
+
+		# Запись в лог сообщения о завершении получения данных о ветвях тайтла.
+		if BranchData is not None:
+			logging.info("Title: \"" + self.__TitleHeader + "\". Request title branches... Done.")
 
 		return BranchData
 
@@ -184,9 +140,6 @@ class TitleParser:
 		if Response.status_code == 200:
 			# Сохранение форматированного результата.
 			Description = dict(json.loads(Response.text))["content"]
-			# Форматирование в совместимом режиме.
-			if self.__Settings["native-formatting"] == False:
-				Description = self.__FormatDescription(Description)
 			# Запись в лог сообщения о запросе описания тайтла.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Request title description... Done.")
 
@@ -204,17 +157,6 @@ class TitleParser:
 
 		return Description
 
-	# Проверяет, имеет ли тайтл описание однополых отношений.
-	def __IsHomo(self, Description: dict) -> bool:
-
-		# Проверка жанров на представителей однополых отношений.
-		for TitleGenre in Description["genres"]:
-			for HomoGenre in self.__HomoGenres:
-				if HomoGenre == TitleGenre:
-					return True
-
-		return False
-
 	# Выполняет слияние ветвей переводов.
 	def __MergeBranches(self, UsedTitleName: str) -> dict:
 		# Список ID ветвей локального файла.
@@ -224,30 +166,84 @@ class TitleParser:
 		# Локальный описательный файл JSON.
 		LocalTitle = None
 		# Счётчик перемещённых глав.
-		MergedChaptersCounter = 0
+		self.__MergedChaptersCount = 0
 		# Запись в лог сообщения о том, что найден локальный файл описания тайтла.
 		logging.info("Title: \"" + self.__TitleHeader + "\". Local JSON already exists. Trying to merge...")
-		# Переключение статуса слияния.
-		self.__IsMerged = True
 		
 		# Открытие локального описательного файла JSON.
-		with open(self.__Settings["JSON-directory"] + UsedTitleName + ".json", encoding = "utf-8") as FileRead:
-			# JSON файл тайтла.
-			LocalTitle = json.load(FileRead)
+		with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", encoding = "utf-8") as FileRead:
+			# Локальная описательная структура тайтла.
+			LocalTitle = None
+			# Список ID локальных ветвей.
+			LocalBranchesID = list()
 
-			# Перемещение информации о слайдах в нативном форматировании.
-			if self.__Settings["native-formatting"] is True:
+			# Попытка прочитать файл.
+			try:
+				LocalTitle = json.load(FileRead)
 
-				# Заполнение списка ID ветвей локального JSON.
+			except json.decoder.JSONDecodeError:
+				# Запись в лог ошибки: не удалось прочитать существующий файл.
+				logging.error("Title: \"" + self.__TitleHeader + "\". Unable to read existing file!")
+				# Перевод парсера в неактивное состояние.
+				self.__IsActive = False
+
+			# Получение наследуемой ветви и конвертирование в совместимый формат.
+			if "branchId" in LocalTitle.keys():
+				# Получение наследуемой ветви htmp-v1.
+				LocalBranchesID.append(str(LocalTitle["branchId"]))
+				# Инициализатора конвертера.
+				Converter = Formatter(self.__Settings, LocalTitle, "htmp-v1")
+				# Конвертирование формата в htcrn-v1.
+				LocalTitle = Converter.Convert("htcrn-v1")
+				# Список ID всех ветвей.
+				AllBranchesID = list()
+				
+				# Получение списка ID всех ветвей.
+				for Branch in self.__Title["branches"]:
+					AllBranchesID.append(Branch["id"])
+
+				# Проверка: существует ли наследуемая ветвь на сайте.
+				if LocalTitle["branchId"] not in AllBranchesID:
+					# Перевод парсера в неактивное состояние.
+					self.__IsActive = False
+					# Запись в лог сообщения: наследуемая ветвь была удалена на сайте.
+					logging.warning("Title: \"" + self.__TitleHeader + "\". Legacy branch was removed from site!")
+
+			# Получение наследуемой ветви и конвертирование в совместимый формат.
+			else:
+				# Исходный формат.
+				OriginalFormat = None
+				# Совместимый формат.
+				CompatibleFormat = None
+
+				# Определить исходный формат или присвоить нативный.
+				if "format" in LocalTitle.keys():
+					OriginalFormat = LocalTitle["format"]
+				else:
+					OriginalFormat = "rn-v1"
+
+				# Определение совместимого формата.
+				if OriginalFormat in ["htcrn-v1", "htmp-v1"]:
+					CompatibleFormat = "htcrn-v1"
+				elif OriginalFormat in ["dmp-v1"]:
+					CompatibleFormat = "rn-v1"
+
+				# Инициализатора конвертера.
+				Converter = Formatter(self.__Settings, LocalTitle, OriginalFormat)
+				# Конвертирование формата в htcrn-v1.
+				LocalTitle = Converter.Convert(CompatibleFormat)
+
+				# Получение списка ветвей.
 				for Branch in LocalTitle["branches"]:
 					LocalBranchesID.append(str(Branch["id"]))
 
-				# Для каждой ветви совершить слияние.
+			# Для каждой ветви совершить слияние.
+			if self.__IsActive is True:
 				for BranchID in LocalBranchesID:
 					for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
 
-						# Проверка главы на платность.
-						if LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+						# Проверка главы на платность (первое условие нужно для совместимости со старыми форматами без данных о донатном статусе главы).
+						if "is_paid" not in LocalTitle["chapters"][BranchID][ChapterIndex].keys() or LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
 							# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
 							RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
 
@@ -256,47 +252,27 @@ class TitleParser:
 								# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
 								RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
 								# Инкремент счётчика.
-								MergedChaptersCounter += 1
+								self.__MergedChaptersCount += 1
 
-			# Перемещение информации о слайдах в не нативном форматировании.
-			else:
-				# Записать наследуемый ID ветви.
-				self.__NonNativeBranchID = str(LocalTitle["branchId"])
-				
-				# Для каждой главы из локального файла совершить слияние.
-				for ChapterIndex in range(0, len(LocalTitle["chapters"])):
+					#---> Проверка: является ли текущая ветвь самой длинной.
+					#==========================================================================================#
+					# Копия ветвей тайтла.
+					BranchesBufer = RemangaTitle["branches"]
+					# Сортировка копии по количеству глав.
+					BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
 
-					# Проверка главы на платность.
-					if "is_paid" in LocalTitle["chapters"][ChapterIndex].keys() and LocalTitle["chapters"][ChapterIndex]["is_paid"] == False:
-						# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
-						RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][self.__NonNativeBranchID], LocalTitle["chapters"][ChapterIndex]["id"])
+					# Проверка несоответствия текущей ветви и длиннейшей при обработке форматов с одной активной ветвью.
+					if "branchId" in LocalTitle.keys() and LocalTitle["branchId"] != BranchesBufer[0]["id"]:
+						# Получение ID ветви с большим количеством глав.
+						BranchID = str(BranchesBufer[0]["id"])
+						# Запись в лог: доступна ветвь с большим количеством глав.
+						logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
 
-						# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
-						if RemangaTitleChapterIndex != None:
-							# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
-							RemangaTitle["chapters"][self.__NonNativeBranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][ChapterIndex]["slides"]
-							# Инкремент счётчика.
-							MergedChaptersCounter += 1
-
-				#---> Проверка: является ли текущая ветвь самой длинной.
-				#==========================================================================================#
-				# Копия ветвей тайтла.
-				BranchesBufer = RemangaTitle["branches"]
-				# Сортировка копии по количеству глав.
-				BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
-
-				# Проверка несоответствия текущей ветви и длиннейшей.
-				if self.__NonNativeBranchID != str(BranchesBufer[0]["id"]):
-					# Получение ID ветви с большим количеством глав.
-					BranchID = str(BranchesBufer[0]["id"])
-					# Запись в лог: доступна ветвь с большим количеством глав.
-					logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
-
-		# Запись в лог сообщения о завершении объединения локального и удалённого файлов.
-		if MergedChaptersCounter > 0:
-			logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(MergedChaptersCounter) + ".")
-		else:
-			logging.info("Title: \"" + self.__TitleHeader + "\". There are no new chapters.")
+				# Запись в лог сообщения о завершении объединения локального и удалённого файлов.
+				if self.__MergedChaptersCount > 0:
+					logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
+				else:
+					logging.info("Title: \"" + self.__TitleHeader + "\". There are no new chapters.")
 
 		return RemangaTitle
 
@@ -313,7 +289,7 @@ class TitleParser:
 		self.__TitleHeader = Slug
 		self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization"],
+			"authorization": self.__Settings["authorization-token"],
 			"accept": "*/*",
 			"accept-language": "ru,en;q=0.9",
 			"content-type": "application/json",
@@ -369,12 +345,10 @@ class TitleParser:
 			#==========================================================================================#
 
 			# Слияние локальной и удалённой ветвей, либо выбор текущей ветви.
-			if os.path.exists(self.__Settings["JSON-directory"] + Slug + ".json"):
+			if os.path.exists(self.__Settings["titles-directory"] + Slug + ".json"):
 				self.__Title = self.__MergeBranches(Slug)
-			elif os.path.exists(self.__Settings["JSON-directory"] + self.__ID + ".json"):
+			elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
 				self.__Title = self.__MergeBranches(self.__ID)
-			elif self.__Settings["native-formatting"] is False:
-				self.__NonNativeBranchID = str(self.__Title["branches"][0]["id"])
 
 			# Получение недостающих данных о страницах глав.
 			if Amending == True:
@@ -389,23 +363,23 @@ class TitleParser:
 			BranchesID = list()
 			# Счётчик глав, для которых были получены страницы.
 			UpdatedChaptersCounter = 0
+			# Количество глав во всех ветвях тайтла.
+			AllBranchesChaptersCount = self.__GetChaptersCountInAllBranches()
 			# Запись в лог сообщения о старте получения информации о страницах глав.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Amending...")
 
-			# Заполнение списка ID ветвей в зависимости от выбранного форматирования.
-			if self.__Settings["native-formatting"] is True:
-				for Branch in self.__Title["branches"]:
-					BranchesID.append(str(Branch["id"]))
-			else:
-				BranchesID.append(self.__NonNativeBranchID)
+			# Получение списка ID ветвей.
+			for Branch in self.__Title["branches"]:
+				BranchesID.append(str(Branch["id"]))
 			
 			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
 			for BranchID in BranchesID:
+
 				for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
 					# Очистка терминала.
 					Cls()
 					# Вывод в терминал прогресса.
-					print(self.__Message + "Amending chapters: " + str(ChapterIndex + 1) + " / " + str(len(self.__Title["chapters"][BranchID])))
+					print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
 
 					# Проверка отсутствия описанных страниц.
 					if "slides" not in self.__Title["chapters"][BranchID][ChapterIndex].keys():
@@ -422,9 +396,10 @@ class TitleParser:
 							UpdatedChaptersCounter += 1
 							# Выжидание указанного интервала.
 							Wait(self.__Settings)
+
 						else:
 							# Запись в лог сообщения о платной главе.
-							logging.warning("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
+							logging.info("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
 
 			# Запись в лог сообщения о количестве дополненных глав.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
@@ -538,67 +513,45 @@ class TitleParser:
 
 		# Если парсер активен.
 		if self.__IsActive == True:
-			# Список ID ветвей.
-			BranchesID = list()
 
 			# Удаление существующего файла, если включен режим перезаписи.
 			if self.__ForceMode == True:
 
 				# Удалить файл с алиасом в названии.
-				if os.path.exists(self.__Settings["JSON-directory"] + self.__Slug + ".json"):
+				if os.path.exists(self.__Settings["titles-directory"] + self.__Slug + ".json"):
 					# Удаление файла.
-					os.remove(self.__Settings["JSON-directory"] + self.__Slug + ".json")
+					os.remove(self.__Settings["titles-directory"] + self.__Slug + ".json")
 					# Запись в лог сообщения о перезаписи файла.
 					logging.info("Title: \"" + self.__TitleHeader + "\". Already exists. Will be overwritten...")
 
 				# Удалить файл с ID в названии.
-				elif os.path.exists(self.__Settings["JSON-directory"] + self.__ID + ".json"):
+				elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
 					# Удаление файла.
-					os.remove(self.__Settings["JSON-directory"] + self.__ID + ".json")
+					os.remove(self.__Settings["titles-directory"] + self.__ID + ".json")
 					# Запись в лог сообщения о перезаписи файла.
 					logging.info("Title: \"" + self.__TitleHeader + "\". Already exists. Will be overwritten...")
 
 			# Удаление файла с алиасом в названии, если используются ID.
-			if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["JSON-directory"] + self.__Slug + ".json"):
-				os.remove(self.__Settings["JSON-directory"] + self.__Slug + ".json")
+			if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["titles-directory"] + self.__Slug + ".json"):
+				os.remove(self.__Settings["titles-directory"] + self.__Slug + ".json")
 
 			# Создание папки для тайтлов.
-			if os.path.exists(self.__Settings["JSON-directory"]) == False:
-				os.makedirs(self.__Settings["JSON-directory"])
-
-			# Заполнение списка ID ветвей в зависимости от выбранного форматирования.
-			if self.__Settings["native-formatting"] is True:
-				for Branch in self.__Title["branches"]:
-					BranchesID.append(str(Branch["id"]))
-			else:
-				BranchesID.append(self.__NonNativeBranchID)
-
-			# Инвертирование порядка глав в ветвях.
-			for BranchID in BranchesID:
-				self.__Title["chapters"][BranchID] = sorted(self.__Title["chapters"][BranchID], key = lambda d: d["id"]) 
+			if os.path.exists(self.__Settings["titles-directory"]) == False:
+				os.makedirs(self.__Settings["titles-directory"])
 
 			# Если указано, скачать обложки.
 			if DownloadCovers == True:
 				self.DownloadCovers()
 
-			# Отформатировать URL обложек.
-			if self.__Settings["native-formatting"] is False:
-				self.__Title["img"]["high"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
-				self.__Title["img"]["mid"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
-				self.__Title["img"]["low"] = self.__ID + "/" + self.__Title["img"]["high"].split('/')[-1]
-
-			# Если нативное форматирование отключено, то записать только первую ветвь тайтла.
-			if self.__Settings["native-formatting"] is False:
-				self.__Title = RenameDictKey(self.__Title, "avg_rating", "branchId")
-				self.__Title["branchId"] = self.__Title["branches"][0]["id"]
-				self.__Title["chapters"] = self.__Title["chapters"][self.__NonNativeBranchID]
+			# Инициализатора конвертера.
+			FormattedTitle = Formatter(self.__Settings, self.__Title, "rn-v1")
 
 			# Сохранение локального файла JSON.
-			with open(self.__Settings["JSON-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
-				json.dump(self.__Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
+			with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
+				json.dump(FormattedTitle.Convert(self.__Settings["format"]), FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
 				# Запись в лог сообщения о создании или обновлении локального файла.
-				if self.__IsMerged == True:
+				if self.__MergedChaptersCount > 0:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Parced.")

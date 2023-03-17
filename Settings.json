@@ -1,17 +1,17 @@
 {
-	"authorization": "",
-	"native-formatting": true,
-	"min-delay": 5,
-	"max-delay": 15,
+	"authorization-token": "",
+	"format": "rn-v1",
+	"min-delay": 1,
+	"max-delay": 5,
 	"use-proxy": false,
 	"selenium-mode": false,
 	"check-updates-period": 60,
 	"use-id-instead-slug": false,
 	"covers-directory": "",
-	"JSON-directory": "",
+	"titles-directory": "",
 	"captcha-solver": {
 		"provider": "",
 		"api_key": ""
 	},
-	"debug": false
+	"debug": true
 }
