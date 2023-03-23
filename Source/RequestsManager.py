@@ -196,26 +196,26 @@ class RequestsManager:
 
 		# Обработка статусов ответа в режиме Selenium.
 		if self.__Settings["selenium-mode"] is True:
-			if StatusCode == 0 and self.__Settings["use-proxy"] is True:
+			if StatusCode == 1 and self.__Settings["use-proxy"] is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
 				self.__InitializeWebDriver()
-			elif StatusCode == 0 and self.__IsProxval is True:
+			elif StatusCode == 1 and self.__IsProxval is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
 				self.__InitializeWebDriver()
-			elif StatusCode == 1:
+			elif StatusCode == 0:
 				self.__RestoreProxyAsValid(Proxy)
 
 		# Обработка статусов ответа в режиме requests.
 		else: 
-			if StatusCode == 0 and self.__Settings["use-proxy"] is True:
+			if StatusCode == 1 and self.__Settings["use-proxy"] is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
-			elif StatusCode == 0 and self.__IsProxval is True:
+			elif StatusCode == 1 and self.__IsProxval is True:
 				self.__BlockProxyAsInvalid(Proxy, StatusCode)
-			elif StatusCode == 1:
+			elif StatusCode == 0:
 				self.__RestoreProxyAsValid(Proxy)
-			elif StatusCode in [2, 3] and self.__Settings["use-proxy"] is True:
+			elif StatusCode == 2 and self.__Settings["use-proxy"] is True:
 				self.__BlockProxyAsForbidden(Proxy, StatusCode)
-			elif StatusCode == 4:
+			elif StatusCode == 3:
 				raise requests.exceptions.HTTPError
 
 	# Форматирует прокси в формат дополнения..
@@ -269,7 +269,7 @@ class RequestsManager:
 
 			# Если запрос прошёл.
 			elif Response.status_code == 200:
-				StatusCode = 1
+				StatusCode = 0
 
 			# Проверка других кодов, при которых необходимо повторить запрос.
 			elif Response.status_code in [502]:
@@ -283,11 +283,11 @@ class RequestsManager:
 		# Обработка ошибки: запрошена капча Cloudflare V2.
 		except cloudscraper.exceptions.CloudflareChallengeError:
 			logging.error("Proxy: " + str(Proxy) + ". Forbidden.")
-			StatusCode = 3
+			StatusCode = 2
 
 		# Обработка ошибки: ошибка со стороны сервера.
 		except requests.exceptions.HTTPError:
-			StatusCode = 4
+			StatusCode = 3
 
 		return Response, StatusCode
 
@@ -331,12 +331,14 @@ class RequestsManager:
 			# Обработка пустого запроса.
 			if Response.text == "":
 				logging.error("Proxy: " + str(Proxy) + ". Forbidden.")
-				StatusCode = 3
+				StatusCode = 2
 			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Для просмотра нужно авторизироваться":
 				Response.status_code = 401
+			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Тайтл не найден":
+				Response.status_code = 404
 			else:
 				Response.status_code = 200
-				StatusCode = 1
+				StatusCode = 0
 
 		# Обработка ошибки: не удалось выполнить JavaScript или нерабочий прокси.
 		except (SeleniumExceptions.JavascriptException, SeleniumExceptions.WebDriverException):
@@ -351,7 +353,7 @@ class RequestsManager:
 			StatusCode = 0
 
 		# Обнуление эмулируемого контейнера ответа при ошибке запроса.
-		if StatusCode in [0, 3]:
+		if StatusCode in [1, 2]:
 			Response = None
 
 		return Response, StatusCode
@@ -409,7 +411,7 @@ class RequestsManager:
 		
 		except FileNotFoundError:
 			# Запись в лог критической ошибки: не удалось найти файл 
-			logging.critical("Unable to find \"Proxies.json\" file!")
+			logging.critical("Unable to open \"Proxies.json\" file!")
 			# Прерывание выполнения.
 			sys.exit()
 
@@ -472,7 +474,7 @@ class RequestsManager:
 	def ValidateProxy(self, Proxy: dict, UpdateFile: bool = False) -> int:
 		# Тестовый URL запроса.
 		URL = "https://api.remanga.org/api/titles/last-chapters/?page=1&count=20"
-		# Возвращает код статуса прокси: 0 – недоступен, 1 – валиден, 2 – заблокирован, 3 – запрошена капча Cloudflare V2. 
+		# Возвращает код статуса прокси: 0 – валиден, 1 – недоступен, 2 – заблокирован, 3 – ошибка сервера. 
 		StatusCode = None
 		# Изменение состояния валидации.
 		self.__IsProxval = True

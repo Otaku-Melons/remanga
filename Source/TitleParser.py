@@ -145,7 +145,17 @@ class TitleParser:
 
 		# Обработка ошибки доступа в виду отсутствия токена авторизации.
 		elif Response.status_code == 401:
+			# Перекючение парсера в неактивное состояние.
 			self.__IsActive = False
+			# Запись в лог предупреждения: невозможно получить доступ к 18+ тайтлу без токена авторизации.
+			logging.warning("Title: \"" + self.__TitleHeader + "\". Authorization token required. Skipped.")
+
+		# Обработка ошибки запроса отсутствующего на сервере тайтла.
+		elif Response.status_code == 404:
+			# Перекючение парсера в неактивное состояние.
+			self.__IsActive = False
+			# Запись в лог предупреждения: невозможно получить доступ к 18+ тайтлу без токена авторизации.
+			logging.warning("Title: \"" + self.__TitleHeader + "\". Not found. Skipped.")
 
 		# Обработка любой другой ошибки запроса.
 		else:
@@ -315,13 +325,7 @@ class TitleParser:
 		self.__Title = self.__GetTitleDescription()
 
 		# Проверка доступности тайтла.
-		if self.__IsActive == False:
-			# Запись в лог сообщения о невозможности получить доступ к 18+ тайтлу без токена авторизации.
-			logging.warning("Title: \"" + self.__TitleHeader + "\". Authorization token required!")
-
-		# Если тайтл доступен, продолжить обработку.
-		else:
-
+		if self.__IsActive == True:
 			# Получение ID тайтла.
 			self.__ID = str(self.__Title["id"])
 			# Формирование заголовка тайтла для вывода в консоль.
