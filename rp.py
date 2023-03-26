@@ -9,6 +9,7 @@ import os
 
 from Source.RequestsManager import RequestsManager
 from Source.Functions import SecondsToTimeString
+from Source.DUBLIB import ConsoleArgvProcessor
 from Source.TitleParser import TitleParser
 from Source.Formatter import Formatter
 from Source.DUBLIB import Shutdown
@@ -59,23 +60,23 @@ logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 os.environ["WDM_LOCAL"] = "1"
 # Отключение логов WebDriver.
 os.environ["WDM_LOG"] = str(logging.NOTSET)
+# Обработчик консольных аргументов.
+CAP = ConsoleArgvProcessor(sys.argv)
 # Хранилище настроек.
 Settings = {
 	"authorization-token": "",
 	"format": "dmp-v1",
-	"min-delay": 5,
-	"max-delay": 15,
+	"min-delay": 1,
+	"max-delay": 5,
 	"use-proxy": False,
 	"selenium-mode": False,
 	"check-updates-period": 60,
 	"use-id-instead-slug": False,
 	"covers-directory": "",
 	"titles-directory": "",
-	"captcha-solver": {
-		"provider": "",
-		"api_key": ""
-	},
-	"debug": True
+	"retry-tries": 3,
+	"retry-delay": 15,
+	"debug": False
 }
 
 # Проверка доступности файла.
@@ -205,7 +206,6 @@ if len(sys.argv) >= 2:
 		with open(Settings["titles-directory"] + sys.argv[2], "w", encoding = "utf-8") as FileWrite:
 			json.dump(Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
-
 	# Парсинг тайтлов, обновлённых за указанный в настройках интервал.
 	elif sys.argv[1] == "update":
 		# Вывод в лог заголовка: обновление.
@@ -217,26 +217,54 @@ if len(sys.argv) >= 2:
 			TitlesList = os.listdir(Settings["titles-directory"])
 			# Фильтрация только файлов формата JSON.
 			TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
+			# Алиас стартового тайтла.
+			FromTitle = CAP.GetKeyValue("from")
 			# Индекс обрабатываемого тайтла.
 			CurrentTitleIndex = 0
-			# Запись в лог сообщения о количестве локальных тайтлов.
-			logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
-			# Вывод в лог заголовка: парсинг.
-			logging.info("====== Parcing ======")
 			# Алиасы тайтлов.
 			TitlesSlugs = list()
-
+			
 			# Чтение всех алиасов из локальных файлов.
 			for File in TitlesList:
 				# Открытие локального описательного файла JSON.
 				with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
 					# JSON файл тайтла.
 					LocalTitle = json.load(FileRead)
+
 					# Помещение алиаса в список.
 					if "slug" in LocalTitle.keys():
 						TitlesSlugs.append(str(LocalTitle["slug"]))
 					elif "dir" in LocalTitle.keys():
 						TitlesSlugs.append(str(LocalTitle["dir"]))
+
+			# Запись в лог сообщения: количество доступных для обновления тайтлов.
+			logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
+
+			# Старт с указанного тайтла.
+			if FromTitle is not None:
+				# Запись в лог сообщения: стартовый тайтл обновления.
+				logging.info("Updates starts from title with slug: \"" + FromTitle + "\".")
+				# Буферный список тайтлов.
+				BuferTitleSlugs = list()
+				# Состояние: записывать ли тайтлы.
+				IsWriteSlugs = False
+				
+				# Перебор тайтлов.
+				for Slug in TitlesSlugs:
+					
+					# Если обнаружен стартовый тайтл, то включить запись тайтлов в новый список обновлений.
+					if Slug == FromTitle:
+						IsWriteSlugs = True
+						
+					# Добавить алиас в список обновляемых тайтлов.
+					if IsWriteSlugs is True:
+						BuferTitleSlugs.append(Slug)
+
+				# Перезапись списка обновляемых тайтлов.
+				TitlesSlugs = BuferTitleSlugs
+				
+			# Запись в лог сообщения: заголовок парсинга.
+			logging.info("====== Parcing ======")
 
 			# Парсинг обновлённых тайтлов.
 			for Slug in TitlesSlugs:
@@ -245,9 +273,9 @@ if len(sys.argv) >= 2:
 				# Очистка терминала.
 				Cls()
 				# Вывод в терминал прогресса.
-				print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesSlugs)))
+				print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
 				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesSlugs)) + "\n"
+				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
 				# Парсинг тайтла.
 				LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
@@ -265,7 +293,7 @@ if len(sys.argv) >= 2:
 			UpdatedTitlesList = UpdateChecker.GetUpdatesList()
 			# Индекс обрабатываемого тайтла.
 			CurrentTitleIndex = 0
-			# Вывод в лог заголовка: парсинг.
+			# Запись в лог сообщения: заголовог парсинга.
 			logging.info("====== Parcing ======")
 
 			# Парсинг обновлённых тайтлов.
@@ -297,16 +325,23 @@ if len(sys.argv) >= 2:
 			IsUpdateProxiesFile = True
 
 		# Проверка каждого прокси.
-		for ProxyIndex in range(0, len(ProxiesList)):
-			# Вывод результата.
-			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
+		if len(ProxiesList) > 0:
+			for ProxyIndex in range(0, len(ProxiesList)):
+				# Вывод результата.
+				print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
 
-			# Выжидание интервала.
-			if ProxyIndex < len(ProxiesList) - 1:
-				Wait(Settings)
+				# Выжидание интервала.
+				if ProxyIndex < len(ProxiesList) - 1:
+					Wait(Settings)
+		
+		else:
+			# Вывод в консоль: файл определений не содержит прокси.
+			print("Proxies are missing.")
+			# Запись в лог предупреждения: файл определений не содержит прокси.
+			logging.warning("Proxies are missing.")
 
 		# Вывод в терминал сообщения о завершении работы.
-		print("\nStatus codes:\n0 – invalid\n1 – valid\n2 – forbidden\n3 – raise Cloudflare V2 captcha\n4 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
+		print("\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
 		# Закрытие менеджера.
 		RequestsManagerObject.Close()
 		# Пауза.
@@ -322,10 +357,8 @@ elif len(sys.argv) == 1:
 
 # Вывод в лог заголовка: завершение работы.
 logging.info("====== Exiting ======")
-
 # Очистка консоли.
 Cls()
-
 # Время завершения работы скрипта.
 EndTime = time.time()
 # Запись времени завершения работы скрипта.

@@ -1,3 +1,4 @@
+import string
 import sys
 import os
 import re
@@ -7,7 +8,7 @@ import re
 #==========================================================================================#
 
 # Вывод в консоль цветного текста.
-class ColoredPrinter(object):
+class ColoredPrinter:
 	
 	# Конструктор.
 	def __init__(self):
@@ -43,6 +44,71 @@ class ColoredPrinter(object):
 		else:
 			print(StyledText)
 
+# Обработчик консольных аргументов.
+class ConsoleArgvProcessor():
+
+	#==========================================================================================#
+	# >>>>> СВОЙСТВА <<<<< #
+	#==========================================================================================#
+
+	# Имя главного файла.
+	__MainFile = None
+	# Список аргументов командной строки.
+	__Argv = None
+
+	#==========================================================================================#
+	# >>>>> МЕТОДЫ <<<<< #
+	#==========================================================================================#
+
+	# Конструктор: задаёт описательную структуру тайтла.
+	def __init__(self, Argv: list):
+
+		#---> Генерация свойств.
+		#==========================================================================================#
+		self.__Argv = Argv
+
+		# Получение имени главного файла.
+		if "\\" in Argv[0]:
+			self.__MainFile = Argv[0].split('\\')[-1]
+		elif "/" in Argv[0]:
+			self.__MainFile = Argv[0].split('/')[-1]
+
+	# Проверяет совпадение команды с переданным шаблоном.
+	def CheckCommand(self, Command: str) -> bool:
+
+		# проверка соответствия команды шаблону.
+		if Command == self.__Argv[1]:
+			return True
+
+		return False
+
+	# Проверяет наличие флага.
+	def CheckFlag(self, Flag: str) -> bool:
+
+		# Проверка наличия флага в аргументах.
+		if Flag in self.__Argv:
+			return True
+
+		return False
+
+	# Возвращает команду.
+	def GetCommand(self):
+		return self.__Argv[1]
+
+	# Возвращает значение ключа аргумента.
+	def GetKeyValue(self, Key: str):
+		# Поиск ключа.
+		for Argument in self.__Argv:
+			
+			if Key in Argument and "=" in Argument:
+				return Argument.replace(Key + "=", "")
+
+		return None
+
+	# Возвращает название главного файла.
+	def GetMainFileName(self):
+		return self.__MainFile
+
 #==========================================================================================#
 # >>>>> ФУНКЦИИ <<<<< #
 #==========================================================================================#
@@ -76,6 +142,10 @@ def RenameDictKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:
 			Result[Key] = Dictionary[Key]
 
 	return Result
+
+# Удаляет непечатаемые символы.
+def RemoveNonPrintableSymbols(String: str) -> str:
+	return ''.join(filter(lambda c: c in string.printable, String))
 
 # Удаляет теги HTML из строки.
 def RemoveHTML(TextHTML: str) -> str:

@@ -9,9 +9,7 @@
 	"use-id-instead-slug": false,
 	"covers-directory": "",
 	"titles-directory": "",
-	"captcha-solver": {
-		"provider": "",
-		"api_key": ""
-	},
-	"debug": true
+	"retry-tries": 3,
+	"retry-delay": 15,
+	"debug": false
 }

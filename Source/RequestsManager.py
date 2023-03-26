@@ -453,10 +453,10 @@ class RequestsManager:
 		
 		# Повторять пока не будут получены данные или не сработает исключение.
 		while Status != 0:
-
+			print("MAX")
 			# Повторять пока не закончатся попытки.
 			while Status != 0 and CurrentTry <= self.__Settings["retry-tries"]:
-
+				print("min")
 				# Выжидание интервала при повторе.
 				if CurrentTry > 0:
 					# Запись в лог ошибки: не удалось выполнить запрос.
