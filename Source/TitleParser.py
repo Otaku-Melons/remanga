@@ -40,7 +40,7 @@ class TitleParser:
 	__ID = None
 
 	#==========================================================================================#
-	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
+	# >>>>> МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
 	# Возвращает структуру главы.
@@ -154,7 +154,7 @@ class TitleParser:
 		elif Response.status_code == 404:
 			# Перекючение парсера в неактивное состояние.
 			self.__IsActive = False
-			# Запись в лог предупреждения: невозможно получить доступ к 18+ тайтлу без токена авторизации.
+			# Запись в лог предупреждения: тайтл не найден.
 			logging.warning("Title: \"" + self.__TitleHeader + "\". Not found. Skipped.")
 
 		# Обработка любой другой ошибки запроса.
@@ -382,8 +382,10 @@ class TitleParser:
 				for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
 					# Очистка терминала.
 					Cls()
+
 					# Вывод в терминал прогресса.
-					print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
+					if AllBranchesChaptersCount - self.__MergedChaptersCount > 0:
+						print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
 
 					# Проверка отсутствия описанных страниц.
 					if "slides" not in self.__Title["chapters"][BranchID][ChapterIndex].keys():
@@ -548,11 +550,12 @@ class TitleParser:
 				self.DownloadCovers()
 
 			# Инициализатора конвертера.
-			FormattedTitle = Formatter(self.__Settings, self.__Title, "rn-v1")
+			FormatterObject = Formatter(self.__Settings, self.__Title, "rn-v1")
+			FormattedTitle = FormatterObject.Convert(self.__Settings["format"])
 
 			# Сохранение локального файла JSON.
 			with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
-				json.dump(FormattedTitle.Convert(self.__Settings["format"]), FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
+				json.dump(FormattedTitle, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
 				# Запись в лог сообщения о создании или обновлении локального файла.
 				if self.__MergedChaptersCount > 0:

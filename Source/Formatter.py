@@ -3,6 +3,7 @@ from Source.DUBLIB import RenameDictKey
 from PIL import Image
 
 import os
+import re
 
 # Исключение: не существует подходящего конвертера для указанных форматов.
 class UnableToConvert(Exception):
@@ -15,7 +16,7 @@ class UnableToConvert(Exception):
 	__Message = "There isn't suitable converter for these formats:"
 
 	#==========================================================================================#
-	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
+	# >>>>> МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
 	# Конструктор: вызывается при обработке исключения.
@@ -35,10 +36,10 @@ class UnknownFormat(Exception):
 	#==========================================================================================#
 
 	# Сообщение об ошибке.
-	__Message = "Couldn't recognize source ot target format:"
+	__Message = "Couldn't recognize source or target format:"
 
 	#==========================================================================================#
-	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
+	# >>>>> МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
 	# Конструктор: вызывается при обработке исключения.
@@ -186,35 +187,35 @@ class Formatter:
 			FormattedTitle["chapters"][BranchID] = list()
 
 			# Форматирование отдельных глав.
-			for ChapterIndex in range(0, len(self.__OriginalTitle["content"][BranchID])):
+			for ChapterIndex in range(0, len(self.__OriginalTitle["chapters"][BranchID])):
 
 				BuferChapter = dict()
-				BuferChapter["id"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["id"]
+				BuferChapter["id"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["id"]
 				BuferChapter["rated"] = None
 				BuferChapter["viewed"] = None
 				BuferChapter["is_bought"] = None
 				BuferChapter["publishers"] = list()
 				BuferChapter["index"] = ChapterIndex + 1
-				BuferChapter["tome"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["volume"]
-				BuferChapter["chapter"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["number"]
-				BuferChapter["name"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["name"]
+				BuferChapter["tome"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["volume"]
+				BuferChapter["chapter"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["number"]
+				BuferChapter["name"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["name"]
 				BuferChapter["price"] = None
 				BuferChapter["score"] = 0
 				BuferChapter["upload_date"] = str()
 				BuferChapter["pub_date"] = None
-				BuferChapter["is_paid"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["is-paid"]
+				BuferChapter["is_paid"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["is-paid"]
 				BuferChapter["slides"] = list()
 
 				# Переформатирование переводчиков.
-				if self.__OriginalTitle["content"][BranchID][ChapterIndex]["translator"] is not None:
+				if self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["translator"] is not None:
 					BuferPublisher = dict()
-					BuferPublisher["name"] = self.__OriginalTitle["content"][BranchID][ChapterIndex]["translator"]
+					BuferPublisher["name"] = self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["translator"]
 					BuferPublisher["dir"] = str()
 					BuferPublisher["type"] = 1
 					BuferChapter["publishers"].append(BuferPublisher)
 
 				# Переформатирование слайдов.
-				for Slide in self.__OriginalTitle["content"][BranchID][ChapterIndex]["slides"]:
+				for Slide in self.__OriginalTitle["chapters"][BranchID][ChapterIndex]["slides"]:
 					BuferSlide = dict()
 					BuferSlide["id"] = 0
 					BuferSlide["link"] = Slide["link"]
@@ -276,7 +277,7 @@ class Formatter:
 		FormattedTitle["genres"] = self.__OriginalTitle["genres"]
 		FormattedTitle["tags"] = self.__OriginalTitle["categories"]
 		FormattedTitle["branches"] = list()
-		FormattedTitle["content"] = dict()
+		FormattedTitle["chapters"] = dict()
 
 		#---> Внесение правок.
 		#==========================================================================================#
@@ -291,7 +292,7 @@ class Formatter:
 			# Сохранение результата.
 			FormattedTitle["branches"].append(CurrentBranch)
 
-		# Конвертирование контента.
+		# Конвертирование глав.
 		for CurrentBranchID in self.__OriginalTitle["chapters"].keys():
 			# Буфер текущей ветви.
 			CurrentBranch = list()
@@ -313,9 +314,9 @@ class Formatter:
 
 				# Перенос номера главы c конвертированием.
 				if '.' in Chapter["chapter"]:
-					CurrentChapter["number"] = float(Chapter["chapter"])
+					CurrentChapter["number"] = float(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))
 				else:
-					CurrentChapter["number"] = int(Chapter["chapter"])
+					CurrentChapter["number"] = int(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))
 
 				# Перенос переводчиков.
 				for Publisher in Chapter["publishers"]:
@@ -345,7 +346,7 @@ class Formatter:
 				CurrentBranch.append(CurrentChapter)
 
 			# Сохранение результата.
-			FormattedTitle["content"][CurrentBranchID] = CurrentBranch
+			FormattedTitle["chapters"][CurrentBranchID] = CurrentBranch
 
 		# Вычисление размера локальных обложек.
 		for CoverIndex in range(0, len(FormattedTitle["covers"])):
@@ -365,8 +366,8 @@ class Formatter:
 				FormattedTitle["covers"][CoverIndex]["width"], FormattedTitle["covers"][CoverIndex]["height"] = CoverImage.size
 
 		# Сортировка глав по возрастанию.
-		for BranchID in FormattedTitle["content"].keys():
-			FormattedTitle["content"][BranchID] = sorted(FormattedTitle["content"][BranchID], key = lambda d: d["id"]) 
+		for BranchID in FormattedTitle["chapters"].keys():
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: d["id"]) 
 
 		return FormattedTitle
 
@@ -435,11 +436,11 @@ class Formatter:
 		# Переформатирование глав.
 		for ChapterIndex in range(0, len(FormattedTitle["chapters"])):
 			FormattedTitle["chapters"][ChapterIndex] = RenameDictKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
-			FormattedTitle["chapters"][ChapterIndex]["chapter"] = float(FormattedTitle["chapters"][ChapterIndex]["chapter"])
+			FormattedTitle["chapters"][ChapterIndex]["chapter"] = float(re.search(r"\d+(\.\d+)?", str(FormattedTitle["chapters"][ChapterIndex]["chapter"])).group(0))
 
 			# Усечение нуля у float.
 			if ".0" in str(FormattedTitle["chapters"][ChapterIndex]["chapter"]):
-				FormattedTitle["chapters"][ChapterIndex]["chapter"] = int(FormattedTitle["chapters"][ChapterIndex]["chapter"])
+				FormattedTitle["chapters"][ChapterIndex]["chapter"] = int(re.search(r"\d+(\.\d+)?", str(FormattedTitle["chapters"][ChapterIndex]["chapter"]).replace(".0", "")).group(0))
 
 		# Сортировка глав по возрастанию.
 		FormattedTitle["chapters"] = sorted(FormattedTitle["chapters"], key = lambda d: d["id"]) 
@@ -447,7 +448,7 @@ class Formatter:
 		return FormattedTitle
 
 	#==========================================================================================#
-	# >>>>> МЕТОДЫ РАБОТЫ <<<<< #
+	# >>>>> МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
 	# Определяет тип тайтла.

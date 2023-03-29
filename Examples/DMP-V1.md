@@ -54,7 +54,7 @@
 			"chapters-count": 0
 		}
 	],
-	"content": {
+	"chapters": {
 		"0": [
 			{
 				"id": 0,
