@@ -54,10 +54,8 @@ class RequestsManager:
 	__Settings = dict()
 	# Хранилище прокси.
 	__Proxies = dict()
-	# Эземпляр браузера, управляемого Selenium.
+	# Экземпляр браузера, управляемого Selenium.
 	__Browser = None
-	# Состояние: идёт ли верификация.
-	__IsProxval = False
 
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ <<<<< #
@@ -196,31 +194,31 @@ class RequestsManager:
 			logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
 
 	# Обработать статусы ответов.
-	def __ProcessStatusCode(self, StatusCode: int, Proxy: dict):
+	def __ProcessStatusCode(self, Status: int, Proxy: dict):
 
 		# Обработка статусов ответа в режиме Selenium.
-		if self.__Settings["selenium-mode"] is True:
-			if StatusCode == 1 and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsInvalid(Proxy, StatusCode)
+		if self.__Settings["selenium-mode"] is True and self.__Settings["use-proxy"] is True:
+			if Status == 1:
+				self.__BlockProxyAsInvalid(Proxy)
 				self.__InitializeWebDriver()
-			elif StatusCode == 1 and self.__IsProxval is True:
-				self.__BlockProxyAsInvalid(Proxy, StatusCode)
+			elif Status == 2:
+				self.__BlockProxyAsForbidden(Proxy)
 				self.__InitializeWebDriver()
-			elif StatusCode == 0:
+			elif Status == 3:
+				raise requests.exceptions.HTTPError
+			elif Status == 0:
 				self.__RestoreProxyAsValid(Proxy)
 
 		# Обработка статусов ответа в режиме requests.
-		else: 
-			if StatusCode == 1 and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsInvalid(Proxy, StatusCode)
-			elif StatusCode == 1 and self.__IsProxval is True:
-				self.__BlockProxyAsInvalid(Proxy, StatusCode)
-			elif StatusCode == 0:
-				self.__RestoreProxyAsValid(Proxy)
-			elif StatusCode == 2 and self.__Settings["use-proxy"] is True:
-				self.__BlockProxyAsForbidden(Proxy, StatusCode)
-			elif StatusCode == 3:
+		elif self.__Settings["use-proxy"] is True: 
+			if Status == 1:
+				self.__BlockProxyAsInvalid(Proxy)
+			elif Status == 2:
+				self.__BlockProxyAsForbidden(Proxy)
+			elif Status == 3:
 				raise requests.exceptions.HTTPError
+			elif Status == 0:
+				self.__RestoreProxyAsValid(Proxy)
 
 	# Форматирует прокси в формат дополнения..
 	def __ProxyToExtensionFormat(self, Proxy: dict):
@@ -252,10 +250,10 @@ class RequestsManager:
 	def __RequestDataWith_requests(self, URL: str, Headers: dict, Proxy: dict):
 		# Сессия с обходом Cloudflare.
 		Scraper = cloudscraper.create_scraper()
-		# Статус ответа.
-		StatusCode = None
 		# Ответ сервера.
 		Response = None
+		# Статус ответа.
+		Status = None
 
 		# Интерпретация прокси.
 		if Proxy is None:
@@ -265,40 +263,36 @@ class RequestsManager:
 			# Попытка выполнения запроса.
 			Response = Scraper.get(URL, headers = Headers, proxies = Proxy)
 
+			# Если запрос успешен.
+			if Response.status_code in [200, 401, 404]:
+				Status = 0
+
 			# Если запрос отклонён сервером.
-			if Response.status_code == 403:
-				StatusCode = 2
+			elif Response.status_code == 403:
+				Status = 2
 
-			# Если запрос прошёл.
-			elif Response.status_code == 200:
-				StatusCode = 0
-
-			# Проверка других кодов, при которых необходимо повторить запрос.
+			# Если возникла ошибка на сервере.
 			elif Response.status_code in [502]:
-				raise requests.exceptions.HTTPError
+				Status = 3
 
 		# Обработка ошибки: прокси недоступен.
 		except requests.exceptions.ProxyError:
-			StatusCode = 0
+			Status = 1
 
 		# Обработка ошибки: запрошена капча Cloudflare V2.
 		except cloudscraper.exceptions.CloudflareChallengeError:
-			StatusCode = 2
+			Status = 2
 
-		# Обработка ошибки: ошибка со стороны сервера.
-		except requests.exceptions.HTTPError:
-			StatusCode = 3
-
-		return Response, StatusCode
+		return Response, Status
 
 	# Непосредственно выполняет запрос к серверу через JavaScript в браузере Google Chrome.
 	def __RequestDataWith_ChromeJavaScript(self, URL: str, Headers: dict, Proxy: dict):
-		# Статус ответа.
-		StatusCode = None
-		# Ответ сервера.
-		Response = ResponseEmulation()
 		# Скрипт XHR запроса.
 		Script = self.__BuildXHR(URL, Headers, Headers["content-type"])
+		# Ответ сервера.
+		Response = ResponseEmulation()
+		# Статус ответа.
+		Status = None
 
 		# Интерпретация прокси.
 		if Proxy is None:
@@ -312,6 +306,7 @@ class RequestsManager:
 
 			# Попытка выполнения запроса изображения.
 			if Headers["content-type"] == "image/jpeg":
+				logging.info("selenium jpeg")
 				Response.text = self.__Browser.execute_async_script(Script)
 
 				# Проверка получения изображения в формате Base64.
@@ -327,29 +322,29 @@ class RequestsManager:
 			else:
 				Response.text = self.__Browser.execute_script(Script)
 			
-			# Обработка пустого запроса.
+			# Обработка ответа для выяснения успешности.
 			if Response.text == "":
-				StatusCode = 2
+				Response.status_code = 403
+				Status = 2
+
 			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Для просмотра нужно авторизироваться":
 				Response.status_code = 401
-				StatusCode = 0
+				Status = 0
+
 			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Тайтл не найден":
 				Response.status_code = 404
-				StatusCode = 0
+				Status = 0
+
 			else:
 				Response.status_code = 200
-				StatusCode = 0
+				Status = 0
 
 		# Обработка ошибки: не удалось выполнить JavaScript или нерабочий прокси.
 		except (SeleniumExceptions.JavascriptException, SeleniumExceptions.WebDriverException):
-			Response = None
-			StatusCode = 1
-
-		# Обнуление эмулируемого контейнера ответа при ошибке запроса.
-		if StatusCode in [1, 2]:
-			Response = None
-
-		return Response, StatusCode
+			Response.status_code = 403
+			Status = 1
+		
+		return Response, Status
 
 	# Проверяет, находится ли активный прокси в валидном списке, и восстанавливает его.
 	def __RestoreProxyAsValid(self, Proxy: dict):
@@ -367,8 +362,8 @@ class RequestsManager:
 			self.__Proxies["proxies"].append(Proxy)
 			# Сохранение новой структуры прокси в файл.
 			self.__SaveProxiesJSON()
-			# Запись в лог сообщения: прокси помечен как недоступный.
-			logging.info("Proxy: " + str(Proxy) + " marked as valid.")
+			# Запись в лог сообщения: прокси помечен как доступный.
+			logging.info("Proxy: " + str(Proxy) + ". Marked as valid.")
 
 	# Сохраняет JSON с прокси.
 	def __SaveProxiesJSON(self):
@@ -444,23 +439,59 @@ class RequestsManager:
 		Response = None
 		# Статус ответа.
 		Status = None
-		# Текущий индекс попытки.
+		# Текущий индекс повтора.
 		CurrentTry = 0
 
 		# Установка заголовков по умолчанию.
 		if Headers is None:
 			Headers = self.__RequestHeaders
 		
-		# Повторять пока не будут получены данные или не сработает исключение.
-		while Status != 0:
-			print("MAX")
+		# Обработка повторов запроса с использованием прокси.
+		if self.__Settings["use-proxy"] is True:
+
+			# Повторять пока не будут получены данные или не сработает исключение.
+			while Status != 0:
+				# Обнуление индекса повторов прокси.
+				CurrentTry = 0
+				
+				# Повторять пока не закончатся попытки для каждого прокси.
+				while Status != 0 and CurrentTry <= self.__Settings["retry-tries"]:
+					
+					# Выжидание интервала при повторе.
+					if CurrentTry > 0:
+						# Запись в лог ошибки: не удалось выполнить запрос.
+						logging.error("Unable to request data with proxy: " + str(self.__CurrentProxy) + ". Retrying...")
+						# Реинициализация браузера.
+						self.__InitializeWebDriver()
+						# Выжидание интервала.
+						time.sleep(self.__Settings["retry-delay"])
+						
+
+					# Выполнение запроса в указанном режиме.
+					if self.__Settings["selenium-mode"] is True:
+						Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
+						
+					else:
+						Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
+
+					# Инкремент попыток повтора.
+					CurrentTry += 1
+
+				# Обработка кода статуса запроса.
+				self.__ProcessStatusCode(Status, self.__CurrentProxy)
+		
+		# Обработка повторов запроса без использования прокси.
+		else:
+
 			# Повторять пока не закончатся попытки.
 			while Status != 0 and CurrentTry <= self.__Settings["retry-tries"]:
-				print("min")
+				
 				# Выжидание интервала при повторе.
 				if CurrentTry > 0:
 					# Запись в лог ошибки: не удалось выполнить запрос.
-					logging.error("Unable to request data. Retrying... ")
+					logging.error("Unable to request data. Retrying...")
+					# Реинициализация браузера.
+					self.__InitializeWebDriver()
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
 
@@ -472,9 +503,6 @@ class RequestsManager:
 
 				# Инкремент попыток повтора.
 				CurrentTry += 1
-
-			# Обработка кода статуса запроса.
-			self.__ProcessStatusCode(Status, self.__CurrentProxy)
 
 		return Response
 
