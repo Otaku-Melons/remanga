@@ -107,6 +107,9 @@ if os.path.exists("Settings.json"):
 		else:
 			logging.info("Requests type: requests (Python library).")
 
+		# Приведение формата описательного файла к нижнему регистру.
+		Settings["format"] = Settings["format"].lower()
+
 		# Запись в шапку лога формата выходного файла.
 		logging.info("Output file format: \"" + Settings["format"] + "\".")
 
