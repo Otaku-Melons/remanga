@@ -436,6 +436,7 @@ class Formatter:
 		# Переформатирование глав.
 		for ChapterIndex in range(0, len(FormattedTitle["chapters"])):
 			FormattedTitle["chapters"][ChapterIndex] = RenameDictKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
+			FormattedTitle["chapters"][ChapterIndex] = RenameDictKey(FormattedTitle["chapters"][ChapterIndex], "name", "title")
 			FormattedTitle["chapters"][ChapterIndex]["chapter"] = float(re.search(r"\d+(\.\d+)?", str(FormattedTitle["chapters"][ChapterIndex]["chapter"])).group(0))
 
 			# Усечение нуля у float.
