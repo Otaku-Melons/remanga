@@ -1,9 +1,18 @@
+# Visual Studio project files.
 Remanga Parser.pyproj
-ProxyExtension.zip
 Remanga Parser.sln
-Source/__pycache__
+.vs
+
+# Python cache.
+__pycache__
+
+# Parced titles data.
 Covers
 Titles
 Logs
+
+# Google Chrome proxy extension archive.
+ProxyExtension.zip
+
+# WebDriver manager configuration.
 .wdm
-.vs

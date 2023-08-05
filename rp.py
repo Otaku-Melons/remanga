@@ -1,5 +1,14 @@
 #!/usr/bin/python
 
+from dublib.Methods import Shutdown, Cls, WriteJSON
+from Source.RequestsManager import RequestsManager
+from Source.Functions import SecondsToTimeString
+from Source.TitleParser import TitleParser
+from Source.Formatter import Formatter
+from dublib.Terminalyzer import *
+from Source.Functions import Wait
+from Source.Updater import Updater
+
 import datetime
 import logging
 import json
@@ -7,22 +16,12 @@ import time
 import sys
 import os
 
-from Source.RequestsManager import RequestsManager
-from Source.Functions import SecondsToTimeString
-from Source.DUBLIB import ConsoleArgvProcessor
-from Source.TitleParser import TitleParser
-from Source.Formatter import Formatter
-from Source.DUBLIB import Shutdown
-from Source.Functions import Wait
-from Source.Updater import Updater
-from Source.DUBLIB import Cls
-
 #==========================================================================================#
 # >>>>> ПРОВЕРКА ВЕРСИИ PYTHON <<<<< #
 #==========================================================================================#
 
 # Минимальная требуемая версия Python.
-PythonMinimalVersion = (3, 9)
+PythonMinimalVersion = (3, 10)
 # Проверка соответствия.
 if sys.version_info < PythonMinimalVersion:
 	sys.exit("Python %s.%s or later is required.\n" % PythonMinimalVersion)
@@ -32,7 +31,7 @@ if sys.version_info < PythonMinimalVersion:
 #==========================================================================================#
 
 # Создать директорию для логов, если такая отсутствует.
-if os.path.exists("Logs/") is False:
+if os.path.exists("Logs") is False:
 	os.makedirs("Logs")
 
 # Получение текущей даты.
@@ -48,6 +47,7 @@ logging.basicConfig(filename = LogFilename, encoding = "utf-8", level = logging.
 #==========================================================================================#
 # >>>>> ЧТЕНИЕ НАСТРОЕК <<<<< #
 #==========================================================================================#
+
 # Вывод в лог заголовка: подготовка скрипта к работе.
 logging.info("====== Preparing to starting ======")
 # Запись в лог используемой версии Python.
@@ -60,9 +60,7 @@ logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 os.environ["WDM_LOCAL"] = "1"
 # Отключение логов WebDriver.
 os.environ["WDM_LOG"] = str(logging.NOTSET)
-# Обработчик консольных аргументов.
-CAP = ConsoleArgvProcessor(sys.argv)
-# Хранилище настроек.
+# Глобальные настройки.
 Settings = {
 	"authorization-token": "",
 	"format": "dmp-v1",
@@ -83,7 +81,7 @@ Settings = {
 if os.path.exists("Settings.json"):
 
 	# Открытие файла настроек.
-	with open("Settings.json") as FileRead:
+	with open("Settings.json", encoding = "utf-8") as FileRead:
 		# Чтение настроек.
 		Settings = json.load(FileRead)
 		# Запись в лог сообщения об успешном чтении файла настроек.
@@ -110,11 +108,63 @@ if os.path.exists("Settings.json"):
 		# Приведение формата описательного файла к нижнему регистру.
 		Settings["format"] = Settings["format"].lower()
 
-		# Запись в шапку лога формата выходного файла.
+		# Запись в лог сообщения: формат выходного файла.
 		logging.info("Output file format: \"" + Settings["format"] + "\".")
 
+		# Запись в лог сообщения: использование ID вместо алиаса.
+		if Settings["use-id-instead-slug"] == True:
+			logging.info("Using ID instead slug: ON.")
+		else:
+			logging.info("Using ID instead slug: OFF.")
+
 #==========================================================================================#
-# >>>>> ОБРАБОТКА СПЕЦИАЛЬНЫХ ФЛАГОВ <<<<< #
+# >>>>> НАСТРОЙКА ОБРАБОТЧИКА КОМАНД <<<<< #
+#==========================================================================================#
+
+# Список описания обрабатываемых команд.
+CommandsList = list()
+
+# Создание команды: convert.
+COM_convert = Command("convert")
+COM_convert.addArgument(ArgumentType.All, Important = True)
+COM_convert.addArgument(ArgumentType.All, Important = True)
+COM_convert.addArgument(ArgumentType.All, Important = True)
+COM_convert.addFlagPosition(["s"])
+CommandsList.append(COM_convert)
+
+# Создание команды: getcov.
+COM_getcov = Command("getcov")
+COM_getcov.addArgument(ArgumentType.All, Important = True)
+COM_getcov.addFlagPosition(["f"])
+COM_getcov.addFlagPosition(["s"])
+CommandsList.append(COM_getcov)
+
+# Создание команды: parce.
+COM_parce = Command("parce")
+COM_parce.addArgument(ArgumentType.All, Important = True)
+COM_parce.addFlagPosition(["f"])
+COM_parce.addFlagPosition(["s"])
+CommandsList.append(COM_parce)
+
+# Создание команды: proxval.
+COM_proxval = Command("parce")
+COM_proxval.addFlagPosition(["s"])
+CommandsList.append(COM_proxval)
+
+# Создание команды: update.
+COM_update = Command("update")
+COM_update.addArgument(ArgumentType.All, Important = True)
+COM_update.addFlagPosition(["s"])
+COM_update.addKeyPosition(["from"], ArgumentType.All)
+CommandsList.append(COM_update)
+
+# Инициализация обработчика консольных аргументов.
+CAC = Terminalyzer()
+# Получение информации о проверке команд.
+CommandDataStruct = CAC.checkCommands(CommandsList)
+
+#==========================================================================================#
+# >>>>> ОБРАБОТКА ФЛАГОВ <<<<< #
 #==========================================================================================#
 
 # Активна ли опция выключения компьютера по завершении работы парсера.
@@ -127,10 +177,10 @@ IsForceModeActivated = False
 InFuncMessage_ForceMode = ""
 
 # Обработка флага: режим перезаписи.
-if "-f" in sys.argv and "proxval" not in sys.argv:
+if "f" in CommandDataStruct.Flags and "proxval" != CommandDataStruct.Name:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
-	# Запись в лог сообщения о включении режима перезаписи.
+	# Запись в лог сообщения: включён режим перезаписи.
 	logging.info("Force mode: ON.")
 	# Установка сообщения для внутренних функций.
 	InFuncMessage_ForceMode = "Force mode: ON\n"
@@ -142,7 +192,7 @@ else:
 	InFuncMessage_ForceMode = "Force mode: OFF\n"
 
 # Обработка флага: выключение ПК после завершения работы скрипта.
-if "-s" in sys.argv:
+if "s" in CommandDataStruct.Flags:
 	# Включение режима.
 	IsShutdowAfterEnd = True
 	# Запись в лог сообщения о том, что ПК будет выключен после завершения работы.
@@ -151,214 +201,211 @@ if "-s" in sys.argv:
 	InFuncMessage_Shutdown = "Computer will be turned off after the parser is finished!\n"
 
 #==========================================================================================#
-# >>>>> ОБРАБОТКА ОСНОВНЫХ КОММАНД <<<<< #
+# >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
 
-# Двухкомпонентные команды: getcov, parce.
-if len(sys.argv) >= 3:
+# Обработка команды: convert.
+if "convert" == CommandDataStruct.Name:
+	# Запись в лог сообщения: конвертирование.
+	logging.info("====== Converting ======")
+	# Структура тайтла.
+	Title = None
+	# Имя файла тайтла.
+	Filename = None	
 
-	# Парсинг тайтла.
-	if sys.argv[1] == "parce":
-		# Вывод в лог заголовка: парсинг.
-		logging.info("====== Parcing ======")
-		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
-		# Сохранение локальных файлов тайтла.
-		LocalTitle.Save()
+	# Добавление расширения к файлу в случае отсутствия такового.
+	if ".json" not in CommandDataStruct.Arguments[0]:
+		Filename = CommandDataStruct.Arguments[0] + ".json"
 
-	# Загрузка обложки.
-	elif sys.argv[1] == "getcov":
-		# Вывод в лог заголовка: парсинг.
-		logging.info("====== Parcing ======")
-		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, sys.argv[2], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
-		# Сохранение локальных файлов тайтла.
-		LocalTitle.DownloadCovers()
+	# Чтение тайтла.
+	with open(Settings["titles-directory"] + Filename, encoding = "utf-8") as FileRead:
+		# Декодирование файла.
+		Title = json.load(FileRead)
+		# Исходный формат.
+		SourceFormat = None
 
-# Однокомпонентные команды: convert, proxval, update.
-if len(sys.argv) >= 2:
+		# Определение исходного формата.
+		if CommandDataStruct.Arguments[1] == "-auto":
 
-	# Конвертирование описательных тайтлов в указанный формат.
-	if sys.argv[1] == "convert":
-		# Структура тайтла.
-		Title = None
-		
-		# Добавление расширения к файлу в случае отсутствия такового.
-		if ".json" not in sys.argv[2]:
-			sys.argv[2] += ".json"
-
-		# Чтение тайтла.
-		with open(Settings["titles-directory"] + sys.argv[2], encoding = "utf-8") as FileRead:
-			# Декодирование файла.
-			Title = json.load(FileRead)
-			# Исходный формат.
-			SourceFormat = None
-
-			# Определение исходного формата.
-			if sys.argv[3] == "-auto":
+			# Если формат указан.
+			if "format" in Title.keys():
 				SourceFormat = Title["format"]
-			else:
-				SourceFormat = sys.argv[3]
 
-			# Создание объекта форматирования.
-			FormatterObject = Formatter(Settings, Title, Format = SourceFormat)
-			# Конвертирование структуры тайтла.
-			Title = FormatterObject.Convert(sys.argv[4])
-
-		# Сохранение переформатированного описательного файла.
-		with open(Settings["titles-directory"] + sys.argv[2], "w", encoding = "utf-8") as FileWrite:
-			json.dump(Title, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
-
-	# Парсинг тайтлов, обновлённых за указанный в настройках интервал.
-	elif sys.argv[1] == "update":
-		# Вывод в лог заголовка: обновление.
-		logging.info("====== Updating ======")
-
-		# Обновить все локальные файлы.
-		if len(sys.argv) >= 3 and sys.argv[2] == "-local":
-			# Получение списка файлов в директории.
-			TitlesList = os.listdir(Settings["titles-directory"])
-			# Фильтрация только файлов формата JSON.
-			TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
-			# Алиас стартового тайтла.
-			FromTitle = CAP.GetKeyValue("from")
-			# Индекс обрабатываемого тайтла.
-			CurrentTitleIndex = 0
-			# Алиасы тайтлов.
-			TitlesSlugs = list()
-			
-			# Чтение всех алиасов из локальных файлов.
-			for File in TitlesList:
-				# Открытие локального описательного файла JSON.
-				with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
-					# JSON файл тайтла.
-					LocalTitle = json.load(FileRead)
-
-					# Помещение алиаса в список.
-					if "slug" in LocalTitle.keys():
-						TitlesSlugs.append(str(LocalTitle["slug"]))
-					elif "dir" in LocalTitle.keys():
-						TitlesSlugs.append(str(LocalTitle["dir"]))
-
-			# Запись в лог сообщения: количество доступных для обновления тайтлов.
-			logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
-
-			# Старт с указанного тайтла.
-			if FromTitle is not None:
-				# Запись в лог сообщения: стартовый тайтл обновления.
-				logging.info("Updates starts from title with slug: \"" + FromTitle + "\".")
-				# Буферный список тайтлов.
-				BuferTitleSlugs = list()
-				# Состояние: записывать ли тайтлы.
-				IsWriteSlugs = False
-				
-				# Перебор тайтлов.
-				for Slug in TitlesSlugs:
-					
-					# Если обнаружен стартовый тайтл, то включить запись тайтлов в новый список обновлений.
-					if Slug == FromTitle:
-						IsWriteSlugs = True
-						
-					# Добавить алиас в список обновляемых тайтлов.
-					if IsWriteSlugs is True:
-						BuferTitleSlugs.append(Slug)
-
-				# Перезапись списка обновляемых тайтлов.
-				TitlesSlugs = BuferTitleSlugs
-				
-			# Запись в лог сообщения: заголовок парсинга.
-			logging.info("====== Parcing ======")
-
-			# Парсинг обновлённых тайтлов.
-			for Slug in TitlesSlugs:
-				# Инкремент текущего индекса.
-				CurrentTitleIndex += 1
-				# Очистка терминала.
-				Cls()
-				# Вывод в терминал прогресса.
-				print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
-				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
-				# Парсинг тайтла.
-				LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
-				# Сохранение локальных файлов тайтла.
-				LocalTitle.Save()
-
-				# Выжидание указанного интервала, если не все обложки загружены.
-				if CurrentTitleIndex < len(TitlesSlugs):
-					Wait(Settings)
-
-		# Обновить изменённые на сервере за последнее время тайтлы.
 		else:
-			# Инициализация проверки обновлений.
-			UpdateChecker = Updater(Settings)
-			# Получение списка обновлённых тайтлов.
-			UpdatedTitlesList = UpdateChecker.GetUpdatesList()
-			# Индекс обрабатываемого тайтла.
-			CurrentTitleIndex = 0
-			# Запись в лог сообщения: заголовог парсинга.
-			logging.info("====== Parcing ======")
+			SourceFormat = CommandDataStruct.Arguments[1]
 
-			# Парсинг обновлённых тайтлов.
-			for Slug in UpdatedTitlesList:
-				# Инкремент текущего индекса.
-				CurrentTitleIndex += 1
-				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
-				# Парсинг тайтла.
-				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
-				# Сохранение локальных файлов тайтла.
-				LocalTitle.Save()
+		# Создание объекта форматирования.
+		FormatterObject = Formatter(Settings, Title, Format = SourceFormat)
+		# Конвертирование структуры тайтла.
+		Title = FormatterObject.convert(CommandDataStruct.Arguments[2])
 
-	# Проверка валидности прокси-серверов.
-	elif sys.argv[1] == "proxval":
-		# Вывод в лог заголовка: обновление.
-		logging.info("====== Validation ======")
-		# Очистка консоли.
-		Cls()
-		# Инициализация менеджера прокси.
-		RequestsManagerObject = RequestsManager(Settings, True)
-		# Список всех прокси.
-		ProxiesList = RequestsManagerObject.GetProxies()
-		# Переключатель: обновлять ли файл определений прокси.
-		IsUpdateProxiesFile = False
+	# Сохранение переформатированного описательного файла.
+	WriteJSON(Settings["titles-directory"] + Filename, Title)
 
-		# Проверка флага для обновления файла определений прокси.
-		if "-f" in sys.argv:
-			IsUpdateProxiesFile = True
+# Обработка команды: getcov.
+if "getcov" == CommandDataStruct.Name:
+	# Запись в лог сообщения: заголовок парсинга.
+	logging.info("====== Parcing ======")
+	# Парсинг тайтла.
+	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
+	# Сохранение локальных файлов тайтла.
+	LocalTitle.DownloadCovers()
 
-		# Проверка каждого прокси.
-		if len(ProxiesList) > 0:
-			for ProxyIndex in range(0, len(ProxiesList)):
-				# Вывод результата.
-				print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
+# Обработка команды: parce.
+if "parce" == CommandDataStruct.Name:
+	# Запись в лог сообщения: парсинг.
+	logging.info("====== Parcing ======")
+	# Парсинг тайтла.
+	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
+	# Сохранение локальных файлов тайтла.
+	LocalTitle.Save()
 
-				# Выжидание интервала.
-				if ProxyIndex < len(ProxiesList) - 1:
-					Wait(Settings)
+# Обработка команды: proxval.
+if "proxval" == CommandDataStruct.Name:
+	# Запись в лог сообщения: валидация.
+	logging.info("====== Validation ======")
+	# Очистка консоли.
+	Cls()
+	# Инициализация менеджера прокси.
+	RequestsManagerObject = RequestsManager(Settings, True)
+	# Список всех прокси.
+	ProxiesList = RequestsManagerObject.GetProxies()
+	# Переключатель: обновлять ли файл определений прокси.
+	IsUpdateProxiesFile = False
+
+	# Проверка флага для обновления файла определений прокси.
+	if "f" in CommandDataStruct.Flags:
+		IsUpdateProxiesFile = True
+
+	# Проверка каждого прокси.
+	if len(ProxiesList) > 0:
+		for ProxyIndex in range(0, len(ProxiesList)):
+			# Вывод результата.
+			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
+
+			# Выжидание интервала.
+			if ProxyIndex < len(ProxiesList) - 1:
+				Wait(Settings)
 		
-		else:
-			# Вывод в консоль: файл определений не содержит прокси.
-			print("Proxies are missing.")
-			# Запись в лог предупреждения: файл определений не содержит прокси.
-			logging.warning("Proxies are missing.")
+	else:
+		# Вывод в консоль: файл определений не содержит прокси.
+		print("Proxies are missing.")
+		# Запись в лог предупреждения: файл определений не содержит прокси.
+		logging.warning("Proxies are missing.")
 
-		# Вывод в терминал сообщения о завершении работы.
-		print("\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
-		# Закрытие менеджера.
-		RequestsManagerObject.Close()
-		# Пауза.
-		input()
+	# Вывод в терминал сообщения о завершении работы.
+	print("\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
+	# Закрытие менеджера.
+	RequestsManagerObject.Close()
+	# Пауза.
+	input()
 
-# Обработка исключения: недостаточно аргументов.
-elif len(sys.argv) == 1:
-	logging.error("Not enough arguments.")
+# Обработка команды: update.
+if "update" == CommandDataStruct.Name:
+	# Запись в лог сообщения: получение списка обновлений.
+	logging.info("====== Updating ======")
+
+	# Обновить все локальные файлы.
+	if "-local" in CommandDataStruct.Arguments:
+		# Получение списка файлов в директории.
+		TitlesList = os.listdir(Settings["titles-directory"])
+		# Фильтрация только файлов формата JSON.
+		TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
+		# Алиас стартового тайтла.
+		FromTitle = CommandDataStruct.Values["from"]
+		# Индекс обрабатываемого тайтла.
+		CurrentTitleIndex = 0
+		# Алиасы тайтлов.
+		TitlesSlugs = list()
+			
+		# Чтение всех алиасов из локальных файлов.
+		for File in TitlesList:
+			# Открытие локального описательного файла JSON.
+			with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
+				# JSON файл тайтла.
+				LocalTitle = json.load(FileRead)
+
+				# Помещение алиаса в список.
+				if "slug" in LocalTitle.keys():
+					TitlesSlugs.append(str(LocalTitle["slug"]))
+				elif "dir" in LocalTitle.keys():
+					TitlesSlugs.append(str(LocalTitle["dir"]))
+
+		# Запись в лог сообщения: количество доступных для обновления тайтлов.
+		logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
+
+		# Старт с указанного тайтла.
+		if FromTitle is not None:
+			# Запись в лог сообщения: стартовый тайтл обновления.
+			logging.info("Updating starts from title with slug: \"" + FromTitle + "\".")
+			# Буферный список тайтлов.
+			BuferTitleSlugs = list()
+			# Состояние: записывать ли тайтлы.
+			IsWriteSlugs = False
+				
+			# Перебор тайтлов.
+			for Slug in TitlesSlugs:
+					
+				# Если обнаружен стартовый тайтл, то включить запись тайтлов в новый список обновлений.
+				if Slug == FromTitle:
+					IsWriteSlugs = True
+						
+				# Добавить алиас в список обновляемых тайтлов.
+				if IsWriteSlugs is True:
+					BuferTitleSlugs.append(Slug)
+
+			# Перезапись списка обновляемых тайтлов.
+			TitlesSlugs = BuferTitleSlugs
+				
+		# Запись в лог сообщения: заголовок парсинга.
+		logging.info("====== Parcing ======")
+
+		# Парсинг обновлённых тайтлов.
+		for Slug in TitlesSlugs:
+			# Инкремент текущего индекса.
+			CurrentTitleIndex += 1
+			# Очистка терминала.
+			Cls()
+			# Вывод в терминал прогресса.
+			print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
+			# Генерация сообщения.
+			ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+			# Парсинг тайтла.
+			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
+			# Сохранение локальных файлов тайтла.
+			LocalTitle.Save()
+
+			# Выжидание указанного интервала, если не все обложки загружены.
+			if CurrentTitleIndex < len(TitlesSlugs):
+				Wait(Settings)
+
+	# Обновить изменённые на сервере за последнее время тайтлы.
+	else:
+		# Инициализация проверки обновлений.
+		UpdateChecker = Updater(Settings)
+		# Получение списка обновлённых тайтлов.
+		UpdatedTitlesList = UpdateChecker.GetUpdatesList()
+		# Индекс обрабатываемого тайтла.
+		CurrentTitleIndex = 0
+		# Запись в лог сообщения: заголовог парсинга.
+		logging.info("====== Parcing ======")
+
+		# Парсинг обновлённых тайтлов.
+		for Slug in UpdatedTitlesList:
+			# Инкремент текущего индекса.
+			CurrentTitleIndex += 1
+			# Генерация сообщения.
+			ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
+			# Парсинг тайтла.
+			LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
+			# Сохранение локальных файлов тайтла.
+			LocalTitle.Save()
 
 #==========================================================================================#
 # >>>>> ЗАВЕРШЕНИЕ РАБОТЫ СКРИПТА <<<<< #
 #==========================================================================================#
 
-# Вывод в лог заголовка: завершение работы.
+# Запись в лог сообщения: заголовок завершения работы скрипта.
 logging.info("====== Exiting ======")
 # Очистка консоли.
 Cls()

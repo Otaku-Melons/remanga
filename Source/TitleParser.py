@@ -3,7 +3,7 @@ from Source.Functions import GetRandomUserAgent
 from Source.Functions import MergeListOfLists
 from Source.Formatter import Formatter
 from Source.Functions import Wait
-from Source.DUBLIB import Cls
+from dublib.Methods import Cls
 
 import logging
 import shutil
@@ -11,37 +11,6 @@ import json
 import os
 
 class TitleParser:
-
-	#==========================================================================================#
-	# >>>>> СВОЙСТВА <<<<< #
-	#==========================================================================================#
-
-	# Количество скопированных из локального файла глав.
-	__MergedChaptersCount  = 0
-	# Менеджер запросов через прокси.
-	__RequestsManager = None
-	# Заголовки запроса.
-	__RequestHeaders = None
-	# Заголовок тайтла для логов и вывода в терминал.
-	__TitleHeader = None
-	# Состояние: включена ли перезапись файлов.
-	__ForceMode = True
-	# Глобальные настройки.
-	__Settings = dict()
-	# Состояние: получено ли описание тайтла.
-	__IsActive = True
-	# Словарь описания тайтла.
-	__Title = dict()
-	# Сообщение из внешнего обработчика.
-	__Message = ""
-	# Алиас тайтла.
-	__Slug = None
-	# ID тайтла.
-	__ID = None
-
-	#==========================================================================================#
-	# >>>>> МЕТОДЫ <<<<< #
-	#==========================================================================================#
 
 	# Возвращает структуру главы.
 	def __GetChapterData(self, ChepterID: str) -> dict:
@@ -177,18 +146,20 @@ class TitleParser:
 		LocalTitle = None
 		# Счётчик перемещённых глав.
 		self.__MergedChaptersCount = 0
-		# Запись в лог сообщения о том, что найден локальный файл описания тайтла.
-		logging.info("Title: \"" + self.__TitleHeader + "\". Local JSON already exists. Trying to merge...")
+
+		# Если включён режим перезаписи.
+		if self.__ForceMode == True:
+			# Запись в лог сообщения: найден локальный описательный файл тайтла.
+			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Will be overwritten...")
+		else:
+			# Запись в лог сообщения: найден локальный описательный файл тайтла.
+			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Trying to merge...")
 		
 		# Открытие локального описательного файла JSON.
 		with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", encoding = "utf-8") as FileRead:
-			# Локальная описательная структура тайтла.
-			LocalTitle = None
-			# Список ID локальных ветвей.
-			LocalBranchesID = list()
 
-			# Попытка прочитать файл.
 			try:
+				# Попытка прочитать файл.
 				LocalTitle = json.load(FileRead)
 
 			except json.decoder.JSONDecodeError:
@@ -204,7 +175,7 @@ class TitleParser:
 				# Инициализатора конвертера.
 				Converter = Formatter(self.__Settings, LocalTitle, "htmp-v1")
 				# Конвертирование формата в htcrn-v1.
-				LocalTitle = Converter.Convert("htcrn-v1")
+				LocalTitle = Converter.convert("htcrn-v1")
 				# Список ID всех ветвей.
 				AllBranchesID = list()
 				
@@ -241,7 +212,7 @@ class TitleParser:
 				# Инициализатора конвертера.
 				Converter = Formatter(self.__Settings, LocalTitle, OriginalFormat)
 				# Конвертирование формата в htcrn-v1.
-				LocalTitle = Converter.Convert(CompatibleFormat)
+				LocalTitle = Converter.convert(CompatibleFormat)
 
 				# Получение списка ветвей.
 				for Branch in LocalTitle["branches"]:
@@ -278,7 +249,7 @@ class TitleParser:
 						# Запись в лог: доступна ветвь с большим количеством глав.
 						logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
 
-				# Запись в лог сообщения о завершении объединения локального и удалённого файлов.
+				# Запись в лог сообщения: завершение слияния.
 				if self.__MergedChaptersCount > 0:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
 				else:
@@ -291,13 +262,29 @@ class TitleParser:
 		# Генерация User-Agent.
 		UserAgent = GetRandomUserAgent()
 
-		#---> Генерация свойств.
+		#---> Генерация динамических свойств.
 		#==========================================================================================#
-		self.__Settings = Settings
-		self.__Slug = Slug
-		self.__ForceMode = ForceMode
+		# Количество скопированных из локального файла глав.
+		self.__MergedChaptersCount  = 0
+		# Менеджер запросов через прокси.
+		self.__RequestsManager = RequestsManager(Settings)
+		# Заголовок тайтла для логов и вывода в терминал.
 		self.__TitleHeader = Slug
+		# Состояние: включена ли перезапись файлов.
+		self.__ForceMode = ForceMode
+		# Глобальные настройки.
+		self.__Settings = Settings.copy()
+		# Состояние: получено ли описание тайтла.
+		self.__IsActive = True
+		# Словарь описания тайтла.
+		self.__Title = dict()
+		# Сообщение из внешнего обработчика.
 		self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
+		# Алиас тайтла.
+		self.__Slug = Slug
+		# ID тайтла.
+		self.__ID = None
+		# Заголовки запроса.
 		self.__RequestHeaders = {
 			"authorization": self.__Settings["authorization-token"],
 			"accept": "*/*",
@@ -307,8 +294,7 @@ class TitleParser:
 			"referer": "https://remanga.org/",
 			"referrerPolicy": "strict-origin-when-cross-origin",
 			"User-Agent": UserAgent
-			}
-		self.__RequestsManager = RequestsManager(Settings)
+		}
 
 		# Если токена авторизации нет, то удалить заголовок.
 		if self.__RequestHeaders["authorization"] == "":
@@ -347,12 +333,14 @@ class TitleParser:
 
 			#---> Дополнение каркаса данными о страницах глав.
 			#==========================================================================================#
+			# Если выключен режим перезаписи.
+			if self.__ForceMode == False:
 
-			# Слияние локальной и удалённой ветвей, либо выбор текущей ветви.
-			if os.path.exists(self.__Settings["titles-directory"] + Slug + ".json"):
-				self.__Title = self.__MergeBranches(Slug)
-			elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
-				self.__Title = self.__MergeBranches(self.__ID)
+				# Слияние с локальным описательным файлом.
+				if os.path.exists(self.__Settings["titles-directory"] + Slug + ".json"):
+					self.__Title = self.__MergeBranches(Slug)
+				elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
+					self.__Title = self.__MergeBranches(self.__ID)
 
 			# Получение недостающих данных о страницах глав.
 			if Amending == True:
@@ -404,6 +392,8 @@ class TitleParser:
 							Wait(self.__Settings)
 
 						else:
+							# Создание пустого списка слайдов.
+							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = list()
 							# Запись в лог сообщения о платной главе.
 							logging.info("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
 
@@ -419,7 +409,7 @@ class TitleParser:
 			CoversURL = list()
 			# Очистка терминала.
 			Cls()
-			# Вывод сообщения из внешнего обработчика и заголовка.
+			# Вывод в консоль: сообщение из внешнего обработчика и алиас обрабатываемого тайтла.
 			print(self.__Message, end = "")
 			# Модифицированные заголовки для получения изображения.
 			ImageRequestHeaders = self.__RequestHeaders
@@ -453,9 +443,13 @@ class TitleParser:
 					elif os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + URL.split('/')[-1]):
 						shutil.rmtree(self.__Settings["covers-directory"] + self.__ID) 
 
-				# Удаление папки с алиасом в названии, если используются ID.
+				# Удаление папки для обложек с алиасом в названии, если используются ID.
 				if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["covers-directory"] + self.__Slug + "/" + URL.split('/')[-1]):
 					shutil.rmtree(self.__Settings["covers-directory"] + self.__Slug)
+
+				# Удаление папки для обложек с ID в названии, если используется алиас.
+				if self.__Settings["use-id-instead-slug"] == False and os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + URL.split('/')[-1]):
+					shutil.rmtree(self.__Settings["covers-directory"] + self.__ID)
 
 				# Проверка существования файла.
 				if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1]) == False:
@@ -502,7 +496,7 @@ class TitleParser:
 				if DownloadedCoversCounter < 3 and DownloadedCoversCounter > 0:
 					Wait(self.__Settings)
 
-			# Запись в лог сообщения о количестве загруженных обложек.
+			# Запись в лог сообщения: количество загруженных обложек.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + ".")
 
 	# Сохраняет локальный JSON файл.
@@ -518,28 +512,15 @@ class TitleParser:
 			UsedTitleName = self.__ID
 
 		# Если парсер активен.
-		if self.__IsActive == True:
+		if self.__IsActive == True:		
 
-			# Удаление существующего файла, если включен режим перезаписи.
-			if self.__ForceMode == True:
-
-				# Удалить файл с алиасом в названии.
-				if os.path.exists(self.__Settings["titles-directory"] + self.__Slug + ".json"):
-					# Удаление файла.
-					os.remove(self.__Settings["titles-directory"] + self.__Slug + ".json")
-					# Запись в лог сообщения о перезаписи файла.
-					logging.info("Title: \"" + self.__TitleHeader + "\". Already exists. Will be overwritten...")
-
-				# Удалить файл с ID в названии.
-				elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
-					# Удаление файла.
-					os.remove(self.__Settings["titles-directory"] + self.__ID + ".json")
-					# Запись в лог сообщения о перезаписи файла.
-					logging.info("Title: \"" + self.__TitleHeader + "\". Already exists. Will be overwritten...")
-
-			# Удаление файла с алиасом в названии, если используются ID.
+			# Удаление локального описательного файла с алиасом в названии, если используются ID.
 			if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["titles-directory"] + self.__Slug + ".json"):
 				os.remove(self.__Settings["titles-directory"] + self.__Slug + ".json")
+
+			# Удаление локального описательного файла с ID в названии, если используются алиас.
+			if self.__Settings["use-id-instead-slug"] == False and os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
+				os.remove(self.__Settings["titles-directory"] + self.__ID + ".json")
 
 			# Создание папки для тайтлов.
 			if os.path.exists(self.__Settings["titles-directory"]) == False:
@@ -549,15 +530,15 @@ class TitleParser:
 			if DownloadCovers == True:
 				self.DownloadCovers()
 
-			# Инициализатора конвертера.
+			# Инициализация конвертера.
 			FormatterObject = Formatter(self.__Settings, self.__Title, "rn-v1")
-			FormattedTitle = FormatterObject.Convert(self.__Settings["format"])
+			FormattedTitle = FormatterObject.convert(self.__Settings["format"])
 
 			# Сохранение локального файла JSON.
 			with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
 				json.dump(FormattedTitle, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
-				# Запись в лог сообщения о создании или обновлении локального файла.
+				# Запись в лог сообщения: создан или обновлён локальный файл.
 				if self.__MergedChaptersCount > 0:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
