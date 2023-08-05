@@ -4,10 +4,11 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [random_user_agent](https://github.com/Luqman-Ud-Din/random_user_agent), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Selenium](https://github.com/SeleniumHQ/selenium), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [random_user_agent](https://github.com/Luqman-Ud-Din/random_user_agent), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Selenium](https://github.com/SeleniumHQ/selenium), [Pillow](https://github.com/python-pillow/Pillow).
 ```
 pip install random_user_agent
 pip install webdriver-manager
+pip install BeautifulSoup4
 pip install cloudscraper
 pip install Selenium
 pip install Pillow
@@ -145,6 +146,20 @@ ___
 
 # Proxies.json
 ```JSON
+"selenium-validator": {
+		"url": "{IP_CHECKER_URL}",
+		"tag": "{IP_CONTAIER_TAG}",
+		"properties": {
+			"{PROPERTY_NAME}": "{PROPERTY_VALUE}"
+		}
+	}
+```
+Указывает данные сайта для валидации прокси:
+* _url_ – адрес сайта, определяющего IP подключения;
+* _tag_ – название HTML-тега, содержащего только IP;
+* _properties_ – словарное представление свойств тега для поиска IP при помощи [BeautifulSoup4](https://launchpad.net/beautifulsoup).
+___
+```JSON
 "example": [
 		{
 			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{PORT}"
@@ -156,7 +171,7 @@ ___
 ```
 Указывает два примера настройки для публичного и приватного (требующего логин и пароль) прокси-серверов. Не влияет на работу скрипта.
 
-> **Warning**
+> [!WARNING]  
 > Несмотря на использование протокола HTTPS, в описании приватного прокси-сервера необходимо прописывать «_http://_». Это связано с особенностями распознавания настроек прокси в библиотеке [requests](https://github.com/psf/requests).
 ___
 ```JSON

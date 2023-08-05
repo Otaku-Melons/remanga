@@ -1,4 +1,12 @@
 {
+	"selenium-validator": {
+		"url": "https://whoer.net/",
+		"tag": "strong",
+		"properties": {
+			"data-clipboard-target": ".your-ip",
+			"class": "your-ip"
+		}
+	},
 	"example": [
 		{
 			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{PORT}"

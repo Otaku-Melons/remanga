@@ -1,5 +1,6 @@
 webdriver-manager
 random_user_agent
+BeautifulSoup4
 cloudscraper
 Selenium
 Pillow

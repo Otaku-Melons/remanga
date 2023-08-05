@@ -147,7 +147,7 @@ COM_parce.addFlagPosition(["s"])
 CommandsList.append(COM_parce)
 
 # Создание команды: proxval.
-COM_proxval = Command("parce")
+COM_proxval = Command("proxval")
 COM_proxval.addFlagPosition(["s"])
 CommandsList.append(COM_proxval)
 

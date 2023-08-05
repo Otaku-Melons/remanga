@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from Source.Functions import GetRandomUserAgent
 from Source.Extension import ProxiesExtension
 from selenium import webdriver
+from bs4 import BeautifulSoup
 
 import cloudscraper
 import requests
@@ -383,6 +384,7 @@ class RequestsManager:
 
 		#---> Загрузка и валидация прокси-серверов.
 		#==========================================================================================#
+
 		# Чтение файла определений прокси, если необходимо.
 		try:
 			if Settings["use-proxy"] is True or LoadProxy is True:
@@ -504,8 +506,6 @@ class RequestsManager:
 		URL = "https://api.remanga.org/api/titles/last-chapters/?page=1&count=20"
 		# Возвращает код статуса прокси: 0 – валиден, 1 – недоступен, 2 – заблокирован, 3 – ошибка сервера. 
 		StatusCode = None
-		# Изменение состояния валидации.
-		self.__IsProxval = True
 		# Заголовки запроса.
 		Headers = {
 			"accept": "*/*",
@@ -518,11 +518,24 @@ class RequestsManager:
 		
 		# Выполнение запроса с прокси или без.
 		if self.__Settings["selenium-mode"] is True:
-			# Удаление ненужных заголовков.
-			del Headers["referer"]
-			del Headers["referrerPolicy"]
-			# Выполнение запроса через интерпретатор JavaScript в Google Chrome.
-			Response, StatusCode = self.__RequestDataWith_ChromeJavaScript(URL, Headers, Proxy)
+
+			try:
+				# Переход на указанную страницу валидации.
+				self.__Browser.get(self.__Proxies["selenium-validator"]["url"])
+				# HTML код тела страницы после полной загрузки.
+				BodyHTML = str(self.__Browser.execute_script("return document.body.innerHTML;"))
+				# Получение текущего IP согласно настройкам.
+				CurrentIP = BeautifulSoup(BodyHTML, "html.parser").find(self.__Proxies["selenium-validator"]["tag"], self.__Proxies["selenium-validator"]["properties"]).get_text().strip()
+
+				# Если текущий IP такой же, как у прокси.
+				if CurrentIP == Proxy["https"].split('@')[1].split(':')[0]:
+					StatusCode = 0
+
+				else:
+					StatusCode = 1
+
+			except Exception:
+				StatusCode = 1
 
 		else:
 			# Генерация User-Agent.
