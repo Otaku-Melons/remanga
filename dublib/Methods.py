@@ -23,7 +23,7 @@ def MergeDictionaries(FirstDictionary: dict, SecondDictionary: dict) -> dict:
 	# Скопировать значения отсутствующих в оригинале ключей.
 	for Key in SecondDictionary.keys():
 		if Key not in FirstDictionary.keys():
-			DictionaryOne[Key] = DictionaryTwo[Key]
+			FirstDictionary[Key] = SecondDictionary[Key]
 
 	return FirstDictionary
 

@@ -481,7 +481,7 @@ class TitleParser:
 
 					else:
 						# Запись в лог сообщения о неудачной попытке загрузки обложки.
-						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + URL + "\". Response code: " + str(Response.status_code == 200) + ".")
+						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + URL + "\". Response code: " + str(Response.status_code) + ".")
 						# Вывод в терминал сообщения об успешной загрузке.
 						print("Failure!")
 						# Выжидание указанного интервала, если не все обложки загружены.

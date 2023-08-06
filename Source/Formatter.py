@@ -1,6 +1,7 @@
 from dublib.Methods import MergeDictionaries, RenameDictionaryKey, RemoveHTML
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
+import logging
 import os
 import re
 
@@ -713,13 +714,19 @@ class Formatter:
 			# Буфер изображения.
 			CoverImage = None
 
-			# Поиск локальных файлов обложек c ID в названии.
-			if self.__Settings["use-id-instead-slug"] is True and os.path.exists(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
-				CoverImage = Image.open(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+			try:
 
-			# Поиск локальных файлов обложек c алиасом в названии.
-			elif self.__Settings["use-id-instead-slug"] is False and os.path.exists(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
-				CoverImage = Image.open(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+				# Поиск локальных файлов обложек c ID в названии.
+				if self.__Settings["use-id-instead-slug"] is True and os.path.exists(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
+					CoverImage = Image.open(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+
+				# Поиск локальных файлов обложек c алиасом в названии.
+				elif self.__Settings["use-id-instead-slug"] is False and os.path.exists(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
+					CoverImage = Image.open(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+
+			except UnidentifiedImageError:
+				# Запись в лог ошибки: неизвестная ошибка при чтении изображения.
+				logging.error("Resolution of the cover couldn't be determined.")
 
 			# Получение размеров.
 			if CoverImage is not None:
