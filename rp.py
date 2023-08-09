@@ -5,9 +5,9 @@ from Source.RequestsManager import RequestsManager
 from Source.Functions import SecondsToTimeString
 from Source.TitleParser import TitleParser
 from Source.Formatter import Formatter
+from Source.Updater import Updater
 from dublib.Terminalyzer import *
 from Source.Functions import Wait
-from Source.Updater import Updater
 
 import datetime
 import logging
@@ -52,8 +52,6 @@ logging.basicConfig(filename = LogFilename, encoding = "utf-8", level = logging.
 logging.info("====== Preparing to starting ======")
 # Запись в лог используемой версии Python.
 logging.info("Starting with Python " + str(sys.version_info.major) + "." + str(sys.version_info.minor) + "." + str(sys.version_info.micro) + " on " + str(sys.platform) + ".")
-# Запись времени начала работы скрипта.
-logging.info("Script started at " + str(CurrentDate)[:-7] + ".")
 # Запись команды, использовавшейся для запуска скрипта.
 logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 # Расположении папки установки веб-драйвера в директории скрипта.
@@ -61,21 +59,7 @@ os.environ["WDM_LOCAL"] = "1"
 # Отключение логов WebDriver.
 os.environ["WDM_LOG"] = str(logging.NOTSET)
 # Глобальные настройки.
-Settings = {
-	"authorization-token": "",
-	"format": "dmp-v1",
-	"min-delay": 1,
-	"max-delay": 5,
-	"use-proxy": False,
-	"selenium-mode": False,
-	"check-updates-period": 60,
-	"use-id-instead-slug": False,
-	"covers-directory": "",
-	"titles-directory": "",
-	"retry-tries": 3,
-	"retry-delay": 15,
-	"debug": False
-}
+Settings = None
 
 # Проверка доступности файла.
 if os.path.exists("Settings.json"):
@@ -84,8 +68,6 @@ if os.path.exists("Settings.json"):
 	with open("Settings.json", encoding = "utf-8") as FileRead:
 		# Чтение настроек.
 		Settings = json.load(FileRead)
-		# Запись в лог сообщения об успешном чтении файла настроек.
-		logging.info("Settings file was found.")
 
 		# Интерпретация выходной директории обложек и коррекция пути.
 		if Settings["covers-directory"] == "":
@@ -116,6 +98,9 @@ if os.path.exists("Settings.json"):
 			logging.info("Using ID instead slug: ON.")
 		else:
 			logging.info("Using ID instead slug: OFF.")
+
+else:
+	raise Exception("Settings.json not found")
 
 #==========================================================================================#
 # >>>>> НАСТРОЙКА ОБРАБОТЧИКА КОМАНД <<<<< #
@@ -276,7 +261,7 @@ if "proxval" == CommandDataStruct.Name:
 	# Инициализация менеджера прокси.
 	RequestsManagerObject = RequestsManager(Settings, True)
 	# Список всех прокси.
-	ProxiesList = RequestsManagerObject.GetProxies()
+	ProxiesList = RequestsManagerObject.getProxies()
 	# Переключатель: обновлять ли файл определений прокси.
 	IsUpdateProxiesFile = False
 
@@ -288,7 +273,7 @@ if "proxval" == CommandDataStruct.Name:
 	if len(ProxiesList) > 0:
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
-			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.ValidateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
+			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.validateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
 
 			# Выжидание интервала.
 			if ProxyIndex < len(ProxiesList) - 1:
@@ -303,7 +288,7 @@ if "proxval" == CommandDataStruct.Name:
 	# Вывод в терминал сообщения о завершении работы.
 	print("\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
 	# Закрытие менеджера.
-	RequestsManagerObject.Close()
+	RequestsManagerObject.close()
 	# Пауза.
 	input()
 
@@ -399,7 +384,7 @@ if "update" == CommandDataStruct.Name:
 		# Инициализация проверки обновлений.
 		UpdateChecker = Updater(Settings)
 		# Получение списка обновлённых тайтлов.
-		UpdatedTitlesList = UpdateChecker.GetUpdatesList()
+		UpdatedTitlesList = UpdateChecker.getUpdatesList()
 		# Индекс обрабатываемого тайтла.
 		CurrentTitleIndex = 0
 		# Запись в лог сообщения: заголовог парсинга.
@@ -427,7 +412,7 @@ Cls()
 # Время завершения работы скрипта.
 EndTime = time.time()
 # Запись времени завершения работы скрипта.
-logging.info("Script finished at " + str(datetime.datetime.now())[:-7] + ". Execution time: " + SecondsToTimeString(EndTime - StartTime) + ".")
+logging.info("Script finished. Execution time: " + SecondsToTimeString(EndTime - StartTime) + ".")
 
 # Удаление остаточных файлов.
 if os.path.exists("ProxyExtension.zip"):

@@ -1,11 +1,16 @@
+import shutil
 import html
 import json
 import sys
 import os
 import re
 
-# Проверяет, имеются ли кирилические символы в строке.
 def CheckForCyrillicPresence(Text: str) -> bool:
+	"""
+	Проверяет, имеются ли кирилические символы в строке.
+		Text – проверяемая строка.
+	"""
+
 	# Русский алфавит в нижнем регистре.
 	Alphabet = set("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 	# Состояние: содержит ли строка кирилические символы.
@@ -13,22 +18,33 @@ def CheckForCyrillicPresence(Text: str) -> bool:
 
 	return TextContainsCyrillicCharacters
 
-# Очищает консоль.
 def Cls():
+	"""
+	Очищает консоль (кроссплатформенная функция).
+	"""
+
 	os.system("cls" if os.name == "nt" else "clear")
 
-# Объединяет словари без перезаписи.
 def MergeDictionaries(FirstDictionary: dict, SecondDictionary: dict) -> dict:
+	"""
+	Объединяет словари без перезаписи значений уже существующих ключей.
+		FirstDictionary – словарь, в который идёт копирование.
+		SecondDictionary – словарь, из котрого идёт копирование.
+	"""
 
-	# Скопировать значения отсутствующих в оригинале ключей.
+	# Для каждого ключа, если таковой отсутствует в первом словаре, то скопировать его.
 	for Key in SecondDictionary.keys():
 		if Key not in FirstDictionary.keys():
 			FirstDictionary[Key] = SecondDictionary[Key]
 
 	return FirstDictionary
 
-# Считывает JSON файл в словарь.
 def ReadJSON(Path: str) -> dict:
+	"""
+	Считывает JSON файл в словарь.
+		Path – путь к файлу JSON.
+	"""
+
 	# Словарь для преобразования.
 	JSON = dict()
 
@@ -38,8 +54,31 @@ def ReadJSON(Path: str) -> dict:
 
 	return JSON
 
-# Удаляет теги HTML из строки, а также преобразует спецсимволы HTML в Unicode.
+def RemoveFolderContent(Path: str):
+	"""
+	Удаляет все папки и файлы внутри директории.
+		Path – путь к директории.
+	"""
+
+	# Список содержимого в папке.
+	FolderContent = os.listdir(Path)
+
+	# Для каждого элемента.
+	for Item in FolderContent:
+
+		# Если элемент является папкой.
+		if os.path.isdir(Path + "/" + Item):
+			shutil.rmtree(Path + "/" + Item)
+
+		else:
+			os.remove(Path + "/" + Item)
+
 def RemoveHTML(TextHTML: str) -> str:
+	"""
+	Удаляет теги HTML из строки, а также преобразует спецсимволы HTML в Unicode.
+		TextHTML – строка, имеющая HTML-разметку.
+	"""
+
 	# Конвертирование спецсимволов HTML в Unicode.
 	TextHTML = html.unescape(TextHTML)
 	# Регулярное выражение фильтрации тегов HTML.
@@ -49,8 +88,12 @@ def RemoveHTML(TextHTML: str) -> str:
 
 	return str(CleanText)
 
-# Удаляет из строки подряд идущие повторяющиеся подстроки.
 def RemoveRecurringCharacters(String: str, Substring: str) -> str:
+	"""
+	Удаляет из строки подряд идущие повторяющиеся подстроки.
+		String – строка, из которой удаляются повторы;
+		Substring – удаляемая подстрока.
+	"""
 
 	# Пока в строке находятся повторы указанного символа, удалять их.
 	while Substring + Substring in String:
@@ -58,8 +101,13 @@ def RemoveRecurringCharacters(String: str, Substring: str) -> str:
 
 	return String
 
-# Удаляет из строки все вхождения подстрок, совпадающие с регулярным выражением.
 def RemoveRegexSubstring(String: str, Regex: str) -> str:
+	"""
+	Удаляет из строки все вхождения подстрок, совпадающие с регулярным выражением.
+		String – обрабатываемая строка;
+		Regex – регулярное выражение для поиска подстрок.
+	"""
+
 	# Поиск всех совпадений.
 	RegexSubstrings = re.findall(Regex, String)
 
@@ -69,8 +117,14 @@ def RemoveRegexSubstring(String: str, Regex: str) -> str:
 
 	return String
 
-# Переименовывает ключ в словаре, сохраняя исходный порядок.
 def RenameDictionaryKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:
+	"""
+	Переименовывает ключ в словаре, сохраняя исходный порядок.
+		Dictionary – обрабатываемый словарь;
+		OldKey – старое название ключа;
+		NewKey – новое название ключа.
+	"""
+
 	# Результат выполнения.
 	Result = dict()
 
@@ -85,14 +139,26 @@ def RenameDictionaryKey(Dictionary: dict, OldKey: str, NewKey: str) -> dict:
 
 	return Result
 
-# Выключает ПК.
 def Shutdown():
+	"""
+	Выключает питание устройства (кроссплатформенная функция).
+	"""
+
+	# Если устройство работает под управлением ОС семейства linux.
 	if sys.platform in ["linux", "linux2"]:
 		os.system("sudo shutdown now")
+
+	# Если устройство работает под управлением ОС семейства Windows.
 	elif sys.platform == "win32":
 		os.system("shutdown /s")
 
-# Сохраняет стилизованный JSON файл.
 def WriteJSON(Path: str, Dictionary: dict):
+	"""
+	Сохраняет стилизованный JSON файл. Для отступов используются символы табуляции, новая строка проставляется после запятых, а после двоеточий добавляется пробел.
+		Path – путь к существующему или будущему файлу JSON;
+		Dictionary – словарь, записываемый в формат JSON.
+	"""
+
+	# Запись словаря в JSON файл.
 	with open(Path, "w", encoding = "utf-8") as FileWrite:
 		json.dump(Dictionary, FileWrite, ensure_ascii = False, indent = '\t', separators = (",", ": "))

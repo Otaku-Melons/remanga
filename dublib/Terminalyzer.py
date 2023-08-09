@@ -4,12 +4,10 @@ from urllib.parse import urlparse
 import enum
 import sys
 
-# Перечисление: типы аргументов.
 class ArgumentType(enum.Enum):
-
-	#==========================================================================================#
-	# >>>>> СТАТИЧЕСКИЕ СВОЙСТВА <<<<< #
-	#==========================================================================================#
+	"""
+	Перечисление типов аргументов.
+	"""
 
 	All = "@all"
 	Number = "@number"
@@ -17,11 +15,16 @@ class ArgumentType(enum.Enum):
 	URL = "@url"
 	Unknown = None
 	
-# Контейнер команды.
 class Command:
+	"""
+	Контейнер для описания команды.
+	"""
 
-	# Подсчитывает максимальное количество аргументов.
 	def __CalculateMaxArgc(self):
+		"""
+		Подсчитывает максимальное количество аргументов.
+		"""
+
 		# Обнуление значения.
 		self.__MaxArgc = 0
 
@@ -31,8 +34,11 @@ class Command:
 		# Подсчёт аргументов.
 		self.__MaxArgc += len(self.__Arguments)
 
-	# Подсчитывает минимальное количество аргументов.
 	def __CalculateMinArgc(self):
+		"""
+		Подсчитывает минимальное количество аргументов.
+		"""
+
 		# Обнуление значения.
 		self.__MinArgc = 0
 		
@@ -51,8 +57,11 @@ class Command:
 			if Argument["important"] == True:
 				self.__MinArgc += 1
 				
-	# Конструктор: задаёт название команды.
 	def __init__(self, Name: str):
+		"""
+		Конструктор.
+			Name – название команды.
+		"""
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -73,24 +82,39 @@ class Command:
 		# Минимальное количество аргументов.
 		self.__MinArgc = 0
 
-	# Добавляет аргумент к команде.
 	def addArgument(self, Type: ArgumentType = ArgumentType.All, Important: bool = False):
+		"""
+		Добавляет аргумент к команде.
+			Type – тип аргумента;
+			Important – является ли аргумент обязательным.
+		"""
+
 		# Запись аргумента в описание команды.
 		self.__Arguments.append({"type": Type, "important": Important})
 		# Вычисление максимального и минимального количества аргументов.
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
 
-	# Добавляет позицию для флага к команде.
 	def addFlagPosition(self, Flags: list, Important: bool = False):
+		"""
+		Добавляет позицию для флага к команде.
+			Flags – список названий флагов;
+			Important – является ли флаг обязательным.
+		"""
+
 		# Запись позиции ключа в описание команды.
 		self.__FlagsPositions.append({"names": Flags, "important": Important})
 		# Вычисление максимального и минимального количества аргументов. 
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
 
-	# Добавляет позицию для ключа к команде.
 	def addKeyPosition(self, Keys: list, Types: list[ArgumentType] | ArgumentType, Important: bool = False):
+		"""
+		Добавляет позицию для ключа к команде.
+			Keys – список названий ключей;
+			Types – список типов значений для конкретных ключей или один тип для всех значений;
+			Important – является ли ключ обязательным.
+		"""
 
 		# Если для всех значений установлен один тип аргумента.
 		if type(Types) == ArgumentType:
@@ -110,57 +134,96 @@ class Command:
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
 
-	# Возвращает список аргументов.
 	def getArguments(self) -> list:
+		"""
+		Возвращает список аргументов.
+		"""
+
 		return self.__Arguments
 
-	# Возвращает индикатор флага.
 	def getFlagIndicator(self) -> str:
+		"""
+		Возвращает индикатор флага.
+		"""
+
 		return self.__FlagIndicator
 
-	# Возвращает список позиций флагов.
 	def getFlagsPositions(self) -> list:
+		"""
+		Возвращает список позиций флагов.
+		"""
+
 		return self.__FlagsPositions
 
-	# Возвращает индикатор ключа.
 	def getKeyIndicator(self) -> str:
+		"""
+		Возвращает индикатор ключа.
+		"""
+
 		return self.__KeyIndicator
 
-	# Возвращает список ключей.
 	def getKeysPositions(self) -> list:
+		"""
+		Возвращает список ключей.
+		"""
+
 		return self.__KeysPositions
 
-	# Возвращает максимальное количество аргументов.
 	def getMaxArgc(self) -> int:
+		"""
+		Возвращает максимальное количество аргументов.
+		"""
+
 		return self.__MaxArgc
 
-	# Возвращает минимальное количество аргументов.
 	def getMinArgc(self) -> int:
-		return self.__MinArgc
+		"""
+		Возвращает минимальное количество аргументов.
+		"""
 
-	# Возвращает название команды.
+		return self.__MinArgc
+ 
 	def getName(self) -> str:
+		"""
+		Возвращает название команды.
+		"""
+
 		return self.__Name
 
-	# Задаёт индикатор флага.
 	def setFlagIndicator(self, FlagIndicator: str):
+		"""
+		Задаёт индикатор флага.
+			FlagIndicator – индикатор флага.
+		"""
 
 		# Если новый индикатор флага не повторяет индикатор ключа.
 		if FlagIndicator != self.__KeyIndicator:
 			self.__FlagIndicator = FlagIndicator
 
-	# Задаёт индикатор ключа.
 	def setKeyIndicator(self, KeyIndicator: str):
+		"""
+		Задаёт индикатор ключа.
+			KeyIndicator – индикатор ключа.
+		"""
 
 		# Если новый индикатор ключа не повторяет индикатор флага.
 		if KeyIndicator != self.__FlagIndicator:
 			self.__KeyIndicator = KeyIndicator
 
-# Контейнер данных проверки команды.
 class CommandData:
+	"""
+	Контейнер для хранения данных используемой команды.
+	"""
 
-	# Конструктор: задаёт списки активированных флагов и ключей, значения ключей и аргумента.
 	def __init__(self, Name: str, Flags: list[str] = list(), Keys: list[str] = list(), Values: dict[str, str] = dict(), Arguments: list[str] = list()):
+		"""
+		Конструктор.
+			Name – название команды;
+			Flags – список активированных флагов;
+			Keys – список активированных ключей;
+			Values – словарь значений активированных ключей;
+			Arguments – список аргументов.
+		"""
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -175,7 +238,6 @@ class CommandData:
 		# Название команды.
 		self.Name = Name
 
-	# Преобразователь: представляет содержимое класса как строку.
 	def __str__(self):
 		return str({
 			"name": self.Name, 
@@ -184,11 +246,16 @@ class CommandData:
 			"arguments": self.Arguments
 		})
 
-# Обработчик консольных аргументов.
-class Terminalyzer():
+class Terminalyzer:
+	"""
+	Обработчик консольных аргументов.
+	"""
 
-	# Проверяет соответвтсие количества аргументов.
 	def __CheckArgc(self, CommandDescription: Command):
+		"""
+		Проверяет соответвтсие количества аргументов.
+			CommandDescription – описательная структура команды.
+		"""
 
 		# Если аргументов слишком много.
 		if len(self.__Argv) - 1 > CommandDescription.getMaxArgc():
@@ -198,8 +265,12 @@ class Terminalyzer():
 		if len(self.__Argv) - 1 < CommandDescription.getMinArgc():
 			raise NotEnoughArguments(" ".join(self.__Argv))
 
-	# Возвращает список активных флагов.
 	def __CheckFlags(self, CommandDescription: Command) -> list:
+		"""
+		Возвращает список активных флагов.
+			CommandDescription – описательная структура команды.
+		"""
+
 		# Список позиций флагов.
 		FlagsPositions = CommandDescription.getFlagsPositions()
 		# Индикатор флага.
@@ -232,8 +303,12 @@ class Terminalyzer():
 
 		return Flags
 
-	# Возвращает словарь активных ключей и их содержимое.
 	def __CheckKeys(self, CommandDescription: Command) -> dict:
+		"""
+		Возвращает словарь активных ключей и их содержимое.
+			CommandDescription – описательная структура команды.
+		"""
+
 		# Список позиций ключей.
 		KeysPositions = CommandDescription.getKeysPositions()
 		# Индикатор ключа.
@@ -272,8 +347,12 @@ class Terminalyzer():
 
 		return Keys
 
-	# Возвращает значение аргумента.
 	def __CheckArgument(self, CommandDescription: Command) -> str:
+		"""
+		Возвращает значение аргумента.
+			CommandDescription – описательная структура команды.
+		"""
+
 		# Значения аргументов.
 		Values = list()
 		# Список возможных аргументов.
@@ -307,8 +386,12 @@ class Terminalyzer():
 
 		return Values
 		
-	# Проверяет значение аргумента.
 	def __CheckArgumentType(self, Value: str, Type: ArgumentType = ArgumentType.All) -> bool:
+		"""
+		Проверяет значение аргумента.
+			Value – значение аргумента;
+			Type – тип аргумента.
+		"""
 		
 		# Если требуется проверить специфический тип аргумента.
 		if Type != ArgumentType.All:
@@ -336,15 +419,21 @@ class Terminalyzer():
 
 		return True
 
-	# Проверяет соответствие названия команды.
 	def __CheckName(self, CommandDescription: Command) -> bool:
+		"""
+		Проверяет соответствие названия команды.
+			CommandDescription – описательная структура команды.
+		"""
+	
 		if CommandDescription.getName() == self.__Argv[0]:
 			return True
 
 		return False
 
-	# Конструктор.
 	def __init__(self):
+		"""
+		Конструктор.
+		"""
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -355,8 +444,11 @@ class Terminalyzer():
 		# Кэшированные данные команды.
 		self.__CommandData = None
 		
-	# Задаёт команду для проверки. Возвращает результат проверки.
 	def checkCommand(self, CommandDescription: Command) -> CommandData | None:
+		"""
+		Задаёт команду для проверки. Возвращает результат проверки.
+			CommandDescription – описательная структура команды.
+		"""
 
 		# Если название команды соответствует.
 		if self.__CheckName(CommandDescription) == True:
@@ -378,36 +470,16 @@ class Terminalyzer():
 				# Данные проверки команды.
 				self.__CommandData = CommandData(Name, Flags, list(Keys.keys()), Keys, Arguments)
 
-			return self.__CommandData
+		return self.__CommandData
 
-		return None
-
-	# Задаёт команды для проверки. Возвращает результат проверки.
 	def checkCommands(self, CommandsDescriptions: list[Command]) -> CommandData | None:
+		"""
+		Задаёт список команд для проверки. Возвращает результат проверки.
+			CommandDescription – описательная структура команды.
+		"""
 
-		# Для каждой проверяемой команды.
+		# Проверить каждую команду из списка.
 		for CurrentCommand in CommandsDescriptions:
-			
-			# Если название команды соответствует.
-			if self.__CheckName(CurrentCommand) == True:
-				
-				# Если данные команды не кэшированы.
-				if self.__CommandData == None:
-					# Заполнение статусов позиций аргументов.
-					self.__PositionsStatuses = [False] * (len(self.__Argv) - 1)
-					# Проверка соответствия количества аргументов.
-					self.__CheckArgc(CurrentCommand)
-					# Получение названия команды.
-					Name = CurrentCommand.getName()
-					# Проверка активированных флагов.
-					Flags = self.__CheckFlags(CurrentCommand)
-					# Проверка активированных ключей.
-					Keys = self.__CheckKeys(CurrentCommand)
-					# Проверка присутствия аргумента.
-					Arguments = self.__CheckArgument(CurrentCommand)
-					# Данные проверки команды.
-					self.__CommandData = CommandData(Name, Flags, list(Keys.keys()), Keys, Arguments)
+			self.checkCommand(CurrentCommand)
 
-				return self.__CommandData
-
-		return None
+		return self.__CommandData

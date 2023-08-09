@@ -3,9 +3,6 @@ Remanga Parser.pyproj
 Remanga Parser.sln
 .vs
 
-# Python cache.
-__pycache__
-
 # Parced titles data.
 Covers
 Titles
@@ -13,6 +10,9 @@ Logs
 
 # Google Chrome proxy extension archive.
 ProxyExtension.zip
+
+# Python cache.
+__pycache__
 
 # WebDriver manager configuration.
 .wdm

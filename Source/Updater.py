@@ -6,21 +6,6 @@ import logging
 import json
 
 class Updater:
-    
-    #==========================================================================================#
-	# >>>>> СВОЙСТВА <<<<< #
-	#==========================================================================================#
-
-	# Менеджер запросов через прокси.
-	__RequestsManager = None
-	# Заголовки запроса.
-	__RequestHeaders = None
-	# Глобальные настройки.
-	__Settings = dict()
-
-	#==========================================================================================#
-	# >>>>> МЕТОДЫ <<<<< #
-	#==========================================================================================#
 
 	# Конвертирует секунды в миллисекунды.
 	def __SecondsToMilliseconds(self, Seconds: int):
@@ -36,9 +21,13 @@ class Updater:
 		# Генерация User-Agent.
 		UserAgent = GetRandomUserAgent()
 
-		#---> Генерация свойств.
+		#---> Генерация динамичкских свойств.
 		#==========================================================================================#
-		self.__Settings = Settings
+		# Глобальные настройки.
+		self.__Settings = Settings.copy()
+		# Менеджер запросов через прокси.
+		self.__RequestsManager = RequestsManager(Settings)
+		# Заголовки запроса.
 		self.__RequestHeaders = {
 			"authorization": self.__Settings["authorization-token"],
 			"accept": "*/*",
@@ -48,15 +37,14 @@ class Updater:
 			"referer": "https://remanga.org/",
 			"referrerPolicy": "strict-origin-when-cross-origin",
 			"User-Agent": UserAgent
-			}
-		self.__RequestsManager = RequestsManager(Settings)
-
+		}
+		
 		# Если токена авторизации нет, то удалить заголовок.
 		if self.__RequestHeaders["authorization"] == "":
 			del self.__RequestHeaders["authorization"]
 
 	# Возвращает список алиасов обновлённых тайтлов.
-	def GetUpdatesList(self) -> list:
+	def getUpdatesList(self) -> list:
 		# Список алиасов обновлённых тайтлов.
 		Updates = list()
 		# Промежуток времени для проверки обновлений.

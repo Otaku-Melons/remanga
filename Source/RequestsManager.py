@@ -410,14 +410,14 @@ class RequestsManager:
 			self.__InitializeWebDriver()
 
 	# Закрывает экземпляр браузера.
-	def Close(self):
+	def close(self):
 		try:
 			self.__Browser.close()
 		except Exception:
 			pass
 
 	# Возвращает список прокси.
-	def GetProxies(self, ProxiesType: str = "all"):
+	def getProxies(self, ProxiesType: str = "all"):
 		if ProxiesType == "invalid":
 			return self.__Proxies["invalid-proxies"]
 		elif ProxiesType == "forbidden":
@@ -428,7 +428,7 @@ class RequestsManager:
 			return self.__Proxies["proxies"] + self.__Proxies["forbidden-proxies"] + self.__Proxies["invalid-proxies"]
 
 	# Проводит запрос к API Remanga и интерпретирует результаты.
-	def Request(self, URL: str, Headers: dict = None):
+	def request(self, URL: str, Headers: dict = None):
 		# Ответ сервера.
 		Response = None
 		# Статус ответа.
@@ -501,7 +501,7 @@ class RequestsManager:
 		return Response
 
 	# Проверяет валидность прокси сервера.
-	def ValidateProxy(self, Proxy: dict, UpdateFile: bool = False) -> int:
+	def validateProxy(self, Proxy: dict, UpdateFile: bool = False) -> int:
 		# Тестовый URL запроса.
 		URL = "https://api.remanga.org/api/titles/last-chapters/?page=1&count=20"
 		# Возвращает код статуса прокси: 0 – валиден, 1 – недоступен, 2 – заблокирован, 3 – ошибка сервера. 

@@ -1,9 +1,9 @@
+from dublib.Methods import Cls, ReadJSON, RemoveFolderContent
 from Source.RequestsManager import RequestsManager
 from Source.Functions import GetRandomUserAgent
 from Source.Functions import MergeListOfLists
 from Source.Formatter import Formatter
 from Source.Functions import Wait
-from dublib.Methods import Cls
 
 import logging
 import shutil
@@ -19,7 +19,7 @@ class TitleParser:
 		# Описание ветви перевода.
 		ChapterData = None
 		# Выполнение запроса.
-		Response = self.__RequestsManager.Request(ChaptersAPI)
+		Response = self.__RequestsManager.request(ChaptersAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -56,7 +56,7 @@ class TitleParser:
 			# Модификатор для доступа к API глав.
 			ChaptersAPI = "https://api.remanga.org/api/titles/chapters/?branch_id=" + BranchID + "&count=" + str(ChaptersCount) + "&ordering=-index&page=" + str(BranchPage + 1) + "&user_data=1"
 			# Выполнение запроса.
-			Response = self.__RequestsManager.Request(ChaptersAPI)
+			Response = self.__RequestsManager.request(ChaptersAPI)
 
 			# Проверка успешности запроса.
 			if Response.status_code == 200:
@@ -103,7 +103,7 @@ class TitleParser:
 		# Описание тайтла.
 		Description = None
 		# Выполнение запроса.
-		Response = self.__RequestsManager.Request(TitlesAPI)
+		Response = self.__RequestsManager.request(TitlesAPI)
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -225,6 +225,7 @@ class TitleParser:
 
 						# Проверка главы на платность (первое условие нужно для совместимости со старыми форматами без данных о донатном статусе главы).
 						if "is_paid" not in LocalTitle["chapters"][BranchID][ChapterIndex].keys() or LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+
 							# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
 							RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
 
@@ -333,14 +334,21 @@ class TitleParser:
 
 			#---> Дополнение каркаса данными о страницах глав.
 			#==========================================================================================#
-			# Если выключен режим перезаписи.
+
+			# Если отключён режим перезаписи.
 			if self.__ForceMode == False:
 
-				# Слияние с локальным описательным файлом.
-				if os.path.exists(self.__Settings["titles-directory"] + Slug + ".json"):
-					self.__Title = self.__MergeBranches(Slug)
-				elif os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
-					self.__Title = self.__MergeBranches(self.__ID)
+				# Для каждого варианта имени файла.
+				for Filename in [Slug, self.__ID]:
+
+					# Если существует файл с названием таким же, как вариант написания.
+					if os.path.exists(self.__Settings["titles-directory"] + Filename + ".json"):
+						# Чтение файла.
+						File = ReadJSON(self.__Settings["titles-directory"] + Filename + ".json")
+
+						# Если алиас тайтла совпадает с целевым, то выполнить слияние с локальным описательным файлом.
+						if "slug" in File.keys() and File["slug"] == Slug or "dir" in File.keys() and File["dir"] == Slug:
+							self.__Title = self.__MergeBranches(Filename)
 
 			# Получение недостающих данных о страницах глав.
 			if Amending == True:
@@ -423,13 +431,7 @@ class TitleParser:
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
 			# Используемое имя тайтла: ID или алиас.
-			UsedTitleName = None
-
-			# Установка используемого имени тайтла.
-			if self.__Settings["use-id-instead-slug"] == False:
-				UsedTitleName = self.__Slug
-			else:
-				UsedTitleName = self.__ID
+			UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
 
 			# Скачивание обложек.
 			for URL in CoversURL:
@@ -443,13 +445,14 @@ class TitleParser:
 					elif os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + URL.split('/')[-1]):
 						shutil.rmtree(self.__Settings["covers-directory"] + self.__ID) 
 
-				# Удаление папки для обложек с алиасом в названии, если используются ID.
-				if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["covers-directory"] + self.__Slug + "/" + URL.split('/')[-1]):
-					shutil.rmtree(self.__Settings["covers-directory"] + self.__Slug)
+				# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
+				for State in [True, False]:
+					# Установка устаревшего имени папки с обложками в зависимости от статуса.
+					Foldername = self.__Settings["covers-directory"] + self.__Slug if State == True else self.__ID
 
-				# Удаление папки для обложек с ID в названии, если используется алиас.
-				if self.__Settings["use-id-instead-slug"] == False and os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + URL.split('/')[-1]):
-					shutil.rmtree(self.__Settings["covers-directory"] + self.__ID)
+					# Удаление папки для обложек с устаревшим названием.
+					if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Foldername + "/" + URL.split('/')[-1]):
+						shutil.rmtree(Foldername)
 
 				# Проверка существования файла.
 				if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1]) == False:
@@ -457,7 +460,7 @@ class TitleParser:
 					print("Downloading cover: \"" + URL + "\"... ", end = "")
 
 					# Выполнение запроса.
-					Response = self.__RequestsManager.Request(URL, Headers = ImageRequestHeaders)
+					Response = self.__RequestsManager.request(URL, Headers = ImageRequestHeaders)
 
 					# Проверка успешности запроса.
 					if Response.status_code == 200:
@@ -490,7 +493,7 @@ class TitleParser:
 
 				else:
 					# Вывод в терминал URL загружаемой обложки.
-					print("Cover already exist: \"" + URL + "\". Skipped. ")
+					print("Cover already exist: \"" + URL + "\". Skipped.")
 
 				# Выжидание указанного интервала, если не все обложки загружены.
 				if DownloadedCoversCounter < 3 and DownloadedCoversCounter > 0:
@@ -501,26 +504,25 @@ class TitleParser:
 
 	# Сохраняет локальный JSON файл.
 	def Save(self, DownloadCovers: bool = True):
-
 		# Используемое имя тайтла: ID или алиас.
-		UsedTitleName = None
-
-		# Установка используемого имени тайтла.
-		if self.__Settings["use-id-instead-slug"] == False:
-			UsedTitleName = self.__Slug
-		else:
-			UsedTitleName = self.__ID
+		UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
 
 		# Если парсер активен.
-		if self.__IsActive == True:		
+		if self.__IsActive == True:
 
-			# Удаление локального описательного файла с алиасом в названии, если используются ID.
-			if self.__Settings["use-id-instead-slug"] == True and os.path.exists(self.__Settings["titles-directory"] + self.__Slug + ".json"):
-				os.remove(self.__Settings["titles-directory"] + self.__Slug + ".json")
+			# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
+			for State in [True, False]:
+				# Установка устаревшего имени файла в зависимости от статуса.
+				Filename = self.__Settings["titles-directory"] + (self.__Slug if State == True else self.__ID) + ".json" 
 
-			# Удаление локального описательного файла с ID в названии, если используются алиас.
-			if self.__Settings["use-id-instead-slug"] == False and os.path.exists(self.__Settings["titles-directory"] + self.__ID + ".json"):
-				os.remove(self.__Settings["titles-directory"] + self.__ID + ".json")
+				# Если существует файл тайтла с альтернативным названием.
+				if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Filename):
+					# Чтение файла.
+					File = ReadJSON(Filename)
+
+					# Если алиас тайтла совпадает с целевым, то удалить старый файл.
+					if "slug" in File.keys() and File["slug"] == self.__Slug or "dir" in File.keys() and File["dir"] == self.__Slug:
+						os.remove(Filename)
 
 			# Создание папки для тайтлов.
 			if os.path.exists(self.__Settings["titles-directory"]) == False:
@@ -545,4 +547,4 @@ class TitleParser:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Parced.")
 
 		# Завершает сеанс запроса.
-		self.__RequestsManager.Close()
+		self.__RequestsManager.close()
