@@ -323,11 +323,15 @@ if "update" == CommandDataStruct.Name:
 		# Фильтрация только файлов формата JSON.
 		TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
 		# Алиас стартового тайтла.
-		FromTitle = CommandDataStruct.Values["from"]
+		FromTitle = None
 		# Индекс обрабатываемого тайтла.
 		CurrentTitleIndex = 0
 		# Алиасы тайтлов.
 		TitlesSlugs = list()
+
+		# Если активирован ключ, указывающий стартовый тайтл.
+		if "from" in CommandDataStruct.Keys:
+			FromTitle = CommandDataStruct.Values["from"]
 			
 		# Чтение всех алиасов из локальных файлов.
 		for File in TitlesList:
