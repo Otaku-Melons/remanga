@@ -1,4 +1,4 @@
-from dublib.Methods import MergeDictionaries, RenameDictionaryKey, RemoveHTML
+from dublib.Methods import MergeDictionaries, RemoveHTML
 from PIL import Image, UnidentifiedImageError
 
 import logging
@@ -10,10 +10,10 @@ class UnableToConvert(Exception):
 
 	# Конструктор: вызывается при обработке исключения.
 	def __init__(self, SourceFormat: str, TargetFormat: str): 
-		# Обеспечение доступа к оригиналу наследованного свойства.
-		super().__init__(self.__Message)
 		# Добавление данных в сообщение об ошибке.
 		self.__Message = "there isn't suitable converter for these formats: \"" + SourceFormat + "\" > \"" + TargetFormat + "\""
+		# Обеспечение доступа к оригиналу наследованного свойства.
+		super().__init__(self.__Message)
 			
 	# Преобразователь: представляет содержимое класса как строку.
 	def __str__(self):
@@ -23,11 +23,11 @@ class UnableToConvert(Exception):
 class UnknownFormat(Exception):
 
 	# Конструктор: вызывается при обработке исключения.
-	def __init__(self, UnknownFormat: str): 
+	def __init__(self, UnknownFormat: str | None): 
+		# Добавление данных в сообщение об ошибке.
+		self.__Message = "couldn't recognize source or target format: \"" + str(UnknownFormat) + "\""
 		# Обеспечение доступа к оригиналу наследованного свойства.
 		super().__init__(self.__Message) 
-		# Добавление данных в сообщение об ошибке.
-		self.__Message = "couldn't recognize source or target format: \"" +  UnknownFormat + "\""
 			
 	# Преобразователь: представляет содержимое класса как строку.
 	def __str__(self):
@@ -101,11 +101,11 @@ class Formatter:
 				FormattedTitle["img"]["low"] = UsetTitleName + "/" + self.__OriginalTitle["covers"][CoverIndex]["filename"]
 
 		# Проверка наличия статуса.
-		if FormattedTitle["status"] == None:
+		if FormattedTitle["status"] == "UNKNOWN":
 			FormattedTitle["status"] = "NOT_FOUND"
 
 		# Проверка наличия типа.
-		if FormattedTitle["type"] == None:
+		if FormattedTitle["type"] == "UNKNOWN":
 			FormattedTitle["type"] = "MANGA"
 
 		# Определение наличия жанра яой.
@@ -551,9 +551,9 @@ class Formatter:
 	# Конвертер: RN-V1 > DMP-V1.
 	def __RN1_to_DMP1(self) -> dict:
 		# Перечисление типов тайтла.
-		Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "OEL", "ANOTHER"]
+		Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "OEL", "UNKNOWN"]
 		# Перечисление статусов.
-		Statuses = ["ANNOUNCED", "ONGOING", "ABANDONED", "COMPLETED", "ANOTHER"]
+		Statuses = ["ANNOUNCED", "ONGOING", "ABANDONED", "COMPLETED", "UNKNOWN"]
 		# Буфер обработки возвращаемой структуры.
 		FormattedTitle = dict()
 
@@ -582,7 +582,7 @@ class Formatter:
 				elif TypeDetermination["name"] in ["OEL-манга"]:
 					Type = "OEL"
 				else:
-					Type = "ANOTHER"
+					Type = "UNKNOWN"
 
 			else:
 				pass
@@ -605,7 +605,7 @@ class Formatter:
 				elif TitleStatusDetermination["name"] in ["Заморожен", "Нет переводчика", "Лицензировано"]:
 					Status = "ABANDONED"
 				else:
-					Status = "ANOTHER"
+					Status = "UNKNOWN"
 
 			else:
 				pass
@@ -625,12 +625,14 @@ class Formatter:
 		FormattedTitle["ru-name"] = self.__OriginalTitle["rus_name"]
 		FormattedTitle["en-name"] = self.__OriginalTitle["en_name"]
 		FormattedTitle["another-names"] = self.__OriginalTitle["another_name"].split(" / ")
-		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
-		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
+		FormattedTitle["author"] = None
 		FormattedTitle["publication-year"] = self.__OriginalTitle["issue_year"]
-		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
+		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
 		FormattedTitle["description"] = RemoveHTML(self.__OriginalTitle["description"]).replace("\r\n\r\n", "\n")
+		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
+		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
 		FormattedTitle["is-licensed"] = self.__OriginalTitle["is_licensed"]
+		FormattedTitle["series"] = list()
 		FormattedTitle["genres"] = list()
 		FormattedTitle["tags"] = list()
 		FormattedTitle["branches"] = list()

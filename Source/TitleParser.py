@@ -206,7 +206,7 @@ class TitleParser:
 				# Определение совместимого формата.
 				if OriginalFormat in ["htcrn-v1", "htmp-v1"]:
 					CompatibleFormat = "htcrn-v1"
-				elif OriginalFormat in ["dmp-v1"]:
+				elif OriginalFormat in ["dmp-v1", "rn-v1"]:
 					CompatibleFormat = "rn-v1"
 
 				# Инициализатора конвертера.

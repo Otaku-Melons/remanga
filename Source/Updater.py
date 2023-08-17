@@ -63,7 +63,7 @@ class Updater:
 			# Формирование адреса для текущего запроса.
 			CurrentRequestAPI = LastChaptersAPI.replace("[REPLACEBLE]", str(Page))
 			# Выполнение запроса.
-			Response = self.__RequestsManager.Request(CurrentRequestAPI)
+			Response = self.__RequestsManager.request(CurrentRequestAPI)
 			
 			# Проверка успешности запроса.
 			if Response.status_code == 200:
@@ -102,6 +102,6 @@ class Updater:
 				logging.info("On " + str(Page) + " pages updates notes found: " + str(UpdatesCounter) + ".")
 
 		# Завершает сеанс запроса.
-		self.__RequestsManager.Close()
+		self.__RequestsManager.close()
 
 		return Updates

@@ -138,7 +138,6 @@ CommandsList.append(COM_proxval)
 
 # Создание команды: update.
 COM_update = Command("update")
-COM_update.addArgument(ArgumentType.All, Important = True)
 COM_update.addFlagPosition(["s"])
 COM_update.addKeyPosition(["from"], ArgumentType.All)
 CommandsList.append(COM_update)
