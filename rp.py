@@ -4,6 +4,7 @@ from dublib.Methods import Shutdown, Cls, WriteJSON
 from Source.RequestsManager import RequestsManager
 from Source.Functions import SecondsToTimeString
 from Source.TitleParser import TitleParser
+from Source.Collector import Collector
 from Source.Formatter import Formatter
 from Source.Updater import Updater
 from dublib.Terminalyzer import *
@@ -109,6 +110,13 @@ else:
 # Список описания обрабатываемых команд.
 CommandsList = list()
 
+# Создание команды: collect.
+COM_collect = Command("collect")
+COM_collect.addKeyPosition(["tag"], ArgumentType.Number, Important = True)
+COM_collect.addFlagPosition(["f"])
+COM_collect.addFlagPosition(["s"])
+CommandsList.append(COM_collect)
+
 # Создание команды: convert.
 COM_convert = Command("convert")
 COM_convert.addArgument(ArgumentType.All, Important = True)
@@ -195,6 +203,30 @@ if "s" in CommandDataStruct.Flags:
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
 
+# Обработка команды: collect.
+if "collect" == CommandDataStruct.Name:
+	# Запись в лог сообщения: сбор списка тайтлов.
+	logging.info("====== Collecting ======")
+	# Инициализация сборщика.
+	CollectorObject = Collector(Settings)
+	# Название фильтра.
+	FilterType = None
+	# ID параметра фильтрации.
+	FilterID = None
+	
+	# Если указан фильтр по жанрам.
+	if "genre" in CommandDataStruct.Keys:
+		FilterType = "genres"
+		FilterID = CommandDataStruct.Values["genre"]
+	
+	# Если указан фильтр по тегам.
+	elif "tag" in CommandDataStruct.Keys:
+		FilterType = "categories"
+		FilterID = CommandDataStruct.Values["tag"]
+	
+	# Сбор списка алиасов тайтлов, подходящих под фильтр.
+	CollectorObject.collect(FilterType, FilterID, IsForceModeActivated)
+	
 # Обработка команды: convert.
 if "convert" == CommandDataStruct.Name:
 	# Запись в лог сообщения: конвертирование.
@@ -246,10 +278,50 @@ if "getcov" == CommandDataStruct.Name:
 if "parce" == CommandDataStruct.Name:
 	# Запись в лог сообщения: парсинг.
 	logging.info("====== Parcing ======")
-	# Парсинг тайтла.
-	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
-	# Сохранение локальных файлов тайтла.
-	LocalTitle.Save()
+	
+	# Если активирован флаг парсинга коллекций.
+	if CommandDataStruct.Arguments[0] == "-collection":
+		
+		# Если существует файл коллекции.
+		if os.path.exists("Collection.txt"):
+			# Список тайтлов для парсинга.
+			TitlesList = list()
+			# Индекс обрабатываемого тайтла.
+			CurrentTitleIndex = 0
+			
+			# Чтение содржимого файла.
+			with open("Collection.txt", "r") as FileReader:
+				# Буфер чтения.
+				Bufer = FileReader.read().split('\n')
+				
+				# Поместить алиасы в список на парсинг, если строка не пуста.
+				for Slug in Bufer:
+					if Slug.strip() != "":
+						TitlesList.append(Slug)
+
+			# Запись в лог сообщения: количество тайтлов в коллекции.
+			logging.info("Titles count in collection: " + str(len(TitlesList)) + ".")
+			
+			# Спарсить каждый тайтл.
+			for Slug in TitlesList:
+				# Инкремент текущего индекса.
+				CurrentTitleIndex += 1
+				# Генерация сообщения.
+				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parcing titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+				# Парсинг тайтла.
+				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
+				# Сохранение локальных файлов тайтла.
+				LocalTitle.Save()
+
+		else:
+			# Запись в лог критической ошибки: отсутствует файл коллекций.
+			logging.critical("Unable to find collection file.")
+	
+	else:
+		# Парсинг тайтла.
+		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
+		# Сохранение локальных файлов тайтла.
+		LocalTitle.Save()
 
 # Обработка команды: proxval.
 if "proxval" == CommandDataStruct.Name:

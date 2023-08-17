@@ -11,6 +11,9 @@ Logs
 # Google Chrome proxy extension archive.
 ProxyExtension.zip
 
+# Collection of filtered slugs of titles.
+Collection.txt
+
 # Python cache.
 __pycache__
 
