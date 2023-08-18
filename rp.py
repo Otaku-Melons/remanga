@@ -112,7 +112,7 @@ CommandsList = list()
 
 # Создание команды: collect.
 COM_collect = Command("collect")
-COM_collect.addKeyPosition(["tag"], ArgumentType.Number, Important = True)
+COM_collect.addKeyPosition(["filters"], ArgumentType.All, Important = True)
 COM_collect.addFlagPosition(["f"])
 COM_collect.addFlagPosition(["s"])
 CommandsList.append(COM_collect)
@@ -142,7 +142,8 @@ CommandsList.append(COM_manage)
 
 # Создание команды: parce.
 COM_parce = Command("parce")
-COM_parce.addArgument(ArgumentType.All, Important = True)
+COM_parce.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
+COM_parce.addFlagPosition(["collection"], LayoutIndex = 1)
 COM_parce.addFlagPosition(["f"])
 COM_parce.addFlagPosition(["s"])
 CommandsList.append(COM_parce)
@@ -154,7 +155,8 @@ CommandsList.append(COM_proxval)
 
 # Создание команды: update.
 COM_update = Command("update")
-COM_update.addArgument(ArgumentType.All, Important = True)
+COM_update.addArgument(ArgumentType.All, LayoutIndex = 1)
+COM_update.addFlagPosition(["local"], LayoutIndex = 1)
 COM_update.addFlagPosition(["f"])
 COM_update.addFlagPosition(["s"])
 COM_update.addKeyPosition(["from"], ArgumentType.All)
@@ -223,19 +225,8 @@ if "collect" == CommandDataStruct.Name:
 	FilterType = None
 	# ID параметра фильтрации.
 	FilterID = None
-	
-	# Если указан фильтр по жанрам.
-	if "genre" in CommandDataStruct.Keys:
-		FilterType = "genres"
-		FilterID = CommandDataStruct.Values["genre"]
-	
-	# Если указан фильтр по тегам.
-	elif "tag" in CommandDataStruct.Keys:
-		FilterType = "categories"
-		FilterID = CommandDataStruct.Values["tag"]
-	
 	# Сбор списка алиасов тайтлов, подходящих под фильтр.
-	CollectorObject.collect(FilterType, FilterID, IsForceModeActivated)
+	CollectorObject.collect(CommandDataStruct.Values["filters"], IsForceModeActivated)
 	
 # Обработка команды: convert.
 if "convert" == CommandDataStruct.Name:
@@ -297,7 +288,7 @@ if "parce" == CommandDataStruct.Name:
 	logging.info("====== Parcing ======")
 	
 	# Если активирован флаг парсинга коллекций.
-	if CommandDataStruct.Arguments[0] == "-collection":
+	if "collection" in CommandDataStruct.Flags:
 		
 		# Если существует файл коллекции.
 		if os.path.exists("Collection.txt"):

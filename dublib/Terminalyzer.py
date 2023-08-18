@@ -54,7 +54,7 @@ class Command:
 		"""
 		Подсчитывает минимальное количество аргументов.
 		"""
-		print(self.__Layouts)
+
 		# Обнуление значения.
 		self.__MinArgc = 0
 		
@@ -77,10 +77,7 @@ class Command:
 		for LayoutIndex in self.__Layouts.keys():
 			
 			# Если в важном слое есть ключи.
-			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["keys"] > 0:
-				self.__MinArgc += 2
-				
-			elif self.__Layouts[LayoutIndex]["important"] == True:
+			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["flags"] > 0 or self.__Layouts[LayoutIndex]["arguments"] > 0 :
 				self.__MinArgc += 1
 				
 	def __InitializeLayout(self, LayoutIndex: int):
@@ -354,8 +351,7 @@ class Terminalyzer:
 		Проверяет соответвтсие количества аргументов.
 			CommandDescription – описательная структура команды.
 		"""
-		print(CommandDescription.getMaxArgc())
-		print(CommandDescription.getMinArgc())
+
 		# Если аргументов слишком много.
 		if len(self.__Argv) - 1 > CommandDescription.getMaxArgc():
 			raise TooManyArguments(" ".join(self.__Argv))
@@ -369,7 +365,7 @@ class Terminalyzer:
 		Возвращает значения аргументов.
 			CommandDescription – описательная структура команды.
 		"""
-
+		
 		# Значения аргументов.
 		Values = list()
 		# Список слоёв аргументов.
@@ -382,7 +378,7 @@ class Terminalyzer:
 		FreeArguments = list()
 		# Список аргументов без команды.
 		ArgumentsList = self.__Argv[1:]
-
+		
 		# Подсчитать количество важных аргументов.
 		for Argument in ArgumentsDescription:
 			if Argument["important"] == True:
@@ -396,17 +392,23 @@ class Terminalyzer:
 		# Для каждого незадействованного аргумента.
 		for Index in range(0, len(FreeArguments)):
 
-			# Если аргумент соответствует типу.
-			if self.__CheckArgumentType(FreeArguments[Index], ArgumentsDescription[Index]["type"]) == True:
-				# Сохранение значения аргумента.
-				Values.append(FreeArguments[Index])
+			# Если количество свободных аргументов не превышает максимальное.
+			if len(FreeArguments) <= len(ArgumentsDescription):
 				
-				# Если для аргумента задан слой.
-				if ArgumentsDescription[Index]["layout-index"] != None:
-					ArgumentsLayouts.append(ArgumentsDescription[PositionIndex]["layout-index"])
+				# Если аргумент соответствует типу.
+				if self.__CheckArgumentType(FreeArguments[Index], ArgumentsDescription[Index]["type"]) == True:
+					# Сохранение значения аргумента.
+					Values.append(FreeArguments[Index])
+				
+					# Если для аргумента задан слой.
+					if ArgumentsDescription[Index]["layout-index"] != None:
+						ArgumentsLayouts.append(ArgumentsDescription[Index]["layout-index"])
 
+				else:
+					raise InvalidArgumentType(FreeArguments[Index], CommandDescription.getArguments()["type"])
+				
 			else:
-				raise InvalidArgumentType(FreeArguments[Index], CommandDescription.getArguments()["type"])
+				raise TooManyArguments(" ".join(self.__Argv))
 
 		return Values, ArgumentsLayouts
 	

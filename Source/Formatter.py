@@ -676,7 +676,7 @@ class Formatter:
 					CurrentChapter["name"] = None
 
 				# Перенос номера главы c конвертированием.
-				if '.' in Chapter["chapter"]:
+				if '.' in str(Chapter["chapter"]):
 					CurrentChapter["number"] = float(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))
 				else:
 					CurrentChapter["number"] = int(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))

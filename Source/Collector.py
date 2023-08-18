@@ -11,7 +11,7 @@ import os
 class Collector:
 	
 	# Возвращает список тайтлов, подходящих по заданным фильтрам.
-	def __CollectTitlesList(self, FilterType: str, FilterID: str, ForceMode: bool) -> list[str]:
+	def __CollectTitlesList(self, Filters: str, ForceMode: bool) -> list[str]:
 		# Состояние: достигнута ли последняя страница католога.
 		IsLastPage = False		
 		# Список тайтлов.
@@ -22,15 +22,13 @@ class Collector:
 		# Пока не достигнута последняя страница.
 		while IsLastPage == False:
 			# URL для запроса к API.
-			CollectionAPI = f"https://api.remanga.org/api/search/catalog/?{FilterType}={FilterID}&count=30&ordering=-id&page={Page}"
+			CollectionAPI = f"https://api.remanga.org/api/search/catalog/?page={Page}&count=30&ordering=-id&{Filters}"
 			# Выполнение запроса.
 			Response = self.__RequestsManager.request(CollectionAPI)
 			# Очистка консоли.
 			Cls()
 			# Вывод в консоль состояния режима перезаписи.
-			print("Force mode: " + "ON" if ForceMode else "OFF")
-			# Вывод в консоль прогресса.
-			print(f"Collecting titles slugs on page {Page}...")
+			print("Force mode: " + ("ON" if ForceMode else "OFF"))
 			
 			# Проверка успешности запроса.
 			if Response.status_code == 200:
@@ -45,8 +43,11 @@ class Collector:
 				if PageContent == []:
 					IsLastPage = True
 					
-				# Запись в лог сообщения: просканирована страница.
+				
 				else:
+					# Вывод в консоль прогресса.
+					print(f"Collecting titles slugs on page {Page}...")
+					# Запись в лог сообщения: просканирована страница.
 					logging.info(f"Titles on page {Page} collected.")
 					
 				# Выжидание указанного интервала.
@@ -102,11 +103,11 @@ class Collector:
 			del self.__RequestHeaders["authorization"]
 
 	# Сохраняет список алиасов тайтлов в файл.
-	def collect(self, FilterType: str, FilterID: str, ForceMode: bool = False) -> list[str]:
+	def collect(self, Filters: str, ForceMode: bool = False) -> list[str]:
 		# Запись в лог сообщения: начат сбор списка тайтлов.
-		logging.info(f"Starting to collect titles slugs. Filter: \"{FilterType}={FilterID}\".")
+		logging.info(f"Starting to collect titles slugs. Filters: \"{Filters}\".")
 		# Список алиасов.
-		TitlesList = self.__CollectTitlesList(FilterType, FilterID, ForceMode)
+		TitlesList = self.__CollectTitlesList(Filters, ForceMode)
 		
 		# Если отключён режим перезаписи.
 		if ForceMode == False:
