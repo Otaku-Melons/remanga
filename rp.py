@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
+from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles
 from dublib.Methods import Shutdown, Cls, WriteJSON
 from Source.RequestsManager import RequestsManager
-from Source.Functions import SecondsToTimeString
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
 from Source.Formatter import Formatter
@@ -132,6 +132,13 @@ COM_getcov.addFlagPosition(["f"])
 COM_getcov.addFlagPosition(["s"])
 CommandsList.append(COM_getcov)
 
+# Создание команды: manage.
+COM_manage = Command("manage")
+COM_manage.addArgument(ArgumentType.All, Important = True)
+COM_manage.addFlagPosition(["del", "move"], Important = True)
+COM_manage.addArgument(ArgumentType.All)
+CommandsList.append(COM_manage)
+
 # Создание команды: parce.
 COM_parce = Command("parce")
 COM_parce.addArgument(ArgumentType.All, Important = True)
@@ -146,6 +153,8 @@ CommandsList.append(COM_proxval)
 
 # Создание команды: update.
 COM_update = Command("update")
+COM_update.addArgument(ArgumentType.All, Important = True)
+COM_update.addFlagPosition(["f"])
 COM_update.addFlagPosition(["s"])
 COM_update.addKeyPosition(["from"], ArgumentType.All)
 CommandsList.append(COM_update)
@@ -273,6 +282,13 @@ if "getcov" == CommandDataStruct.Name:
 	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.DownloadCovers()
+
+# Обработка команды: manage.
+if "manage" == CommandDataStruct.Name:
+	# Запись в лог сообщения: заголовок менеджмента.
+	logging.info("====== Management ======")
+	# Менеджмент файлов с другим форматом.
+	ManageOtherFormatsFiles(Settings, CommandDataStruct.Arguments[0], CommandDataStruct.Arguments[1] if "move" in CommandDataStruct.Flags else None)
 
 # Обработка команды: parce.
 if "parce" == CommandDataStruct.Name:

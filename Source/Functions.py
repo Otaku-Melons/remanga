@@ -1,8 +1,12 @@
 from random_user_agent.params import SoftwareName, OperatingSystem
 from random_user_agent.user_agent import UserAgent
+from dublib.Methods import ReadJSON
 
+import logging
 import random
+import shutil
 import time
+import os
 
 # Возвращает случайное значение заголовка User-Agent.
 def GetRandomUserAgent() -> str:
@@ -11,6 +15,45 @@ def GetRandomUserAgent() -> str:
 	UserAgentRotator = UserAgent(software_names = SoftwareNames, operating_systems = OperatingSystems, limit = 100)
 
 	return str(UserAgentRotator.get_random_user_agent()).strip('"')
+
+# Удаляет или перемещает файлы JSON, имеющий отличный от заданного формат.
+def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | None):
+	# Список файлов в директории хранения JSON.
+	FilesList = os.listdir(Settings["titles-directory"])
+	# Фильтрация только файлов JSON.
+	FilesList = list(filter(lambda x: x.endswith(".json"), FilesList))
+		
+	# Для каждого файла.
+	for Filename in FilesList:
+		# Чтение файла.
+		File = ReadJSON(Settings["titles-directory"] + Filename)
+			
+		# Если в файле не указан формат или он не соответствует заданному.
+		if "format" not in File.keys() or File["format"].lower() != Format.lower():
+				
+			# Если указано куда, то переместить файл.
+			if TargetDirectory != None:
+					
+				# Если путь к директории не заканчивается слешем, то добавить его.
+				if TargetDirectory[-1] not in ["/", "\\"]:
+					TargetDirectory += "\\" if "\\" in TargetDirectory else "/"
+					
+				# Если целевая директория существует.
+				if os.path.exists(TargetDirectory):
+					# Переместить файл.
+					shutil.move(Settings["titles-directory"] + Filename, TargetDirectory + Filename)
+					# Запись в лог сообщения: файл перемещён.
+					logging.info("File \"" + Filename + "\" moved.")
+						
+				else:
+					raise FileNotFoundError
+					
+			# Иначе удалить.
+			else:
+				# Удаление файла.
+				os.remove(Settings["titles-directory"] + Filename)
+				# Запись в лог сообщения: файл удалён.
+				logging.info("File \"" + Filename + "\" removed.")
 
 # Объединяет список списков в один список.
 def MergeListOfLists(ListOfLists: list) -> list:
@@ -28,11 +71,7 @@ def MergeListOfLists(ListOfLists: list) -> list:
 	# Если список включет словари, то вернуть без изменений.
 	else:
 		return ListOfLists
-
-# Усекает число до определённого количества знаков после запятой.
-def ToFixedFloat(FloatNumber: float, Digits: int = 0) -> float:
-	return float(f"{FloatNumber:.{Digits}f}")
-
+				
 # Проевращает число секунд в строку-дескриптор времени по формату [<x> hours <y> minuts <z> seconds].
 def SecondsToTimeString(Seconds: float) -> str:
 	# Количество часов.
@@ -55,6 +94,10 @@ def SecondsToTimeString(Seconds: float) -> str:
 		TimeString += str(Seconds) + " seconds"
 
 	return TimeString
+
+# Усекает число до определённого количества знаков после запятой.
+def ToFixedFloat(FloatNumber: float, Digits: int = 0) -> float:
+	return float(f"{FloatNumber:.{Digits}f}")
 
 # Выжидает согласно заданному интервалу.
 def Wait(Settings: dict):
