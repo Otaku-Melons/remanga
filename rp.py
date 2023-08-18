@@ -135,8 +135,9 @@ CommandsList.append(COM_getcov)
 # Создание команды: manage.
 COM_manage = Command("manage")
 COM_manage.addArgument(ArgumentType.All, Important = True)
-COM_manage.addFlagPosition(["del", "move"], Important = True)
-COM_manage.addArgument(ArgumentType.All)
+COM_manage.addFlagPosition(["del"], Important = True, LayoutIndex = 1)
+COM_manage.addKeyPosition(["move"], ArgumentType.All, Important = True, LayoutIndex = 1)
+COM_manage.addFlagPosition(["s"])
 CommandsList.append(COM_manage)
 
 # Создание команды: parce.
@@ -185,7 +186,7 @@ IsForceModeActivated = False
 InFuncMessage_ForceMode = ""
 
 # Обработка флага: режим перезаписи.
-if "f" in CommandDataStruct.Flags and "proxval" != CommandDataStruct.Name:
+if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["manage", "proxval"]:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения: включён режим перезаписи.

@@ -28,35 +28,98 @@ class Command:
 		# Обнуление значения.
 		self.__MaxArgc = 0
 
-		# Подсчёт количества всех возможных позиций.
-		self.__MaxArgc = len(self.__FlagsPositions) + len(self.__KeysPositions) * 2
+		# Подсчитать все позиции флагов, не лежащие на слоях.
+		for FlagsPostionIngex in range(0, len(self.__FlagsPositions)):
+			if self.__FlagsPositions[FlagsPostionIngex]["layout-index"] == None:
+				self.__MaxArgc += 1
+				
+		# Подсчитать все позиции ключей, не лежащие на слоях.
+		for KeysPostionIngex in range(0, len(self.__KeysPositions)):
+			if self.__KeysPositions[KeysPostionIngex]["layout-index"] == None:
+				self.__MaxArgc += 2
 
 		# Подсчёт аргументов.
 		self.__MaxArgc += len(self.__Arguments)
+
+		# Подсчёт слоёв.
+		for LayoutIndex in self.__Layouts.keys():
+			
+			# Если в слое есть ключи.
+			if self.__Layouts[LayoutIndex]["keys"] > 0:
+				self.__MaxArgc += 2
+			else:
+				self.__MaxArgc += 1
 
 	def __CalculateMinArgc(self):
 		"""
 		Подсчитывает минимальное количество аргументов.
 		"""
-
+		print(self.__Layouts)
 		# Обнуление значения.
 		self.__MinArgc = 0
 		
-		# Подсчёт важных позиций флагов.
-		for FlagPosition in self.__FlagsPositions:
-			if FlagPosition["important"] == True:
+		# Подсчитать все важные позиции флагов, не лежащие на слоях.
+		for FlagsPostionIngex in range(0, len(self.__FlagsPositions)):
+			if self.__FlagsPositions[FlagsPostionIngex]["layout-index"] == None and self.__FlagsPositions[FlagsPostionIngex]["important"] == True:
 				self.__MinArgc += 1
 				
-		# Подсчёт важных позиций ключей.
-		for Key in self.__KeysPositions:
-			if Key["important"] == True:
+		# Подсчитать все важные позиции ключей, не лежащие на слоях.
+		for KeysPostionIngex in range(0, len(self.__KeysPositions)):
+			if self.__KeysPositions[KeysPostionIngex]["layout-index"] == None and self.__KeysPositions[KeysPostionIngex]["important"] == True:
 				self.__MinArgc += 2
 				
-		# Подсчёт важных аргументов.
+		# Подсчитать все важные аргументы, не лежащие на слоях.
 		for Argument in self.__Arguments:
-			if Argument["important"] == True:
+			if Argument["layout-index"] == None and Argument["important"] == True:
 				self.__MinArgc += 1
 				
+		# Подсчёт важных слоёв.
+		for LayoutIndex in self.__Layouts.keys():
+			
+			# Если в важном слое есть ключи.
+			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["keys"] > 0:
+				self.__MinArgc += 2
+				
+			elif self.__Layouts[LayoutIndex]["important"] == True:
+				self.__MinArgc += 1
+				
+	def __InitializeLayout(self, LayoutIndex: int):
+		"""
+		Инициализирует описательную структуру слоя.
+			LayoutIndex – индекс слоя.
+		"""
+		
+		# Преобразование индекса слоя в строку.
+		LayoutIndex = str(LayoutIndex)
+
+		# Инициализация описательной структуры слоя.
+		if LayoutIndex not in self.__Layouts.keys():
+			self.__Layouts[LayoutIndex] = {"arguments": 0, "flags": 0, "keys": 0, "important": False}
+				
+	def __SetLayoutAsImportant(self, ImportantLayoutIndex: int):
+		"""
+		Устанавливает для всех параметров одного слоя обязательное наличие.
+			ImportantLayoutIndex – индекс слоя для простановки обязательного наличия.
+		"""
+		
+		# Установка важности слоя.
+		self.__Layouts[str(ImportantLayoutIndex)]["important"] = True
+		
+		# Для каждой позиции флага проверить наличие обязательного слоя.
+		for FlagPositionIndex in range(len(self.__FlagsPositions)):
+			if self.__FlagsPositions[FlagPositionIndex]["layout-index"] == ImportantLayoutIndex and self.__FlagsPositions[FlagPositionIndex]["important"] == False:
+				self.__FlagsPositions[FlagPositionIndex]["important"] = True
+				
+		# Для каждой позиции ключа проверить наличие обязательного слоя.
+		for KeyPositionIndex in range(len(self.__KeysPositions)):
+			if self.__KeysPositions[KeyPositionIndex]["layout-index"] == ImportantLayoutIndex and self.__KeysPositions[KeyPositionIndex]["important"] == False:
+				self.__KeysPositions[KeyPositionIndex]["important"] = True
+				
+		# Для каждого аргумента проверить наличие обязательного слоя.
+		for ArgumentIndex in range(len(self.__Arguments)):
+			if self.__Arguments[ArgumentIndex]["layout-index"] == ImportantLayoutIndex and self.__Arguments[ArgumentIndex]["important"] == False:
+				self.__Arguments[ArgumentIndex]["important"] = True
+	
 	def __init__(self, Name: str):
 		"""
 		Конструктор.
@@ -81,41 +144,66 @@ class Command:
 		self.__MaxArgc = 0
 		# Минимальное количество аргументов.
 		self.__MinArgc = 0
+		# Словарь, предоставляющий список слоёв и количество параметров на них.
+		self.__Layouts = dict()
 
-	def addArgument(self, Type: ArgumentType = ArgumentType.All, Important: bool = False):
+	def addArgument(self, Type: ArgumentType = ArgumentType.All, Important: bool = False, LayoutIndex: int | None = None):
 		"""
 		Добавляет аргумент к команде.
 			Type – тип аргумента;
-			Important – является ли аргумент обязательным.
+			Important – является ли аргумент обязательным;
+			LayoutIndex – индекс слоя, на который помещается аргумент.
 		"""
-
+		
 		# Запись аргумента в описание команды.
-		self.__Arguments.append({"type": Type, "important": Important})
+		self.__Arguments.append({"type": Type, "important": Important, "layout-index": LayoutIndex})
+
+		# Если задан обязательный слой.
+		if LayoutIndex != None:
+			# Инициализация слоя.
+			self.__InitializeLayout(LayoutIndex)
+			# Установка обязательного наличия для остальных аргументов на слое.
+			self.__SetLayoutAsImportant(LayoutIndex)	
+			# Инкремент количества аргументов на слое.
+			self.__Layouts[str(LayoutIndex)]["arguments"] += 1
+
 		# Вычисление максимального и минимального количества аргументов.
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
 
-	def addFlagPosition(self, Flags: list, Important: bool = False):
+	def addFlagPosition(self, Flags: list, Important: bool = False, LayoutIndex: int | None = None):
 		"""
 		Добавляет позицию для флага к команде.
 			Flags – список названий флагов;
-			Important – является ли флаг обязательным.
+			Important – является ли флаг обязательным;
+			LayoutIndex – индекс слоя, на который помещается флаг.
 		"""
-
+		
 		# Запись позиции ключа в описание команды.
-		self.__FlagsPositions.append({"names": Flags, "important": Important})
+		self.__FlagsPositions.append({"names": Flags, "important": Important, "layout-index": LayoutIndex})
+		
+		# Если задан обязательный слой.
+		if LayoutIndex != None:
+			# Инициализация слоя.
+			self.__InitializeLayout(LayoutIndex)
+			# Установка обязательного наличия для остальных позиций на слое.
+			self.__SetLayoutAsImportant(LayoutIndex)	
+			# Инкремент количества флагов на слое.
+			self.__Layouts[str(LayoutIndex)]["flags"] += 1
+
 		# Вычисление максимального и минимального количества аргументов. 
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
 
-	def addKeyPosition(self, Keys: list, Types: list[ArgumentType] | ArgumentType, Important: bool = False):
+	def addKeyPosition(self, Keys: list, Types: list[ArgumentType] | ArgumentType, Important: bool = False, LayoutIndex: int | None = None):
 		"""
 		Добавляет позицию для ключа к команде.
 			Keys – список названий ключей;
 			Types – список типов значений для конкретных ключей или один тип для всех значений;
-			Important – является ли ключ обязательным.
+			Important – является ли ключ обязательным;
+			LayoutIndex – индекс слоя, на который помещается ключ.
 		"""
-
+		
 		# Если для всех значений установлен один тип аргумента.
 		if type(Types) == ArgumentType:
 			# Буфер заполнения.
@@ -129,7 +217,17 @@ class Command:
 			Types = Bufer 
 
 		# Запись позиции ключа в описание команды.
-		self.__KeysPositions.append({"names": Keys, "types": Types, "important": Important})
+		self.__KeysPositions.append({"names": Keys, "types": Types, "important": Important, "layout-index": LayoutIndex})
+
+		# Если задан обязательный слой.
+		if LayoutIndex != None:
+			# Инициализация слоя.
+			self.__InitializeLayout(LayoutIndex)
+			# Установка обязательного наличия для остальных позиций на слое.
+			self.__SetLayoutAsImportant(LayoutIndex)	
+			# Инкремент количества ключей на слое.
+			self.__Layouts[str(LayoutIndex)]["keys"] += 1
+
 		# Вычисление максимального и минимального количества аргументов. 
 		self.__CalculateMaxArgc()
 		self.__CalculateMinArgc()
@@ -256,7 +354,8 @@ class Terminalyzer:
 		Проверяет соответвтсие количества аргументов.
 			CommandDescription – описательная структура команды.
 		"""
-
+		print(CommandDescription.getMaxArgc())
+		print(CommandDescription.getMinArgc())
 		# Если аргументов слишком много.
 		if len(self.__Argv) - 1 > CommandDescription.getMaxArgc():
 			raise TooManyArguments(" ".join(self.__Argv))
@@ -264,97 +363,17 @@ class Terminalyzer:
 		# Если аргументов слишком мало.
 		if len(self.__Argv) - 1 < CommandDescription.getMinArgc():
 			raise NotEnoughArguments(" ".join(self.__Argv))
-
-	def __CheckFlags(self, CommandDescription: Command) -> list:
+	
+	def __CheckArguments(self, CommandDescription: Command) -> list[str] | list[int]:
 		"""
-		Возвращает список активных флагов.
-			CommandDescription – описательная структура команды.
-		"""
-
-		# Список позиций флагов.
-		FlagsPositions = CommandDescription.getFlagsPositions()
-		# Индикатор флага.
-		FlagIndicator = CommandDescription.getFlagIndicator()
-		# Список активных флагов.
-		Flags = list()
-
-		# Для каждой позиции флага.
-		for PositionIndex in range(0, len(FlagsPositions)):
-			# Состояние: активирован ли флаг для позиции.
-			IsPositionActivated = False
-
-			# Для каждого названия флага на позиции.
-			for FlagName in FlagsPositions[PositionIndex]["names"]:
-
-				# Если индикатор с названием флага присутствует в аргументах.
-				if FlagIndicator + FlagName in self.__Argv:
-					# Установка активного статуса позициям аргументов команды.
-					self.__PositionsStatuses[self.__Argv.index(FlagIndicator + FlagName) - 1] = True
-
-					# Если взаимоисключающий флаг на данной позиции не был активирован.
-					if IsPositionActivated == False:
-						# Задать для флага активный статус.
-						Flags.append(FlagName)
-						# Заблокировать позицию для активации.
-						IsPositionActivated = True
-
-					else:
-						raise MutuallyExclusiveFlags(" ".join(self.__Argv))
-
-		return Flags
-
-	def __CheckKeys(self, CommandDescription: Command) -> dict:
-		"""
-		Возвращает словарь активных ключей и их содержимое.
-			CommandDescription – описательная структура команды.
-		"""
-
-		# Список позиций ключей.
-		KeysPositions = CommandDescription.getKeysPositions()
-		# Индикатор ключа.
-		KeyIndicator = CommandDescription.getKeyIndicator()
-		# Словарь статусов ключей.
-		Keys = dict()
-
-		# Для каждой позиции ключа.
-		for PositionIndex in range(0, len(KeysPositions)):
-			# Состояние: активирован ли ключ для позиции.
-			IsPositionActivated = False
-
-			# Для каждого названия ключа на позиции.
-			for KeyIndex in range(0, len(KeysPositions[PositionIndex]["names"])):
-				# Название ключа.
-				KeyName = KeysPositions[PositionIndex]["names"][KeyIndex]
-
-				# Если индикатор с названием ключа присутствует в аргументах.
-				if KeyIndicator + KeyName in self.__Argv:
-					# Установка активного статуса позициям аргументов команды.
-					self.__PositionsStatuses[self.__Argv.index(KeyIndicator + KeyName) - 1] = True
-					self.__PositionsStatuses[self.__Argv.index(KeyIndicator + KeyName)] = True
-
-					# Если взаимоисключающий ключ на данной позиции не был активирован.
-					if IsPositionActivated == False:
-						# Задать для ключа значение.
-						Keys[KeyName] = self.__Argv[self.__Argv.index(KeyIndicator + KeyName) + 1]
-						# Заблокировать позицию для активации.
-						IsPositionActivated = True
-
-						# Проверить тип значения ключа.
-						self.__CheckArgumentType(Keys[KeyName], KeysPositions[PositionIndex]["types"][KeyIndex])
-
-					else:
-						raise MutuallyExclusiveKeys(" ".join(self.__Argv))
-
-		return Keys
-
-	def __CheckArgument(self, CommandDescription: Command) -> str:
-		"""
-		Возвращает значение аргумента.
+		Возвращает значения аргументов.
 			CommandDescription – описательная структура команды.
 		"""
 
 		# Значения аргументов.
 		Values = list()
+		# Список слоёв аргументов.
+		ArgumentsLayouts = list()
 		# Список возможных аргументов.
 		ArgumentsDescription = CommandDescription.getArguments()
 		# Количество важных аргументов.
@@ -379,13 +398,18 @@ class Terminalyzer:
 
 			# Если аргумент соответствует типу.
 			if self.__CheckArgumentType(FreeArguments[Index], ArgumentsDescription[Index]["type"]) == True:
+				# Сохранение значения аргумента.
 				Values.append(FreeArguments[Index])
+				
+				# Если для аргумента задан слой.
+				if ArgumentsDescription[Index]["layout-index"] != None:
+					ArgumentsLayouts.append(ArgumentsDescription[PositionIndex]["layout-index"])
 
 			else:
 				raise InvalidArgumentType(FreeArguments[Index], CommandDescription.getArguments()["type"])
 
-		return Values
-		
+		return Values, ArgumentsLayouts
+	
 	def __CheckArgumentType(self, Value: str, Type: ArgumentType = ArgumentType.All) -> bool:
 		"""
 		Проверяет значение аргумента.
@@ -419,6 +443,125 @@ class Terminalyzer:
 
 		return True
 
+	def __CheckFlags(self, CommandDescription: Command) -> list[str] | list[int]:
+		"""
+		Возвращает список активных флагов.
+			CommandDescription – описательная структура команды.
+		"""
+
+		# Список позиций флагов.
+		FlagsPositions = CommandDescription.getFlagsPositions()
+		# Индикатор флага.
+		FlagIndicator = CommandDescription.getFlagIndicator()
+		# Список активных флагов.
+		Flags = list()
+		# Список слоёв флагов.
+		FlagsLayouts = list()
+
+		# Для каждой позиции флага.
+		for PositionIndex in range(0, len(FlagsPositions)):
+			# Состояние: активирован ли флаг для позиции.
+			IsPositionActivated = False
+
+			# Для каждого названия флага на позиции.
+			for FlagName in FlagsPositions[PositionIndex]["names"]:
+
+				# Если индикатор с названием флага присутствует в аргументах.
+				if FlagIndicator + FlagName in self.__Argv:
+					# Установка активного статуса позициям аргументов команды.
+					self.__PositionsStatuses[self.__Argv.index(FlagIndicator + FlagName) - 1] = True
+
+					# Если взаимоисключающий флаг на данной позиции не был активирован.
+					if IsPositionActivated == False:
+						# Задать для флага активный статус.
+						Flags.append(FlagName)
+						# Заблокировать позицию для активации.
+						IsPositionActivated = True
+						
+						# Если для флага задан слой.
+						if FlagsPositions[PositionIndex]["layout-index"] != None:
+							FlagsLayouts.append(FlagsPositions[PositionIndex]["layout-index"])
+
+					else:
+						raise MutuallyExclusiveFlags(" ".join(self.__Argv))
+
+		return Flags, FlagsLayouts
+
+	def __CheckKeys(self, CommandDescription: Command) -> dict | list[int]:
+		"""
+		Возвращает словарь активных ключей и их содержимое.
+			CommandDescription – описательная структура команды.
+		"""
+
+		# Список позиций ключей.
+		KeysPositions = CommandDescription.getKeysPositions()
+		# Индикатор ключа.
+		KeyIndicator = CommandDescription.getKeyIndicator()
+		# Словарь статусов ключей.
+		Keys = dict()
+		# Список слоёв ключей.
+		KeysLayouts = list()
+		
+		# Для каждой позиции ключа.
+		for PositionIndex in range(0, len(KeysPositions)):
+			# Состояние: активирован ли ключ для позиции.
+			IsPositionActivated = False
+
+			# Для каждого названия ключа на позиции.
+			for KeyIndex in range(0, len(KeysPositions[PositionIndex]["names"])):
+				# Название ключа.
+				KeyName = KeysPositions[PositionIndex]["names"][KeyIndex]
+
+				# Если индикатор с названием ключа присутствует в аргументах.
+				if KeyIndicator + KeyName in self.__Argv:
+					# Установка активного статуса позициям аргументов команды.
+					self.__PositionsStatuses[self.__Argv.index(KeyIndicator + KeyName) - 1] = True
+					self.__PositionsStatuses[self.__Argv.index(KeyIndicator + KeyName)] = True
+
+					# Если взаимоисключающий ключ на данной позиции не был активирован.
+					if IsPositionActivated == False:
+						# Задать для ключа значение.
+						Keys[KeyName] = self.__Argv[self.__Argv.index(KeyIndicator + KeyName) + 1]
+						# Заблокировать позицию для активации.
+						IsPositionActivated = True
+
+						# Проверить тип значения ключа.
+						self.__CheckArgumentType(Keys[KeyName], KeysPositions[PositionIndex]["types"][KeyIndex])
+						
+						# Если для ключа задан слой.
+						if KeysPositions[PositionIndex]["layout-index"] != None:
+							KeysLayouts.append(KeysPositions[PositionIndex]["layout-index"])
+
+					else:
+						raise MutuallyExclusiveKeys(" ".join(self.__Argv))
+
+		return Keys, KeysLayouts
+	
+	def __CheckLayoutsCollision(self, FlagsLayouts: list[int], KeysLayouts: list[int], ArgumentsLayouts: list[int]):
+		"""
+		Проверяет коллизию слоёв аргументов.
+			FlagsLayouts – список индексов слоёв активированных флагов;
+			KeysLayouts – список индексов слоёв активированных ключей;
+			ArgumentsLayouts – список индексов слоёв аргументов.
+		"""
+		
+		# Список повторяющихся индексов слоёв.	
+		LayeringIndexes = list()
+		# Проверка коллизии флагов.
+		LayeringIndexes += list(set(FlagsLayouts) & set(KeysLayouts))
+		LayeringIndexes += list(set(FlagsLayouts) & set(ArgumentsLayouts))
+		# Проверка коллизии ключей.
+		LayeringIndexes += list(set(KeysLayouts) & set(FlagsLayouts))
+		LayeringIndexes += list(set(KeysLayouts) & set(ArgumentsLayouts))
+		# Проверка коллизии флагов.
+		LayeringIndexes += list(set(ArgumentsLayouts) & set(FlagsLayouts))
+		LayeringIndexes += list(set(ArgumentsLayouts) & set(KeysLayouts))
+		
+		# Пройтись по результатам всех проверок.
+		for Element in LayeringIndexes:
+			if Element != []:
+				raise MutuallyExclusivePositions(" ".join(self.__Argv))
+		
 	def __CheckName(self, CommandDescription: Command) -> bool:
 		"""
 		Проверяет соответствие названия команды.
@@ -462,11 +605,13 @@ class Terminalyzer:
 				# Получение названия команды.
 				Name = CommandDescription.getName()
 				# Проверка активированных флагов.
-				Flags = self.__CheckFlags(CommandDescription)
+				Flags, FlagsLayouts = self.__CheckFlags(CommandDescription)
 				# Проверка активированных ключей.
-				Keys = self.__CheckKeys(CommandDescription)
+				Keys, KeysLayouts = self.__CheckKeys(CommandDescription)
 				# Получение аргументов.
-				Arguments = self.__CheckArgument(CommandDescription)
+				Arguments, ArgumentsLayouts = self.__CheckArguments(CommandDescription)
+				# Проверка коллизии слоёв аргументов.
+				self.__CheckLayoutsCollision(FlagsLayouts, KeysLayouts, ArgumentsLayouts)
 				# Данные проверки команды.
 				self.__CommandData = CommandData(Name, Flags, list(Keys.keys()), Keys, Arguments)
 

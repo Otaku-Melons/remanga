@@ -27,9 +27,15 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 	for Filename in FilesList:
 		# Чтение файла.
 		File = ReadJSON(Settings["titles-directory"] + Filename)
-			
+		# Формат файла.
+		FileFormat = None
+		
+		# Если указан формат.
+		if "format" in File.keys():
+			FileFormat = File["format"].lower()
+
 		# Если в файле не указан формат или он не соответствует заданному.
-		if "format" not in File.keys() or File["format"].lower() != Format.lower():
+		if FileFormat == None or FileFormat != Format.lower():
 				
 			# Если указано куда, то переместить файл.
 			if TargetDirectory != None:
@@ -42,8 +48,12 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 				if os.path.exists(TargetDirectory):
 					# Переместить файл.
 					shutil.move(Settings["titles-directory"] + Filename, TargetDirectory + Filename)
+					
 					# Запись в лог сообщения: файл перемещён.
-					logging.info("File \"" + Filename + "\" moved.")
+					if Format != None:
+						logging.info("File \"" + Filename+ "\"" + "in \"" + Format.upper() + "\"format" + ". Moved.")
+					else:
+						logging.info("File \"" + Filename+ "\"" + "without format" + ". Moved.")
 						
 				else:
 					raise FileNotFoundError
@@ -52,8 +62,12 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 			else:
 				# Удаление файла.
 				os.remove(Settings["titles-directory"] + Filename)
+				
 				# Запись в лог сообщения: файл удалён.
-				logging.info("File \"" + Filename + "\" removed.")
+				if Format != None:
+					logging.info("File \"" + Filename+ "\"" + "in \"" + Format.upper() + "\"format" + ". Removed.")
+				else:
+					logging.info("File \"" + Filename+ "\"" + "without format" + ". Removed.")
 
 # Объединяет список списков в один список.
 def MergeListOfLists(ListOfLists: list) -> list:
