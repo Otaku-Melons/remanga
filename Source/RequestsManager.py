@@ -156,14 +156,15 @@ class RequestsManager:
 		# Опции веб-драйвера.
 		ChromeOptions = webdriver.ChromeOptions()
 		# Настройка прокси.
-		Proxy = None
+		SeleniumWireOptions = None
 		
 		# При включённом прокси создать и установить дополнение.
 		if self.__Settings["use-proxy"] is True:
 			# Получение данных текущего прокси.
 			UserName, Password, IP, Port = self.__GetProxyData(self.__CurrentProxy)
 			# Формирование настроек.
-			Proxy = {
+			SeleniumWireOptions = {
+				"disable_capture": True,
 				"proxy": {
 					"http": f"http://{UserName}:{Password}@{IP}:{Port}", 
 					"https": f"http://{UserName}:{Password}@{IP}:{Port}"
@@ -181,7 +182,7 @@ class RequestsManager:
 
 		# Инициализация веб-драйвера.
 		try:
-			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = Proxy, options = ChromeOptions)
+			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
 
 		except FileNotFoundError:
 			logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
