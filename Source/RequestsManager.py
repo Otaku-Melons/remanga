@@ -2,8 +2,7 @@ from selenium.common import exceptions as SeleniumExceptions
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from Source.Functions import GetRandomUserAgent
-from Source.Extension import ProxiesExtension
-from selenium import webdriver
+from seleniumwire import webdriver
 from bs4 import BeautifulSoup
 
 import cloudscraper
@@ -156,12 +155,20 @@ class RequestsManager:
 
 		# Опции веб-драйвера.
 		ChromeOptions = webdriver.ChromeOptions()
+		# Настройка прокси.
+		Proxy = None
 		
 		# При включённом прокси создать и установить дополнение.
 		if self.__Settings["use-proxy"] is True:
-			UserName, Password, IP, Port = self.__ProxyToExtensionFormat(self.__CurrentProxy)
-			ProxiesExtensionObject = ProxiesExtension(UserName, Password, IP, Port)
-			ChromeOptions.add_extension(ProxiesExtensionObject)
+			# Получение данных текущего прокси.
+			UserName, Password, IP, Port = self.__GetProxyData(self.__CurrentProxy)
+			# Формирование настроек.
+			Proxy = {
+				"proxy": {
+					"http": f"http://{UserName}:{Password}@{IP}:{Port}", 
+					"https": f"http://{UserName}:{Password}@{IP}:{Port}"
+				}
+			}
 
 		# Установка опций.
 		ChromeOptions.add_argument("--no-sandbox")
@@ -174,7 +181,7 @@ class RequestsManager:
 
 		# Инициализация веб-драйвера.
 		try:
-			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = ChromeOptions)
+			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = Proxy, options = ChromeOptions)
 
 		except FileNotFoundError:
 			logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
@@ -207,7 +214,7 @@ class RequestsManager:
 				self.__RestoreProxyAsValid(Proxy)
 
 	# Форматирует прокси в формат дополнения..
-	def __ProxyToExtensionFormat(self, Proxy: dict):
+	def __GetProxyData(self, Proxy: dict):
 		# Данные прокси.
 		UserName = None
 		Password = None
@@ -405,9 +412,6 @@ class RequestsManager:
 
 		# Выбор текущего прокси.
 		self.__AutoSetCurrentProxy()
-		# Инициализация и настройка веб-драйвера.
-		if self.__Settings["selenium-mode"]:
-			self.__InitializeWebDriver()
 
 	# Закрывает экземпляр браузера.
 	def close(self):
@@ -435,6 +439,10 @@ class RequestsManager:
 		Status = None
 		# Текущий индекс повтора.
 		CurrentTry = 0
+		
+		# Инициализация и настройка веб-драйвера.
+		if self.__Settings["selenium-mode"] and self.__Browser == None:
+			self.__InitializeWebDriver()
 
 		# Установка заголовков по умолчанию.
 		if Headers is None:
@@ -515,6 +523,10 @@ class RequestsManager:
 			"referer": "https://remanga.org/",
 			"referrerPolicy": "strict-origin-when-cross-origin"
 			}
+		
+		# Инициализация и настройка веб-драйвера.
+		if self.__Settings["selenium-mode"] and self.__Browser == None:
+			self.__InitializeWebDriver()
 		
 		# Выполнение запроса с прокси или без.
 		if self.__Settings["selenium-mode"] is True:

@@ -493,10 +493,6 @@ EndTime = time.time()
 # Запись времени завершения работы скрипта.
 logging.info("Script finished. Execution time: " + SecondsToTimeString(EndTime - StartTime) + ".")
 
-# Удаление остаточных файлов.
-if os.path.exists("ProxyExtension.zip"):
-	os.remove("ProxyExtension.zip")
-
 # Выключение ПК, если установлен соответствующий флаг.
 if IsShutdowAfterEnd == True:
 	# Запись в лог сообщения о немедленном выключении ПК.

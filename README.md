@@ -4,13 +4,13 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [random_user_agent](https://github.com/Luqman-Ud-Din/random_user_agent), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Selenium](https://github.com/SeleniumHQ/selenium), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [random_user_agent](https://github.com/Luqman-Ud-Din/random_user_agent), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Pillow](https://github.com/python-pillow/Pillow).
 ```
 pip install random_user_agent
 pip install webdriver-manager
 pip install BeautifulSoup4
+pip install selenium-wire
 pip install cloudscraper
-pip install Selenium
 pip install Pillow
 ```
 Либо установить сразу все пакеты при помощи следующей команды, выполненной из директории скрипта.
@@ -219,8 +219,5 @@ ___
 "invalid-proxies": []
 ```
 Сюда помещаются прокси, по той или иной причине не годящиеся для установления стабильной связи с сервером или отказавшие в доступе при валидации.
-
-# Благодарность
-* [@NoahDrucker](https://github.com/NoahDrucker) – библиотека установки прокси в [Selenium](https://github.com/SeleniumHQ/selenium) методом генерации браузерного дополнения.
 
 _Copyright © DUB1401. 2022-2023._

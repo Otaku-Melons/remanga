@@ -1,6 +1,6 @@
 webdriver-manager
 random_user_agent
 BeautifulSoup4
+selenium-wire
 cloudscraper
-Selenium
 Pillow
