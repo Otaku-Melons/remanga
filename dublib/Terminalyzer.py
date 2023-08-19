@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 import enum
 import sys
+import os
 
 class ArgumentType(enum.Enum):
 	"""
@@ -11,9 +12,10 @@ class ArgumentType(enum.Enum):
 
 	All = "@all"
 	Number = "@number"
+	ValidPath = "@validpath"
 	Text = "@text"
-	URL = "@url"
 	Unknown = None
+	URL = "@url"
 	
 class Command:
 	"""
@@ -427,21 +429,28 @@ class Terminalyzer:
 
 				# Если вся строка, без учёта отрицательного знака, не является числом.
 				if Value.lstrip('-').isdigit() == False:
-					raise InvalidArgumentType(Value, "ArgumentType.Number")
+					raise InvalidArgumentType(Value, "Number")
+				
+			# Если аргумент должен являться валидным путём к файлу или директории.
+			if Type == ArgumentType.ValidPath:
+
+				# Если строка не является валидным путём к файлу или директории.
+				if os.path.exists(Value) == False:
+					raise InvalidArgumentType(Value, "ValidPath")
 
 			# Если аргумент должен являться набором букв.
 			if Type == ArgumentType.Text:
 
 				# Если строка содержит небуквенные символы.
 				if Value.isalpha() == False:
-					raise InvalidArgumentType(Value, "ArgumentType.Text")
+					raise InvalidArgumentType(Value, "Text")
 
 			# Если аргумент должен являться URL.
 			if Type == ArgumentType.URL:
 
 				# Если строка не является URL.
 				if bool(urlparse(Value).scheme) == False:
-					raise InvalidArgumentType(Value, "ArgumentType.URL")
+					raise InvalidArgumentType(Value, "URL")
 
 		return True
 

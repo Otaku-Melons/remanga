@@ -136,7 +136,7 @@ CommandsList.append(COM_getcov)
 COM_manage = Command("manage")
 COM_manage.addArgument(ArgumentType.All, Important = True)
 COM_manage.addFlagPosition(["del"], Important = True, LayoutIndex = 1)
-COM_manage.addKeyPosition(["move"], ArgumentType.All, Important = True, LayoutIndex = 1)
+COM_manage.addKeyPosition(["move"], ArgumentType.ValidPath, Important = True, LayoutIndex = 1)
 COM_manage.addFlagPosition(["s"])
 CommandsList.append(COM_manage)
 
