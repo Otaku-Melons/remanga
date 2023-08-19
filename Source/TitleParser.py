@@ -5,13 +5,37 @@ from Source.Functions import MergeListOfLists
 from Source.Formatter import Formatter
 from Source.Functions import Wait
 
+import hashlib
 import logging
 import shutil
 import json
 import os
 
 class TitleParser:
+	
+	# Фильтрует обложки, хеш которых указан настройками. Возвращает состояние: является ли обложка отфильтрованной.
+	def __FiltreCoverByHash(self, BinaryData: bytes, UsedTitleName: str, Filename: str) -> bool:
+		# Получение MD5 хеша обложки.
+		CoverMD5 = hashlib.md5(BinaryData).hexdigest()
+		# Состояние: является ли обложка отфильтрованной.
+		IsFiltered = False
 
+		# Если хеш присутствует в списке фильтров и файл обложки существует.
+		if CoverMD5 in self.__Settings["covers-filters"]:
+			# Переключение состояния фильтрации обложки.
+			IsFiltered = True
+			
+			# Если файл обложки существует, то удалить его.
+			if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName + "/" + Filename):
+				os.remove(self.__Settings["covers-directory"] + UsedTitleName + "/" + Filename)
+				
+			# Отфильтровать нужный тип обложки.
+			for CoverType in self.__Title["img"].keys():
+				if Filename in self.__Title["img"][CoverType]:
+					self.__Title["img"][CoverType] = ""
+			
+		return IsFiltered
+		
 	# Возвращает структуру главы.
 	def __GetChapterData(self, ChepterID: str) -> dict:
 		# Модификатор для доступа к API глав.
@@ -426,6 +450,8 @@ class TitleParser:
 			Response = None
 			# Счётчик загруженных обложек.
 			DownloadedCoversCounter = 0
+			# Счётчик отфильтрованных обложек.
+			FilteredCoversCount = 0
 			# Запись URL обложек.
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
@@ -472,15 +498,27 @@ class TitleParser:
 						# Создание папки с алиасом тайтла в качестве названия.
 						if not os.path.exists(self.__Settings["covers-directory"] + UsedTitleName):
 							os.makedirs(self.__Settings["covers-directory"] + UsedTitleName)
+							
+						# Фильтрация обложки по MD5 хешу.
+						FilteringResult = self.__FiltreCoverByHash(Response.content, UsedTitleName, URL.split('/')[-1])
 
-						# Открытие потока записи.
-						with open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
-							# Запись изображения.
-							FileWrite.write(Response.content)
-							# Инкремент счётчика загруженных обложек.
-							DownloadedCoversCounter += 1
-							# Вывод в терминал сообщения об успешной загрузке.
-							print("Done.")
+						# Если обложка отфильтрована.
+						if FilteringResult == True:
+							# Инкремент счётчика отфильтрованных обложек.
+							FilteredCoversCount += 1
+							# Вывод в терминал сообщения об отфильтрированной обложке.
+							print("Skipped by filters.")
+						
+						else:
+
+							# Открытие потока записи.
+							with open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
+								# Запись изображения.
+								FileWrite.write(Response.content)
+								# Инкремент счётчика загруженных обложек.
+								DownloadedCoversCounter += 1
+								# Вывод в терминал сообщения об успешной загрузке.
+								print("Done.")
 
 					else:
 						# Запись в лог сообщения о неудачной попытке загрузки обложки.
@@ -492,15 +530,27 @@ class TitleParser:
 							Wait(self.__Settings) 
 
 				else:
-					# Вывод в терминал URL загружаемой обложки.
-					print("Cover already exist: \"" + URL + "\". Skipped.")
+					
+					# Фильтрация обложки по MD5 хешу.
+					FilteringResult = self.__FiltreCoverByHash(open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1],"rb").read(), UsedTitleName, URL.split('/')[-1])
+					
+					# Если обложка отфильтрована.
+					if FilteringResult == True:
+						# Инкремент счётчика отфильтрованных обложек.
+						FilteredCoversCount += 1
+						# Вывод в терминал URL загружаемой обложки.
+						print("Cover: \"" + URL + "\". Remover by filter.")
+						
+					else:
+						# Вывод в терминал URL загружаемой обложки.
+						print("Cover already exist: \"" + URL + "\". Skipped.")
 
 				# Выжидание указанного интервала, если не все обложки загружены.
 				if DownloadedCoversCounter < 3 and DownloadedCoversCounter > 0:
 					Wait(self.__Settings)
 
 			# Запись в лог сообщения: количество загруженных обложек.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + ".")
+			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
 
 	# Сохраняет локальный JSON файл.
 	def Save(self, DownloadCovers: bool = True):

@@ -371,7 +371,7 @@ class Formatter:
 		# Перечисление типов тайтла.
 		Types = ["Манга", "Манхва", "Маньхуа", "Западный комикс", "Рукомикс", "Индонезийский комикс", "Другое", "Другое"]
 		# Перечисление типов тайтла DMP-V1.
-		DMP1_Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "OEL", "ANOTHER"]
+		DMP1_Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "OEL", "UNKNOWN"]
 		# Перечисление статусов.
 		RN1_Statuses = ["Закончен", "Продолжается", "Заморожен", "Нет переводчика", "Анонс", "Лицензировано"]
 		# Буфер обработки возвращаемой структуры.
@@ -382,7 +382,7 @@ class Formatter:
 		FormattedTitle["format"] = "rn-v1"
 		FormattedTitle["site"] = self.__OriginalTitle["site"]
 		FormattedTitle["id"] = self.__OriginalTitle["id"]
-		FormattedTitle["img"] = dict()
+		FormattedTitle["img"] = {"high": "", "mid": "", "low": ""}
 		FormattedTitle["en_name"] = self.__OriginalTitle["en-name"]
 		FormattedTitle["rus_name"] = self.__OriginalTitle["ru-name"]
 		FormattedTitle["another_name"] = " / ".join(self.__OriginalTitle["another-names"])
@@ -619,9 +619,6 @@ class Formatter:
 		FormattedTitle["id"] = self.__OriginalTitle["id"]
 		FormattedTitle["slug"] = self.__OriginalTitle["dir"]
 		FormattedTitle["covers"] = list()
-		FormattedTitle["covers"].append({"link": "https://remanga.org" + self.__OriginalTitle["img"]["high"], "filename": self.__OriginalTitle["img"]["high"].split('/')[-1], "width": None, "height": None})
-		FormattedTitle["covers"].append({"link": "https://remanga.org" + self.__OriginalTitle["img"]["mid"], "filename": self.__OriginalTitle["img"]["mid"].split('/')[-1], "width": None, "height": None})
-		FormattedTitle["covers"].append({"link": "https://remanga.org" + self.__OriginalTitle["img"]["low"], "filename": self.__OriginalTitle["img"]["low"].split('/')[-1], "width": None, "height": None})
 		FormattedTitle["ru-name"] = self.__OriginalTitle["rus_name"]
 		FormattedTitle["en-name"] = self.__OriginalTitle["en_name"]
 		FormattedTitle["another-names"] = self.__OriginalTitle["another_name"].split(" / ")
@@ -640,6 +637,13 @@ class Formatter:
 
 		#---> Внесение правок.
 		#==========================================================================================#
+
+		# Конвертирование обложек.
+		for CoverType in self.__OriginalTitle["img"].keys():
+			
+			# Если есть данные об обложке.
+			if self.__OriginalTitle["img"][CoverType] != "":
+				FormattedTitle["covers"].append({"link": "https://remanga.org" + self.__OriginalTitle["img"][CoverType], "filename": self.__OriginalTitle["img"][CoverType].split('/')[-1], "width": None, "height": None})
 
 		# Конвертирование ветвей.
 		for OriginalBranch in self.__OriginalTitle["branches"]:

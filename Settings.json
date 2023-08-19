@@ -2,13 +2,18 @@
 	"authorization-token": "",
 	"format": "rn-v1",
 	"min-delay": 1,
-	"max-delay": 5,
+	"max-delay": 3,
 	"use-proxy": false,
 	"selenium-mode": false,
 	"check-updates-period": 60,
 	"use-id-instead-slug": false,
-	"covers-directory": "",
 	"titles-directory": "",
+	"covers-directory": "",
+	"covers-filters": [
+		"642864db2f209c6a5a49bfecb83a719e",
+		"542178089bcc4fedd500b77ff71f7c0d",
+		"096e8e796200aad2902fd88af21c0a29"
+	],
 	"retry-tries": 3,
 	"retry-delay": 15,
 	"debug": false

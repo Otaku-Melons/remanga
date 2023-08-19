@@ -377,7 +377,7 @@ if "update" == CommandDataStruct.Name:
 	logging.info("====== Updating ======")
 
 	# Обновить все локальные файлы.
-	if "-local" in CommandDataStruct.Arguments:
+	if "local" in CommandDataStruct.Flags:
 		# Очистка консоли.
 		Cls()
 		# Вывод в консоль: идёт поиск тайтлов.
