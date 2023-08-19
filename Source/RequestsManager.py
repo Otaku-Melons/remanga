@@ -146,13 +146,8 @@ class RequestsManager:
 
 	# Инициализирует веб-драйвер.
 	def __InitializeWebDriver(self):
-
 		# Попытка закрыть браузер.
-		try:
-			self.__Browser.close()
-		except Exception:
-			pass
-
+		self.close()
 		# Опции веб-драйвера.
 		ChromeOptions = webdriver.ChromeOptions()
 		# Настройка прокси.
@@ -417,7 +412,7 @@ class RequestsManager:
 	# Закрывает экземпляр браузера.
 	def close(self):
 		try:
-			self.__Browser.close()
+			self.__Browser.quit()
 		except Exception:
 			pass
 

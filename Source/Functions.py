@@ -1,5 +1,4 @@
-from random_user_agent.params import SoftwareName, OperatingSystem
-from random_user_agent.user_agent import UserAgent
+from fake_useragent import UserAgent
 from dublib.Methods import ReadJSON
 
 import logging
@@ -10,11 +9,10 @@ import os
 
 # Возвращает случайное значение заголовка User-Agent.
 def GetRandomUserAgent() -> str:
-	SoftwareNames = [SoftwareName.CHROME.value]
-	OperatingSystems = [OperatingSystem.WINDOWS.value, OperatingSystem.LINUX.value]   
-	UserAgentRotator = UserAgent(software_names = SoftwareNames, operating_systems = OperatingSystems, limit = 100)
+	# Генерация User-Agent.
+	UserAgentString = UserAgent().chrome
 
-	return str(UserAgentRotator.get_random_user_agent()).strip('"')
+	return UserAgentString
 
 # Удаляет или перемещает файлы JSON, имеющий отличный от заданного формат.
 def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | None):
@@ -51,9 +49,9 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 					
 					# Запись в лог сообщения: файл перемещён.
 					if Format != None:
-						logging.info("File \"" + Filename+ "\"" + "in \"" + Format.upper() + "\"format" + ". Moved.")
+						logging.info("File \"" + Filename+ "\"" + " in \"" + Format.upper() + "\"format. Moved.")
 					else:
-						logging.info("File \"" + Filename+ "\"" + "without format" + ". Moved.")
+						logging.info("File \"" + Filename+ "\"" + " without format. Moved.")
 						
 				else:
 					raise FileNotFoundError
@@ -65,9 +63,9 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 				
 				# Запись в лог сообщения: файл удалён.
 				if Format != None:
-					logging.info("File \"" + Filename+ "\"" + "in \"" + Format.upper() + "\"format" + ". Removed.")
+					logging.info("File \"" + Filename+ "\"" + "in \"" + Format.upper() + "\" format. Removed.")
 				else:
-					logging.info("File \"" + Filename+ "\"" + "without format" + ". Removed.")
+					logging.info("File \"" + Filename+ "\"" + " without format. Removed.")
 
 # Объединяет список списков в один список.
 def MergeListOfLists(ListOfLists: list) -> list:

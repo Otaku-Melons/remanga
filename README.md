@@ -4,10 +4,10 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [random_user_agent](https://github.com/Luqman-Ud-Din/random_user_agent), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Pillow](https://github.com/python-pillow/Pillow).
 ```
-pip install random_user_agent
 pip install webdriver-manager
+pip install fake-useragent
 pip install BeautifulSoup4
 pip install selenium-wire
 pip install cloudscraper

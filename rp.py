@@ -152,6 +152,7 @@ CommandsList.append(COM_parce)
 
 # Создание команды: proxval.
 COM_proxval = Command("proxval")
+COM_proxval.addFlagPosition(["f"])
 COM_proxval.addFlagPosition(["s"])
 CommandsList.append(COM_proxval)
 
@@ -190,7 +191,7 @@ IsForceModeActivated = False
 InFuncMessage_ForceMode = ""
 
 # Обработка флага: режим перезаписи.
-if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["manage", "proxval"]:
+if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["convert", "manage"]:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения: включён режим перезаписи.
@@ -281,8 +282,14 @@ if "getcov" == CommandDataStruct.Name:
 if "manage" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок менеджмента.
 	logging.info("====== Management ======")
+	# Очистка консоли.
+	Cls()
+	# Вывод в консоль: идёт поиск тайтлов.
+	print("Management...", end = "")
 	# Менеджмент файлов с другим форматом.
-	ManageOtherFormatsFiles(Settings, CommandDataStruct.Arguments[0], CommandDataStruct.Arguments[1] if "move" in CommandDataStruct.Flags else None)
+	ManageOtherFormatsFiles(Settings, CommandDataStruct.Arguments[0], CommandDataStruct.Values["move"] if "move" in CommandDataStruct.Keys else None)
+	# Вывод в консоль: процесс завершён.
+	print("Done.")
 
 # Обработка команды: parce.
 if "parce" == CommandDataStruct.Name:
@@ -343,18 +350,12 @@ if "proxval" == CommandDataStruct.Name:
 	RequestsManagerObject = RequestsManager(Settings, True)
 	# Список всех прокси.
 	ProxiesList = RequestsManagerObject.getProxies()
-	# Переключатель: обновлять ли файл определений прокси.
-	IsUpdateProxiesFile = False
-
-	# Проверка флага для обновления файла определений прокси.
-	if "f" in CommandDataStruct.Flags:
-		IsUpdateProxiesFile = True
 
 	# Проверка каждого прокси.
 	if len(ProxiesList) > 0:
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
-			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.validateProxy(ProxiesList[ProxyIndex], IsUpdateProxiesFile))
+			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.validateProxy(ProxiesList[ProxyIndex], IsForceModeActivated))
 
 			# Выжидание интервала.
 			if ProxyIndex < len(ProxiesList) - 1:
