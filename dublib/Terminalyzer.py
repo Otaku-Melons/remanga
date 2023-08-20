@@ -64,24 +64,25 @@ class Command:
 		for FlagsPostionIngex in range(0, len(self.__FlagsPositions)):
 			if self.__FlagsPositions[FlagsPostionIngex]["layout-index"] == None and self.__FlagsPositions[FlagsPostionIngex]["important"] == True:
 				self.__MinArgc += 1
-				
+		
 		# Подсчитать все важные позиции ключей, не лежащие на слоях.
 		for KeysPostionIngex in range(0, len(self.__KeysPositions)):
 			if self.__KeysPositions[KeysPostionIngex]["layout-index"] == None and self.__KeysPositions[KeysPostionIngex]["important"] == True:
 				self.__MinArgc += 2
-				
+		
 		# Подсчитать все важные аргументы, не лежащие на слоях.
 		for Argument in self.__Arguments:
 			if Argument["layout-index"] == None and Argument["important"] == True:
 				self.__MinArgc += 1
-				
+		
 		# Подсчёт важных слоёв.
 		for LayoutIndex in self.__Layouts.keys():
 			
 			# Если в важном слое есть ключи.
-			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["flags"] > 0 or self.__Layouts[LayoutIndex]["arguments"] > 0 :
+			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["flags"] > 0 or self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["arguments"] > 0 :
 				self.__MinArgc += 1
-				
+		
+		
 	def __InitializeLayout(self, LayoutIndex: int):
 		"""
 		Инициализирует описательную структуру слоя.
@@ -161,10 +162,12 @@ class Command:
 		if LayoutIndex != None:
 			# Инициализация слоя.
 			self.__InitializeLayout(LayoutIndex)
-			# Установка обязательного наличия для остальных аргументов на слое.
-			self.__SetLayoutAsImportant(LayoutIndex)	
 			# Инкремент количества аргументов на слое.
 			self.__Layouts[str(LayoutIndex)]["arguments"] += 1
+			
+			# Если аргумент обязательный, установить обязательное наличие для слоя.
+			if Important == True:
+				self.__SetLayoutAsImportant(LayoutIndex)	
 
 		# Вычисление максимального и минимального количества аргументов.
 		self.__CalculateMaxArgc()
@@ -185,10 +188,12 @@ class Command:
 		if LayoutIndex != None:
 			# Инициализация слоя.
 			self.__InitializeLayout(LayoutIndex)
-			# Установка обязательного наличия для остальных позиций на слое.
-			self.__SetLayoutAsImportant(LayoutIndex)	
 			# Инкремент количества флагов на слое.
 			self.__Layouts[str(LayoutIndex)]["flags"] += 1
+			
+			# Если позиция обязательна, установить обязательное наличие для слоя.
+			if Important == True:
+				self.__SetLayoutAsImportant(LayoutIndex)	
 
 		# Вычисление максимального и минимального количества аргументов. 
 		self.__CalculateMaxArgc()
@@ -222,10 +227,12 @@ class Command:
 		if LayoutIndex != None:
 			# Инициализация слоя.
 			self.__InitializeLayout(LayoutIndex)
-			# Установка обязательного наличия для остальных позиций на слое.
-			self.__SetLayoutAsImportant(LayoutIndex)	
 			# Инкремент количества ключей на слое.
 			self.__Layouts[str(LayoutIndex)]["keys"] += 1
+			
+			# Если позиция обязательна, установить обязательное наличие для слоя.
+			if Important == True:
+				self.__SetLayoutAsImportant(LayoutIndex)	
 
 		# Вычисление максимального и минимального количества аргументов. 
 		self.__CalculateMaxArgc()
