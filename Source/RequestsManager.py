@@ -412,7 +412,12 @@ class RequestsManager:
 	# Закрывает экземпляр браузера.
 	def close(self):
 		try:
-			self.__Browser.quit()
+			
+			# Если активен экземпляр браузера. 
+			if self.__Browser != None:
+				self.__Browser.quit()
+				self.__Browser = None
+				
 		except Exception:
 			pass
 

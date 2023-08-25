@@ -14,7 +14,6 @@ class ArgumentType(enum.Enum):
 	Number = "@number"
 	ValidPath = "@validpath"
 	Text = "@text"
-	Unknown = None
 	URL = "@url"
 	
 class Command:
@@ -81,7 +80,6 @@ class Command:
 			# Если в важном слое есть ключи.
 			if self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["flags"] > 0 or self.__Layouts[LayoutIndex]["important"] == True and self.__Layouts[LayoutIndex]["arguments"] > 0 :
 				self.__MinArgc += 1
-		
 		
 	def __InitializeLayout(self, LayoutIndex: int):
 		"""

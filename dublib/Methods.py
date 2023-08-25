@@ -88,7 +88,7 @@ def RemoveHTML(TextHTML: str) -> str:
 
 	return str(CleanText)
 
-def RemoveRecurringCharacters(String: str, Substring: str) -> str:
+def RemoveRecurringSubstrings(String: str, Substring: str) -> str:
 	"""
 	Удаляет из строки подряд идущие повторяющиеся подстроки.
 		String – строка, из которой удаляются повторы;
