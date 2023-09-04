@@ -433,7 +433,7 @@ class TitleParser:
 			logging.info("Title: \"" + self.__TitleHeader + "\". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
 
 	# Загружает обложки тайтла.
-	def DownloadCovers(self):
+	def downloadCovers(self):
 
 		# Если парсер активен.
 		if self.__IsActive == True:
@@ -553,7 +553,7 @@ class TitleParser:
 			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
 
 	# Сохраняет локальный JSON файл.
-	def Save(self, DownloadCovers: bool = True):
+	def save(self, DownloadCovers: bool = True):
 		# Используемое имя тайтла: ID или алиас.
 		UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
 
@@ -580,7 +580,7 @@ class TitleParser:
 
 			# Если указано, скачать обложки.
 			if DownloadCovers == True:
-				self.DownloadCovers()
+				self.downloadCovers()
 
 			# Инициализация конвертера.
 			FormatterObject = Formatter(self.__Settings, self.__Title, "rn-v1")

@@ -279,7 +279,7 @@ if "getcov" == CommandDataStruct.Name:
 	# Парсинг тайтла.
 	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
-	LocalTitle.DownloadCovers()
+	LocalTitle.downloadCovers()
 
 # Обработка команды: manage.
 if "manage" == CommandDataStruct.Name:
@@ -331,17 +331,19 @@ if "parce" == CommandDataStruct.Name:
 				# Парсинг тайтла.
 				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
-				LocalTitle.Save()
+				LocalTitle.save()
 
 		else:
 			# Запись в лог критической ошибки: отсутствует файл коллекций.
 			logging.critical("Unable to find collection file.")
+			# Выброс исключения.
+			raise FileNotFoundError("Collection.txt")
 	
 	else:
 		# Парсинг тайтла.
 		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
 		# Сохранение локальных файлов тайтла.
-		LocalTitle.Save()
+		LocalTitle.save()
 
 # Обработка команды: proxval.
 if "proxval" == CommandDataStruct.Name:
@@ -458,7 +460,7 @@ if "update" == CommandDataStruct.Name:
 			# Парсинг тайтла.
 			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
 			# Сохранение локальных файлов тайтла.
-			LocalTitle.Save()
+			LocalTitle.save()
 
 			# Выжидание указанного интервала, если не все обложки загружены.
 			if CurrentTitleIndex < len(TitlesSlugs):
@@ -484,7 +486,7 @@ if "update" == CommandDataStruct.Name:
 			# Парсинг тайтла.
 			LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
 			# Сохранение локальных файлов тайтла.
-			LocalTitle.Save()
+			LocalTitle.save()
 
 #==========================================================================================#
 # >>>>> ЗАВЕРШЕНИЕ РАБОТЫ СКРИПТА <<<<< #
