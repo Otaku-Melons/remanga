@@ -1,4 +1,4 @@
-from dublib.Methods import Cls, ReadJSON, RemoveFolderContent
+from dublib.Methods import Cls, ReadJSON
 from Source.RequestsManager import RequestsManager
 from Source.Functions import GetRandomUserAgent
 from Source.Functions import MergeListOfLists

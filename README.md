@@ -4,8 +4,9 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [dublib](https://github.com/DUB1401/dublib), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [Pillow](https://github.com/python-pillow/Pillow).
 ```
+pip install git+https://github.com/DUB1401/dublib#egg=dublib
 pip install webdriver-manager
 pip install fake-useragent
 pip install BeautifulSoup4
