@@ -18,10 +18,10 @@ class MissingValidProxy(Exception):
 
 	# Конструктор: вызывается при обработке исключения.
 	def __init__(self): 
-		# Обеспечение доступа к оригиналу наследованного свойства.
-		super().__init__(self.__Message) 
 		# Добавление данных в сообщение об ошибке.
 		self.__Message = "There are no valid proxies in the \"Proxies.json\"."
+		# Обеспечение доступа к оригиналу наследованного свойства.
+		super().__init__(self.__Message) 
 
 	# Преобразователь: представляет содержимое класса как строку.
 	def __str__(self):
