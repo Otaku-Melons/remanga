@@ -1,4 +1,4 @@
-from dublib.Methods import Cls, ReadJSON
+from dublib.Methods import Cls, ReadJSON, RenameDictionaryKey
 from Source.RequestsManager import RequestsManager
 from Source.Functions import GetRandomUserAgent
 from Source.Functions import MergeListOfLists
@@ -49,7 +49,11 @@ class TitleParser:
 		if Response.status_code == 200:
 			# Сохранение форматированного результата.
 			ChapterData = dict(json.loads(Response.text))["content"]
-
+			# Объединение групп слайдов.
+			ChapterData["slides"] = MergeListOfLists(ChapterData["pages"])
+			# Удаление старого ключа.
+			del ChapterData["pages"]
+			
 		else:
 			# Запись в лог сообщения о том, что не удалось выполнить запрос.
 			logging.error("Unable to request chapter data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
@@ -86,12 +90,11 @@ class TitleParser:
 			if Response.status_code == 200:
 				# Получение текста с ответом.
 				ResponseText = Response.text
-
 				# Сохранение форматированного результата.
 				CurrentBranchData = dict(json.loads(ResponseText))["content"]
-
+				
 				# Форматирование переменной (нужно для верной обработки ошибки в логах, когда не удалось выполнить запрос).
-				if BranchData is None:
+				if BranchData == None:
 					BranchData = list()
 
 				# Дополнение информации о ветви новой страницей.
@@ -104,8 +107,14 @@ class TitleParser:
 			# Выжидание указанного интервала.
 			Wait(self.__Settings)
 
-		# Запись в лог сообщения о завершении получения данных о ветвях тайтла.
-		if BranchData is not None:
+		# Если ветвь не пустая.
+		if BranchData != None:
+			
+			# Для каждой главы создать ключ для слайдов.
+			for Index in range(0, len(BranchData)):
+				BranchData[Index]["slides"] = list()
+				
+			# Запись в лог сообщения: завершено получение данных о ветвях.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Request title branches... Done.")
 
 		return BranchData
@@ -177,7 +186,7 @@ class TitleParser:
 			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Will be overwritten...")
 		else:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
-			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Trying to merge...")
+			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Merging...")
 		
 		# Открытие локального описательного файла JSON.
 		with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", encoding = "utf-8") as FileRead:
@@ -353,6 +362,7 @@ class TitleParser:
 				# Если в ветви есть главы, то получить её, иначе сформировать искусственно.
 				if Branch["count_chapters"] > 0:
 					self.__Title["chapters"][str(Branch["id"])] = self.__GetBranchData(str(Branch["id"]), Branch["count_chapters"])
+				
 				else:
 					self.__Title["chapters"][str(Branch["id"])] = list()
 
@@ -408,14 +418,12 @@ class TitleParser:
 						print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
 
 					# Проверка отсутствия описанных страниц.
-					if "slides" not in self.__Title["chapters"][BranchID][ChapterIndex].keys():
+					if self.__Title["chapters"][BranchID][ChapterIndex]["slides"] == list():
 
 						# Проверка главы на платность.
 						if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
 							# Получение информации о страницах главы.
-							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["pages"]
-							# Форматирование списка слайдов к нужному виду.
-							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = MergeListOfLists(self.__Title["chapters"][BranchID][ChapterIndex]["slides"])
+							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["slides"]
 							# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
 							logging.info("Title: \"" + self.__TitleHeader + "\". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
 							# Инкремент счётчика.
@@ -424,9 +432,7 @@ class TitleParser:
 							Wait(self.__Settings)
 
 						else:
-							# Создание пустого списка слайдов.
-							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = list()
-							# Запись в лог сообщения о платной главе.
+							# Запись в лог сообщения: глава платная.
 							logging.info("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
 
 			# Запись в лог сообщения о количестве дополненных глав.
@@ -551,12 +557,44 @@ class TitleParser:
 
 			# Запись в лог сообщения: количество загруженных обложек.
 			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
+			
+	# Заменяет главу свежей версией с сервера.
+	def repairChapter(self, ChapterID: str):
+		# Состояние: восстановлена ли глава.
+		IsRepaired = False
+		
+		# Для каждой главы в каждой ветви.
+		for BranchID in self.__Title["chapters"].keys():
+			for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
+				
+				# Если ID главы совпадает с целевым.
+				if self.__Title["chapters"][BranchID][ChapterIndex]["id"] == int(ChapterID):
+					# Переключить состояние в успешное.
+					IsRepaired = True
+					
+					# Если глава бесплатная.
+					if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+						# Запрос данных главы и переименование ключа со слайдами.
+						self.__Title["chapters"][BranchID][ChapterIndex] = self.__GetChapterData(ChapterID)
+						# Запись в лог сообщения: глава восстановлена.
+						logging.info(f"Chapter {ChapterID} repaired.")
+						
+					else:
+						# Запись в лог сообщения: глава платная.
+						logging.info(f"Chapter {ChapterID} is paid. Skipped.")
+		
+		# Если глава не найдена.
+		if IsRepaired == False:
+			# Запись в лог критической ошибки: не найдена глава с указанным ID.
+			logging.critical(f"Unable to find chapter with ID: {ChapterID}.")
+			# Выброс исключения.
+			raise Exception(f"unable to find chapter in local file")
 
 	# Сохраняет локальный JSON файл.
 	def save(self, DownloadCovers: bool = True):
 		# Используемое имя тайтла: ID или алиас.
 		UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
-
+		
 		# Если парсер активен.
 		if self.__IsActive == True:
 

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles
-from dublib.Methods import Shutdown, Cls, WriteJSON
+from dublib.Methods import Cls, Shutdown, ReadJSON, WriteJSON
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
@@ -62,51 +62,30 @@ os.environ["WDM_LOCAL"] = "1"
 # Отключение логов WebDriver.
 os.environ["WDM_LOG"] = str(logging.NOTSET)
 # Глобальные настройки.
-Settings = None
+Settings = ReadJSON("Settings.json")
 
-# Проверка доступности файла.
-if os.path.exists("Settings.json"):
+# Интерпретация выходной директории обложек и коррекция пути.
+if Settings["covers-directory"] == "":
+	Settings["covers-directory"] = "Covers/"
+	
+elif Settings["covers-directory"][-1] != '/':
+	Settings["covers-directory"] += "/"
 
-	# Открытие файла настроек.
-	with open("Settings.json", encoding = "utf-8") as FileRead:
-		# Чтение настроек.
-		Settings = json.load(FileRead)
+# Интерпретация выходной директории обложек и коррекция пути.
+if Settings["titles-directory"] == "":
+	Settings["titles-directory"] = "Titles/"
+	
+elif Settings["titles-directory"][-1] != '/':
+	Settings["titles-directory"] += "/"
 
-		# Интерпретация выходной директории обложек и коррекция пути.
-		if Settings["covers-directory"] == "":
-			Settings["covers-directory"] = "Covers/"
-		elif Settings["covers-directory"][-1] != '/':
-			Settings["covers-directory"] += "/"
-
-		# Интерпретация выходной директории обложек и коррекция пути.
-		if Settings["titles-directory"] == "":
-			Settings["titles-directory"] = "Titles/"
-		elif Settings["titles-directory"][-1] != '/':
-			Settings["titles-directory"] += "/"
-
-		# Запись в шапку лога выбранного режима запросов.
-		if Settings["selenium-mode"] is True:
-			logging.info("Requests type: Selenium (JavaScript interpreter in Google Chrome).")
-		else:
-			logging.info("Requests type: requests (Python library).")
-
-		# Приведение формата описательного файла к нижнему регистру.
-		Settings["format"] = Settings["format"].lower()
-
-		# Запись в лог сообщения: формат выходного файла.
-		logging.info("Output file format: \"" + Settings["format"] + "\".")
-
-		# Запись в лог сообщения: использование ID вместо алиаса.
-		if Settings["use-id-instead-slug"] == True:
-			logging.info("Using ID instead slug: ON.")
-		else:
-			logging.info("Using ID instead slug: OFF.")
-
-else:
-	# Запись в лог критической ошибки: не найден файл настроек.
-	logging.critical("Settings.json not found.")
-	# Выброс исключения.
-	raise Exception("Settings.json not found")
+# Запись в лог сообщения: выбранный режим запроса.
+logging.info("Requests type: Selenium (JavaScript interpreter in Google Chrome)." if  Settings["selenium-mode"] == True else "Requests type: requests (Python library).")
+# Приведение формата описательного файла к нижнему регистру.
+Settings["format"] = Settings["format"].lower()
+# Запись в лог сообщения: формат выходного файла.
+logging.info("Output file format: \"" + Settings["format"] + "\".")
+# Запись в лог сообщения: использование ID вместо алиаса.
+logging.info("Using ID instead slug: ON." if Settings["use-id-instead-slug"] == True else "Using ID instead slug: OFF.")
 
 #==========================================================================================#
 # >>>>> НАСТРОЙКА ОБРАБОТЧИКА КОМАНД <<<<< #
@@ -159,6 +138,13 @@ COM_proxval.addFlagPosition(["f"])
 COM_proxval.addFlagPosition(["s"])
 CommandsList.append(COM_proxval)
 
+# Создание команды: repair.
+COM_repair = Command("repair")
+COM_repair.addArgument(ArgumentType.All, Important = True)
+COM_repair.addKeyPosition(["chapter"], ArgumentType.Number, Important = True)
+COM_repair.addFlagPosition(["s"])
+CommandsList.append(COM_repair)
+
 # Создание команды: update.
 COM_update = Command("update")
 COM_update.addArgument(ArgumentType.All, LayoutIndex = 1)
@@ -192,9 +178,11 @@ InFuncMessage_Shutdown = ""
 IsForceModeActivated = False
 # Сообщение для внутренних функций: режим перезаписи.
 InFuncMessage_ForceMode = ""
+# Очистка консоли.
+Cls()
 
 # Обработка флага: режим перезаписи.
-if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["convert", "manage"]:
+if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["convert", "manage", "repair"]:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения: включён режим перезаписи.
@@ -285,8 +273,7 @@ if "getcov" == CommandDataStruct.Name:
 if "manage" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок менеджмента.
 	logging.info("====== Management ======")
-	# Очистка консоли.
-	Cls()
+	
 	# Вывод в консоль: идёт поиск тайтлов.
 	print("Management...", end = "")
 	# Менеджмент файлов с другим форматом.
@@ -298,6 +285,8 @@ if "manage" == CommandDataStruct.Name:
 if "parce" == CommandDataStruct.Name:
 	# Запись в лог сообщения: парсинг.
 	logging.info("====== Parcing ======")
+	# Генерация сообщения.
+	ExternalMessage = InFuncMessage_Shutdown
 	
 	# Если активирован флаг парсинга коллекций.
 	if "collection" in CommandDataStruct.Flags:
@@ -341,7 +330,7 @@ if "parce" == CommandDataStruct.Name:
 	
 	else:
 		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode)
+		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = ExternalMessage)
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
 
@@ -349,15 +338,17 @@ if "parce" == CommandDataStruct.Name:
 if "proxval" == CommandDataStruct.Name:
 	# Запись в лог сообщения: валидация.
 	logging.info("====== Validation ======")
-	# Очистка консоли.
-	Cls()
 	# Инициализация менеджера прокси.
 	RequestsManagerObject = RequestsManager(Settings, True)
 	# Список всех прокси.
 	ProxiesList = RequestsManagerObject.getProxies()
-
-	# Проверка каждого прокси.
+	# Сообщение о валидации прокси.
+	Message = "Proxies.json updated.\n\n" if IsForceModeActivated == True else ""
+	
+	# Если указаны прокси.
 	if len(ProxiesList) > 0:
+		
+		# Для каждого прокси провести валидацию.
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
 			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.validateProxy(ProxiesList[ProxyIndex], IsForceModeActivated))
@@ -371,13 +362,45 @@ if "proxval" == CommandDataStruct.Name:
 		print("Proxies are missing.")
 		# Запись в лог предупреждения: файл определений не содержит прокси.
 		logging.warning("Proxies are missing.")
-
+		
 	# Вывод в терминал сообщения о завершении работы.
-	print("\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\nPress ENTER to exit...")
+	print(f"\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\n{Message}Press ENTER to exit...")
 	# Закрытие менеджера.
 	RequestsManagerObject.close()
 	# Пауза.
 	input()
+	
+# Обработка команды: repair.
+if "repair" == CommandDataStruct.Name:
+	# Запись в лог сообщения: восстановление.
+	logging.info("====== Repairing ======")
+	# Алиас тайтла.
+	TitleSlug = None
+	# Название файла тайтла с расширением.
+	Filename = (CommandDataStruct.Arguments[0] + ".json") if ".json" not in CommandDataStruct.Arguments[0] else CommandDataStruct.Arguments[0]
+	# Чтение тайтла.
+	TitleContent = ReadJSON(Settings["titles-directory"] + Filename)
+	# Генерация сообщения.
+	ExternalMessage = InFuncMessage_Shutdown
+	# Вывод в консоль: идёт процесс восстановления главы.
+	print("Repairing chapter...")
+	
+	# Если ключём алиаса является slug, то получить алиас.
+	if "slug" in TitleContent.keys():
+		TitleSlug = TitleContent["slug"]
+		
+	else:
+		TitleSlug = TitleContent["dir"]
+
+	# Парсинг тайтла.
+	LocalTitle = TitleParser(Settings, TitleSlug, ForceMode = False, Message = ExternalMessage, Amending = False)
+	
+	# Если указано, восстановить главу.
+	if "chapter" in CommandDataStruct.Keys:
+		LocalTitle.repairChapter(CommandDataStruct.Values["chapter"])
+	
+	# Сохранение локальных файлов тайтла.
+	LocalTitle.save(DownloadCovers = False)
 
 # Обработка команды: update.
 if "update" == CommandDataStruct.Name:
@@ -386,8 +409,6 @@ if "update" == CommandDataStruct.Name:
 
 	# Обновить все локальные файлы.
 	if "local" in CommandDataStruct.Flags:
-		# Очистка консоли.
-		Cls()
 		# Вывод в консоль: идёт поиск тайтлов.
 		print("Scanning titles...")
 		# Получение списка файлов в директории.
