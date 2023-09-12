@@ -173,8 +173,10 @@ class TitleParser:
 	def __MergeBranches(self, UsedTitleName: str) -> dict:
 		# Список ID ветвей локального файла.
 		LocalBranchesID = list()
+		# Список ID ветвей на сайте.
+		RemangaBranchesID = list()
 		# Удалённый описательный файл JSON.
-		RemangaTitle = self.__Title
+		RemangaTitle = self.__Title.copy()
 		# Локальный описательный файл JSON.
 		LocalTitle = None
 		# Счётчик перемещённых глав.
@@ -184,33 +186,29 @@ class TitleParser:
 		if self.__ForceMode == True:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
 			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Will be overwritten...")
+			
 		else:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
 			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Merging...")
-		
-		# Открытие локального описательного файла JSON.
-		with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", encoding = "utf-8") as FileRead:
+			# Чтение локального описательного файла JSON.
+			LocalTitle = ReadJSON(self.__Settings["titles-directory"] + UsedTitleName + ".json")
 
-			try:
-				# Попытка прочитать файл.
-				LocalTitle = json.load(FileRead)
+			# Для каждой ветви на сайте записать ID.
+			for Branch in RemangaTitle["branches"]:
+				RemangaBranchesID.append(str(Branch["id"]))
 
-			except json.decoder.JSONDecodeError:
-				# Запись в лог ошибки: не удалось прочитать существующий файл.
-				logging.error("Title: \"" + self.__TitleHeader + "\". Unable to read existing file!")
-				# Перевод парсера в неактивное состояние.
-				self.__IsActive = False
-
-			# Получение наследуемой ветви и конвертирование в совместимый формат.
-			if "branchId" in LocalTitle.keys():
-				# Получение наследуемой ветви htmp-v1.
-				LocalBranchesID.append(str(LocalTitle["branchId"]))
+			# Если формат HTMP-V1.
+			if LocalTitle["format"].upper() == "HTMP-V1":
 				# Инициализатора конвертера.
 				Converter = Formatter(self.__Settings, LocalTitle, "htmp-v1")
-				# Конвертирование формата в htcrn-v1.
+				# Конвертирование формата в HTCRN-V1.
 				LocalTitle = Converter.convert("htcrn-v1")
 				# Список ID всех ветвей.
 				AllBranchesID = list()
+				
+				# Получение списка ID локальных ветвей.
+				for Branch in LocalTitle["branches"]:
+					LocalBranchesID.append(str(Branch["id"]))
 				
 				# Получение списка ID всех ветвей.
 				for Branch in self.__Title["branches"]:
@@ -223,71 +221,88 @@ class TitleParser:
 					# Запись в лог сообщения: наследуемая ветвь была удалена на сайте.
 					logging.warning("Title: \"" + self.__TitleHeader + "\". Legacy branch was removed from site!")
 
-			# Получение наследуемой ветви и конвертирование в совместимый формат.
+			# Если формат не HTMP-V1.
 			else:
 				# Исходный формат.
-				OriginalFormat = None
-				# Совместимый формат.
-				CompatibleFormat = None
-
-				# Определить исходный формат или присвоить нативный.
-				if "format" in LocalTitle.keys():
-					OriginalFormat = LocalTitle["format"]
-				else:
-					OriginalFormat = "rn-v1"
-
-				# Определение совместимого формата.
-				if OriginalFormat in ["htcrn-v1", "htmp-v1"]:
-					CompatibleFormat = "htcrn-v1"
-				elif OriginalFormat in ["dmp-v1", "rn-v1"]:
-					CompatibleFormat = "rn-v1"
-
+				OriginalFormat = LocalTitle["format"] if "format" in LocalTitle.keys() else "rn-v1"
 				# Инициализатора конвертера.
 				Converter = Formatter(self.__Settings, LocalTitle, OriginalFormat)
-				# Конвертирование формата в htcrn-v1.
-				LocalTitle = Converter.convert(CompatibleFormat)
+				# Конвертирование формата в совместимый.
+				LocalTitle = Converter.convert("rn-v1")
 
 				# Получение списка ветвей.
 				for Branch in LocalTitle["branches"]:
 					LocalBranchesID.append(str(Branch["id"]))
 
-			# Для каждой ветви совершить слияние.
-			if self.__IsActive is True:
+			# Если тайтл активен.
+			if self.__IsActive == True:
+				
+				# Для каждой локальной ветви.
 				for BranchID in LocalBranchesID:
-					for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
+					
+					# Если локальная ветвь присутствует на сайте.
+					if BranchID in RemangaBranchesID:
+					
+						# Для каждой главы в локальной ветви.
+						for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
 
-						# Проверка главы на платность (первое условие нужно для совместимости со старыми форматами без данных о донатном статусе главы).
-						if "is_paid" not in LocalTitle["chapters"][BranchID][ChapterIndex].keys() or LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+							# Проверка главы на платность (первое условие нужно для совместимости со старыми форматами без данных о донатном статусе главы).
+							if "is_paid" not in LocalTitle["chapters"][BranchID][ChapterIndex].keys() or LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
+								# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
+								RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
 
-							# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
-							RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
+								# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
+								if RemangaTitleChapterIndex != None:
+									# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
+									RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
+									# Инкремент счётчика.
+									self.__MergedChaptersCount += 1
+									
+							#---> Проверка: является ли текущая ветвь HTMP-V1 самой длинной.
+							#==========================================================================================#
 
-							# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
-							if RemangaTitleChapterIndex != None:
-								# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
-								RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
-								# Инкремент счётчика.
-								self.__MergedChaptersCount += 1
+							# Если формат HTMP-V1.
+							if LocalTitle["format"].upper() == "HTMP-V1":
+								# Копия ветвей тайтла.
+								BranchesBufer = RemangaTitle["branches"]
+								# Сортировка копии по количеству глав.
+								BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
 
-					#---> Проверка: является ли текущая ветвь самой длинной.
-					#==========================================================================================#
-					# Копия ветвей тайтла.
-					BranchesBufer = RemangaTitle["branches"]
-					# Сортировка копии по количеству глав.
-					BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
-
-					# Проверка несоответствия текущей ветви и длиннейшей при обработке форматов с одной активной ветвью.
-					if "branchId" in LocalTitle.keys() and LocalTitle["branchId"] != BranchesBufer[0]["id"]:
-						# Получение ID ветви с большим количеством глав.
-						BranchID = str(BranchesBufer[0]["id"])
-						# Запись в лог: доступна ветвь с большим количеством глав.
-						logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
-
+								# Проверка несоответствия текущей ветви и длиннейшей при обработке форматов с одной активной ветвью.
+								if LocalTitle["branchId"] != BranchesBufer[0]["id"]:
+									# Получение ID ветви с большим количеством глав.
+									BranchID = str(BranchesBufer[0]["id"])
+									# Запись в лог: доступна ветвь с большим количеством глав.
+									logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
+									
+					else:
+						# Запись в лог предупреждения: ветвь была удалена.
+						logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with ID {BranchID} was removed on site.")
+						
+						# Если есть определение контента в локальном файле, то скопировать его.
+						if BranchID in LocalTitle["chapters"].keys():
+							RemangaTitle["chapters"][BranchID] = LocalTitle["chapters"][BranchID]
+							RemangaTitle["branches"].append(
+							{
+								"id": int(BranchID),
+								"img": "",
+								"subscribed": False,
+								"total_votes": 0,
+								"count_chapters": len(LocalTitle["chapters"][BranchID]),
+								"publishers": [
+									{
+										"id": 0,
+										"name": "",
+										"img": "",
+										"dir": "",
+										"tagline": "",
+										"type": ""
+									}
+									]
+							})
+						
 				# Запись в лог сообщения: завершение слияния.
-				if self.__MergedChaptersCount > 0:
-					logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
-				else:
-					logging.info("Title: \"" + self.__TitleHeader + "\". There are no new chapters.")
+				logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
 
 		return RemangaTitle
 
