@@ -71,7 +71,7 @@ class Collector:
 			Page += 1
 
 		# Запись в лог сообщения: количество просканированных страниц и найденных тайтлов.
-		logging.info("Collected " + str(len(TitlesList)) + " titles slugs on " + str(Page - 2) + " pages.")
+		logging.info("Found " + str(len(TitlesList)) + " titles slugs on " + str(Page - 2) + " pages.")
 
 		return TitlesList
 	
@@ -108,11 +108,15 @@ class Collector:
 		logging.info(f"Starting to collect titles slugs. Filters: \"{Filters}\".")
 		# Список алиасов.
 		TitlesList = self.__CollectTitlesList(Filters, ForceMode)
+		# Количество полученных алиасов.
+		CollectedSlugsCount = len(TitlesList)
+		# Количество дубликатов.
+		DuplicatesCount = 0
+		# Локальная коллекция.
+		LocalCollection = list()
 		
 		# Если отключён режим перезаписи.
 		if ForceMode == False:
-			# Локальная коллекция.
-			LocalCollection = list()
 			
 			# Если существует файл коллекции.
 			if os.path.exists("Collection.txt"):
@@ -126,14 +130,37 @@ class Collector:
 					for Slug in Bufer:
 						if Slug.strip() != "":
 							LocalCollection.append(Slug)
-							
-			# Слияние списка тайтлов.
-			TitlesList = LocalCollection + TitlesList
-		
+					
+			# Буфер списка алиасов.
+			Bufer = list()
+			# Для каждого собранного алиаса.
+			for Slug in TitlesList:
+					
+				# Если такого алиаса нет в коллекции, то добавить его.
+				if Slug not in LocalCollection:
+					Bufer.append(Slug)
+					
+				else:
+					# Инкремент количества дубликатов.
+					DuplicatesCount += 1
+			
+			# Перемещение содержимого буфера в список алиасов.
+			TitlesList = LocalCollection + Bufer
+			
 		# Сохранение каждого алиаса в файл.
 		with open("Collection.txt", "w") as FileWriter:
 			for Slug in TitlesList:
 				FileWriter.write(Slug + "\n")
-
+		
+		# Если были дубликаты.
+		if DuplicatesCount > 0:
+			# Запись в лог сообщения: количество дубликатов.
+			logging.info("Excluded duplicated slugs count: " + str(DuplicatesCount) + ".")
+			# Запись в лог сообщения: количество записанных алиасов.
+			logging.info(str(CollectedSlugsCount - DuplicatesCount) + " slugs written.")
+			
+		else:
+			# Запись в лог сообщения: все алиасы записаны..
+			logging.info("All slugs are written.")
 
 		return TitlesList
