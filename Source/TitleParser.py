@@ -350,7 +350,7 @@ class TitleParser:
 			del self.__RequestHeaders["authorization"]
 
 		# Запись в лог сообщения о начале парсинга.
-		logging.info("Title: \"" + self.__TitleHeader + "\". Parcing...")
+		logging.info("Title: \"" + self.__TitleHeader + "\". Parsing...")
 		# Запись в лог сообщения об использованном User-Agent.
 		logging.debug("User-Agent: \"" + UserAgent + "\".")
 
@@ -647,7 +647,7 @@ class TitleParser:
 				if self.__MergedChaptersCount > 0:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
-					logging.info("Title: \"" + self.__TitleHeader + "\". Parced.")
+					logging.info("Title: \"" + self.__TitleHeader + "\". Parsed.")
 
 		# Завершает сеанс запроса.
 		self.__RequestsManager.close()

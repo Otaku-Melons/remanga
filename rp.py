@@ -124,13 +124,13 @@ COM_manage.addKeyPosition(["move"], ArgumentType.ValidPath, Important = True, La
 COM_manage.addFlagPosition(["s"])
 CommandsList.append(COM_manage)
 
-# Создание команды: parce.
-COM_parce = Command("parce")
-COM_parce.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
-COM_parce.addFlagPosition(["collection"], LayoutIndex = 1)
-COM_parce.addFlagPosition(["f"])
-COM_parce.addFlagPosition(["s"])
-CommandsList.append(COM_parce)
+# Создание команды: parse.
+COM_parse = Command("parse")
+COM_parse.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
+COM_parse.addFlagPosition(["collection"], LayoutIndex = 1)
+COM_parse.addFlagPosition(["f"])
+COM_parse.addFlagPosition(["s"])
+CommandsList.append(COM_parse)
 
 # Создание команды: proxval.
 COM_proxval = Command("proxval")
@@ -201,9 +201,9 @@ if "s" in CommandDataStruct.Flags:
 	# Включение режима.
 	IsShutdowAfterEnd = True
 	# Запись в лог сообщения о том, что ПК будет выключен после завершения работы.
-	logging.info("Computer will be turned off after the parser is finished!")
+	logging.info("Computer will be turned off after the script is finished!")
 	# Установка сообщения для внутренних функций.
-	InFuncMessage_Shutdown = "Computer will be turned off after the parser is finished!\n"
+	InFuncMessage_Shutdown = "Computer will be turned off after the script is finished!\n"
 
 #==========================================================================================#
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
@@ -263,7 +263,7 @@ if "convert" == CommandDataStruct.Name:
 # Обработка команды: getcov.
 if "getcov" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок парсинга.
-	logging.info("====== Parcing ======")
+	logging.info("====== Parsing ======")
 	# Парсинг тайтла.
 	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
@@ -281,10 +281,10 @@ if "manage" == CommandDataStruct.Name:
 	# Вывод в консоль: процесс завершён.
 	print("Done.")
 
-# Обработка команды: parce.
-if "parce" == CommandDataStruct.Name:
+# Обработка команды: parse.
+if "parse" == CommandDataStruct.Name:
 	# Запись в лог сообщения: парсинг.
-	logging.info("====== Parcing ======")
+	logging.info("====== Parsing ======")
 	# Генерация сообщения.
 	ExternalMessage = InFuncMessage_Shutdown
 	
@@ -316,7 +316,7 @@ if "parce" == CommandDataStruct.Name:
 				# Инкремент текущего индекса.
 				CurrentTitleIndex += 1
 				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parcing titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parsing titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
 				# Парсинг тайтла.
 				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				# Сохранение локальных файлов тайтла.
@@ -466,7 +466,7 @@ if "update" == CommandDataStruct.Name:
 			TitlesSlugs = BuferTitleSlugs
 				
 		# Запись в лог сообщения: заголовок парсинга.
-		logging.info("====== Parcing ======")
+		logging.info("====== Parsing ======")
 
 		# Парсинг обновлённых тайтлов.
 		for Slug in TitlesSlugs:
@@ -496,7 +496,7 @@ if "update" == CommandDataStruct.Name:
 		# Индекс обрабатываемого тайтла.
 		CurrentTitleIndex = 0
 		# Запись в лог сообщения: заголовог парсинга.
-		logging.info("====== Parcing ======")
+		logging.info("====== Parsing ======")
 
 		# Парсинг обновлённых тайтлов.
 		for Slug in UpdatedTitlesList:
