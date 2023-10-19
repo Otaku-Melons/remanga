@@ -149,6 +149,7 @@ CommandsList.append(COM_repair)
 COM_update = Command("update")
 COM_update.addArgument(ArgumentType.All, LayoutIndex = 1)
 COM_update.addFlagPosition(["local"], LayoutIndex = 1)
+COM_update.addFlagPosition(["onlydesc"])
 COM_update.addFlagPosition(["f"])
 COM_update.addFlagPosition(["s"])
 COM_update.addKeyPosition(["from"], ArgumentType.All)
@@ -264,7 +265,7 @@ if "convert" == CommandDataStruct.Name:
 if "getcov" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок парсинга.
 	logging.info("====== Parsing ======")
-	# Парсинг тайтла.
+	# Парсинг тайтла (без глав).
 	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.downloadCovers()
@@ -406,7 +407,13 @@ if "repair" == CommandDataStruct.Name:
 if "update" == CommandDataStruct.Name:
 	# Запись в лог сообщения: получение списка обновлений.
 	logging.info("====== Updating ======")
-
+	# Алиасы обновляемых тайтлов.
+	TitlesSlugs = list()
+	# Индекс обрабатываемого тайтла.
+	CurrentTitleIndex = 0
+	# Запись в лог сообщения: режим обновления.
+	logging.info("Update only description: " + "ON." if "onlydesc" in CommandDataStruct.Flags else "OFF.")
+		
 	# Обновить все локальные файлы.
 	if "local" in CommandDataStruct.Flags:
 		# Вывод в консоль: идёт поиск тайтлов.
@@ -417,10 +424,6 @@ if "update" == CommandDataStruct.Name:
 		TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
 		# Алиас стартового тайтла.
 		FromTitle = None
-		# Индекс обрабатываемого тайтла.
-		CurrentTitleIndex = 0
-		# Алиасы тайтлов.
-		TitlesSlugs = list()
 
 		# Если активирован ключ, указывающий стартовый тайтл.
 		if "from" in CommandDataStruct.Keys:
@@ -464,50 +467,45 @@ if "update" == CommandDataStruct.Name:
 
 			# Перезапись списка обновляемых тайтлов.
 			TitlesSlugs = BuferTitleSlugs
-				
-		# Запись в лог сообщения: заголовок парсинга.
-		logging.info("====== Parsing ======")
-
-		# Парсинг обновлённых тайтлов.
-		for Slug in TitlesSlugs:
-			# Инкремент текущего индекса.
-			CurrentTitleIndex += 1
-			# Очистка терминала.
-			Cls()
-			# Вывод в терминал прогресса.
-			print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
-			# Генерация сообщения.
-			ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
-			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
-			# Сохранение локальных файлов тайтла.
-			LocalTitle.save()
-
-			# Выжидание указанного интервала, если не все обложки загружены.
-			if CurrentTitleIndex < len(TitlesSlugs):
-				Wait(Settings)
 
 	# Обновить изменённые на сервере за последнее время тайтлы.
 	else:
 		# Инициализация проверки обновлений.
 		UpdateChecker = Updater(Settings)
 		# Получение списка обновлённых тайтлов.
-		UpdatedTitlesList = UpdateChecker.getUpdatesList()
-		# Индекс обрабатываемого тайтла.
-		CurrentTitleIndex = 0
-		# Запись в лог сообщения: заголовог парсинга.
-		logging.info("====== Parsing ======")
+		TitlesSlugs = UpdateChecker.getUpdatesList()
 
-		# Парсинг обновлённых тайтлов.
-		for Slug in UpdatedTitlesList:
-			# Инкремент текущего индекса.
-			CurrentTitleIndex += 1
-			# Генерация сообщения.
-			ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(UpdatedTitlesList)) + "\n"
+	# Запись в лог сообщения: заголовог парсинга.
+	logging.info("====== Parsing ======")
+
+	# Парсинг обновлённых тайтлов.
+	for Slug in TitlesSlugs:
+		# Инкремент текущего индекса.
+		CurrentTitleIndex += 1
+		# Очистка терминала.
+		Cls()
+		# Вывод в терминал прогресса.
+		print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
+		# Генерация сообщения.
+		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+		# Локальный описательный файл.
+		LocalTitle = None
+			
+		# Если включено обновление только описания.
+		if "onlydesc" in CommandDataStruct.Flags:
+			# Парсинг тайтла (без глав).
+			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
+				
+		else:
 			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
-			# Сохранение локальных файлов тайтла.
-			LocalTitle.save()
+			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
+				
+		# Сохранение локальных файлов тайтла.
+		LocalTitle.save()
+
+		# Выжидание указанного интервала, если не все тайтлы обновлены.
+		if CurrentTitleIndex < len(TitlesSlugs):
+			Wait(Settings)
 
 #==========================================================================================#
 # >>>>> ЗАВЕРШЕНИЕ РАБОТЫ СКРИПТА <<<<< #

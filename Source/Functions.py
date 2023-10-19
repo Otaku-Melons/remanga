@@ -1,3 +1,4 @@
+from skimage.metrics import structural_similarity
 from fake_useragent import UserAgent
 from dublib.Methods import ReadJSON
 
@@ -5,7 +6,41 @@ import logging
 import random
 import shutil
 import time
+import cv2
 import os
+
+# Возвращает процент различий изображений.
+def CompareImages(PatternPath: str, ImagePath: str) -> float | None:
+	# Процент отличий.
+	Differences = None
+	
+	# Если не удалось найти файл шаблона.
+	if os.path.exists(PatternPath) == False:
+		raise FileNotFoundError(PatternPath)
+	
+	# Если не удалось найти файл для сравнения.
+	elif os.path.exists(ImagePath) == False:
+		raise FileNotFoundError(ImagePath)
+	
+	else:
+		# Чтение изображений.
+		Pattern = cv2.imread(PatternPath)
+		Image = cv2.imread(ImagePath)
+		# Преобразование изображений в чёрно-белый формат.
+		Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
+		Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
+		# Получение разрешений изображений.
+		PatternHeight, PatternWidth = Pattern.shape
+		ImageHeight, ImageWidth = Image.shape
+		
+		# Если шаблон и изображение имеют одинаковое разрешение.
+		if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
+			# Сравнение двух изображений.
+			(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
+			# Конвертирование в проценты.
+			Differences = 100.0 - (float(Similarity) * 100.0)
+
+	return Differences
 
 # Возвращает случайное значение заголовка User-Agent.
 def GetRandomUserAgent() -> str:

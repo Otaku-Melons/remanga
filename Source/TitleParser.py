@@ -1,11 +1,8 @@
-from dublib.Methods import Cls, ReadJSON, RenameDictionaryKey
+from Source.Functions import CompareImages, GetRandomUserAgent, MergeListOfLists, Wait
 from Source.RequestsManager import RequestsManager
-from Source.Functions import GetRandomUserAgent
-from Source.Functions import MergeListOfLists
+from dublib.Methods import Cls, ReadJSON
 from Source.Formatter import Formatter
-from Source.Functions import Wait
 
-import hashlib
 import logging
 import shutil
 import json
@@ -13,27 +10,24 @@ import os
 
 class TitleParser:
 	
-	# Фильтрует обложки, хеш которых указан настройками. Возвращает состояние: является ли обложка отфильтрованной.
-	def __FiltreCoverByHash(self, BinaryData: bytes, UsedTitleName: str, Filename: str) -> bool:
-		# Получение MD5 хеша обложки.
-		CoverMD5 = hashlib.md5(BinaryData).hexdigest()
-		# Состояние: является ли обложка отфильтрованной.
+	# Фильтрует заглушки для тайтлов без собственной обложки.
+	def __FilterCovers(self, CoverPath: str, CoverIndex: int) -> bool:
+		# Состояние: отвильтрована ли обложка.
 		IsFiltered = False
-
-		# Если хеш присутствует в списке фильтров и файл обложки существует.
-		if CoverMD5 in self.__Settings["covers-filters"]:
-			# Переключение состояния фильтрации обложки.
+		# Список названий файлов фильтров.
+		FiltersFilenames = ["high", "mid", "low"]
+		# Сравнение изображений.
+		Result = CompareImages("Source/Filters/" + FiltersFilenames[CoverIndex] + ".jpg", CoverPath)
+		
+		# Если разница между обложкой и шаблоном составляет более 7.5%.
+		if Result != None and Result < 7.5:
+			# Удалить файл обложки.
+			os.remove(CoverPath)
+			# Удалить запись об обложке.
+			self.__Title["img"][FiltersFilenames[CoverIndex]] = ""
+			# Переключить статус фильтрации.
 			IsFiltered = True
-			
-			# Если файл обложки существует, то удалить его.
-			if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName + "/" + Filename):
-				os.remove(self.__Settings["covers-directory"] + UsedTitleName + "/" + Filename)
-				
-			# Отфильтровать нужный тип обложки.
-			for CoverType in self.__Title["img"].keys():
-				if Filename in self.__Title["img"][CoverType]:
-					self.__Title["img"][CoverType] = ""
-			
+		
 		return IsFiltered
 		
 	# Возвращает структуру главы.
@@ -401,10 +395,10 @@ class TitleParser:
 
 			# Получение недостающих данных о страницах глав.
 			if Amending == True:
-				self.AmendChapters()
+				self.amendChapters()
 
 	# Проверяет все главы на наличие описанных страниц и дополняет их, если это необходимо.
-	def AmendChapters(self):
+	def amendChapters(self):
 
 		# Если парсер активен.
 		if self.__IsActive == True:
@@ -469,8 +463,8 @@ class TitleParser:
 			ImageRequestHeaders["content-type"] = "image/jpeg"
 			# Ответ запроса.
 			Response = None
-			# Счётчик загруженных обложек.
-			DownloadedCoversCounter = 0
+			# Счётчик обложек.
+			CoversCounter = 0
 			# Счётчик отфильтрованных обложек.
 			FilteredCoversCount = 0
 			# Запись URL обложек.
@@ -481,15 +475,18 @@ class TitleParser:
 			UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
 
 			# Скачивание обложек.
-			for URL in CoversURL:
-
+			for Index in range(0, len(CoversURL)):
+				# Имя файла обложки.
+				CoverFilename = self.__Settings["covers-directory"] + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
+				
 				# Если включен режим перезаписи, то удалить файлы обложек.
 				if self.__ForceMode == True:
 					
 					# Удалить файл обложки.
-					if os.path.exists(self.__Settings["covers-directory"] + self.__Slug + "/" + URL.split('/')[-1]):
+					if os.path.exists(self.__Settings["covers-directory"] + self.__Slug + "/" + CoversURL[Index].split('/')[-1]):
 						shutil.rmtree(self.__Settings["covers-directory"] + self.__Slug) 
-					elif os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + URL.split('/')[-1]):
+						
+					elif os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + CoversURL[Index].split('/')[-1]):
 						shutil.rmtree(self.__Settings["covers-directory"] + self.__ID) 
 
 				# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
@@ -498,80 +495,71 @@ class TitleParser:
 					Foldername = self.__Settings["covers-directory"] + self.__Slug if State == True else self.__ID
 
 					# Удаление папки для обложек с устаревшим названием.
-					if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Foldername + "/" + URL.split('/')[-1]):
+					if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Foldername + "/" + CoversURL[Index].split('/')[-1]):
 						shutil.rmtree(Foldername)
 
 				# Проверка существования файла.
-				if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1]) == False:
+				if os.path.exists(CoverFilename) == False:
 					# Вывод в терминал URL загружаемой обложки.
-					print("Downloading cover: \"" + URL + "\"... ", end = "")
+					print("Downloading cover: \"" + CoversURL[Index] + "\"... ", end = "")
 
 					# Выполнение запроса.
-					Response = self.__RequestsManager.request(URL, Headers = ImageRequestHeaders)
+					Response = self.__RequestsManager.request(CoversURL[Index], Headers = ImageRequestHeaders)
 
 					# Проверка успешности запроса.
 					if Response.status_code == 200:
 
 						# Создание папки для обложек.
-						if not os.path.exists(self.__Settings["covers-directory"]):
+						if os.path.exists(self.__Settings["covers-directory"]) == False:
 							os.makedirs("Covers")
 
 						# Создание папки с алиасом тайтла в качестве названия.
-						if not os.path.exists(self.__Settings["covers-directory"] + UsedTitleName):
+						if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName) == False:
 							os.makedirs(self.__Settings["covers-directory"] + UsedTitleName)
-							
-						# Фильтрация обложки по MD5 хешу.
-						FilteringResult = self.__FiltreCoverByHash(Response.content, UsedTitleName, URL.split('/')[-1])
 
-						# Если обложка отфильтрована.
-						if FilteringResult == True:
-							# Инкремент счётчика отфильтрованных обложек.
-							FilteredCoversCount += 1
-							# Вывод в терминал сообщения об отфильтрированной обложке.
-							print("Skipped by filters.")
-						
-						else:
-
-							# Открытие потока записи.
-							with open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1], "wb") as FileWrite:
-								# Запись изображения.
-								FileWrite.write(Response.content)
-								# Инкремент счётчика загруженных обложек.
-								DownloadedCoversCounter += 1
-								# Вывод в терминал сообщения об успешной загрузке.
-								print("Done.")
+						# Открытие потока записи.
+						with open(CoverFilename, "wb") as FileWrite:
+							# Запись изображения.
+							FileWrite.write(Response.content)
+							# Инкремент счётчика загруженных обложек.
+							CoversCounter += 1
+							# Вывод в терминал: успешная загрузка.
+							print("Done.")
 
 					else:
-						# Запись в лог сообщения о неудачной попытке загрузки обложки.
-						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + URL + "\". Response code: " + str(Response.status_code) + ".")
-						# Вывод в терминал сообщения об успешной загрузке.
+						# Запись в лог ошибки: не удалось загрузить обложку.
+						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + CoversURL[Index] + "\". Response code: " + str(Response.status_code) + ".")
+						# Вывод в терминал: ошибка загрузки.
 						print("Failure!")
+						
 						# Выжидание указанного интервала, если не все обложки загружены.
-						if DownloadedCoversCounter < 3:
+						if CoversCounter < 3:
 							Wait(self.__Settings) 
 
 				else:
+					# Вывод в терминал URL загружаемой обложки.
+					print("Cover already exist: \"" + CoversURL[Index] + "\". Skipped.")
+					# Инкремент счётчика загруженных обложек.
+					CoversCounter += 1
 					
-					# Фильтрация обложки по MD5 хешу.
-					FilteringResult = self.__FiltreCoverByHash(open(self.__Settings["covers-directory"] + UsedTitleName + "/" + URL.split('/')[-1],"rb").read(), UsedTitleName, URL.split('/')[-1])
+				# Если включена фильтрация заглушек.
+				if self.__Settings["filter-covers"] == True:
 					
 					# Если обложка отфильтрована.
-					if FilteringResult == True:
-						# Инкремент счётчика отфильтрованных обложек.
+					if self.__FilterCovers(CoverFilename, Index) == True:
+						# Инкремент количества отфильтрованных обложек.
 						FilteredCoversCount += 1
-						# Вывод в терминал URL загружаемой обложки.
-						print("Cover: \"" + URL + "\". Remover by filter.")
-						
-					else:
-						# Вывод в терминал URL загружаемой обложки.
-						print("Cover already exist: \"" + URL + "\". Skipped.")
 
 				# Выжидание указанного интервала, если не все обложки загружены.
-				if DownloadedCoversCounter < 3 and DownloadedCoversCounter > 0:
+				if CoversCounter < 3 and CoversCounter > 0:
 					Wait(self.__Settings)
 
+			# Вывод в терминал: количество отфильтрованных обложек.
+			if FilteredCoversCount > 0:
+				print(f"\nFiltered covers count: {FilteredCoversCount}")
+				
 			# Запись в лог сообщения: количество загруженных обложек.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCounter) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
+			logging.info("Title: \"" + self.__TitleHeader + "\". Covers count: " + str(CoversCounter - FilteredCoversCount) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
 			
 	# Заменяет главу свежей версией с сервера.
 	def repairChapter(self, ChapterID: str):

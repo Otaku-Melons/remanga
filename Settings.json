@@ -9,11 +9,7 @@
 	"use-id-instead-slug": false,
 	"titles-directory": "",
 	"covers-directory": "",
-	"covers-filters": [
-		"642864db2f209c6a5a49bfecb83a719e",
-		"542178089bcc4fedd500b77ff71f7c0d",
-		"096e8e796200aad2902fd88af21c0a29"
-	],
+	"filter-covers": true,
 	"retry-tries": 3,
 	"retry-delay": 15,
 	"debug": false
