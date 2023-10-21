@@ -321,17 +321,25 @@ class RequestsManager:
 			else:
 				Response.text = self.__Browser.execute_script(Script)
 			
-			# Обработка ответа для выяснения успешности.
-			if Response.text == "":
-				Response.status_code = 403
-				Status = 2
+			try:
+				# Обработка ответа для выяснения успешности.
+				if Response.text == "":
+					Response.status_code = 403
+					Status = 2
 
-			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Для просмотра нужно авторизироваться":
-				Response.status_code = 401
-				Status = 0
+				elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Для просмотра нужно авторизироваться":
+					Response.status_code = 401
+					Status = 0
 
-			elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Тайтл не найден":
-				Response.status_code = 404
+				elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Тайтл не найден":
+					Response.status_code = 404
+					Status = 0
+					
+			except json.JSONDecodeError:
+				# Запись в лог ошибки: не удалось преобразовать ответ сайта в JSON.
+				logging.error("Unable to decode site response to JSON.")
+				# Установка кода ответа и статуса запроса.
+				Response.status_code = 499
 				Status = 0
 
 			else:

@@ -408,20 +408,20 @@ if "update" == CommandDataStruct.Name:
 	# Запись в лог сообщения: получение списка обновлений.
 	logging.info("====== Updating ======")
 	# Алиасы обновляемых тайтлов.
-	TitlesSlugs = list()
+	TitlesList = list()
 	# Индекс обрабатываемого тайтла.
 	CurrentTitleIndex = 0
 	# Запись в лог сообщения: режим обновления.
-	logging.info("Update only description: " + "ON." if "onlydesc" in CommandDataStruct.Flags else "OFF.")
+	logging.info("Update only description: " + ("ON." if "onlydesc" in CommandDataStruct.Flags else "OFF."))
 		
 	# Обновить все локальные файлы.
 	if "local" in CommandDataStruct.Flags:
 		# Вывод в консоль: идёт поиск тайтлов.
 		print("Scanning titles...")
 		# Получение списка файлов в директории.
-		TitlesList = os.listdir(Settings["titles-directory"])
+		TitlesSlugs = os.listdir(Settings["titles-directory"])
 		# Фильтрация только файлов формата JSON.
-		TitlesList = list(filter(lambda x: x.endswith(".json"), TitlesList))
+		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
 		# Алиас стартового тайтла.
 		FromTitle = None
 
@@ -430,7 +430,7 @@ if "update" == CommandDataStruct.Name:
 			FromTitle = CommandDataStruct.Values["from"]
 			
 		# Чтение всех алиасов из локальных файлов.
-		for File in TitlesList:
+		for File in TitlesSlugs:
 			# Открытие локального описательного файла JSON.
 			with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
 				# JSON файл тайтла.
@@ -438,15 +438,15 @@ if "update" == CommandDataStruct.Name:
 
 				# Помещение алиаса в список.
 				if "slug" in LocalTitle.keys():
-					TitlesSlugs.append(str(LocalTitle["slug"]))
+					TitlesList.append(str(LocalTitle["slug"]))
 				elif "dir" in LocalTitle.keys():
-					TitlesSlugs.append(str(LocalTitle["dir"]))
+					TitlesList.append(str(LocalTitle["dir"]))
 
 		# Запись в лог сообщения: количество доступных для обновления тайтлов.
 		logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
 
 		# Старт с указанного тайтла.
-		if FromTitle is not None:
+		if FromTitle != None:
 			# Запись в лог сообщения: стартовый тайтл обновления.
 			logging.info("Updating starts from title with slug: \"" + FromTitle + "\".")
 			# Буферный список тайтлов.
@@ -455,7 +455,7 @@ if "update" == CommandDataStruct.Name:
 			IsWriteSlugs = False
 				
 			# Перебор тайтлов.
-			for Slug in TitlesSlugs:
+			for Slug in TitlesList:
 					
 				# Если обнаружен стартовый тайтл, то включить запись тайтлов в новый список обновлений.
 				if Slug == FromTitle:
@@ -466,28 +466,28 @@ if "update" == CommandDataStruct.Name:
 					BuferTitleSlugs.append(Slug)
 
 			# Перезапись списка обновляемых тайтлов.
-			TitlesSlugs = BuferTitleSlugs
+			TitlesList = BuferTitleSlugs
 
 	# Обновить изменённые на сервере за последнее время тайтлы.
 	else:
 		# Инициализация проверки обновлений.
 		UpdateChecker = Updater(Settings)
 		# Получение списка обновлённых тайтлов.
-		TitlesSlugs = UpdateChecker.getUpdatesList()
+		TitlesList = UpdateChecker.getUpdatesList()
 
 	# Запись в лог сообщения: заголовог парсинга.
 	logging.info("====== Parsing ======")
 
 	# Парсинг обновлённых тайтлов.
-	for Slug in TitlesSlugs:
+	for Slug in TitlesList:
 		# Инкремент текущего индекса.
 		CurrentTitleIndex += 1
 		# Очистка терминала.
 		Cls()
 		# Вывод в терминал прогресса.
-		print("Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)))
+		print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)))
 		# Генерация сообщения.
-		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesSlugs) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesList) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
 		# Локальный описательный файл.
 		LocalTitle = None
 			
@@ -504,7 +504,7 @@ if "update" == CommandDataStruct.Name:
 		LocalTitle.save()
 
 		# Выжидание указанного интервала, если не все тайтлы обновлены.
-		if CurrentTitleIndex < len(TitlesSlugs):
+		if CurrentTitleIndex < len(TitlesList):
 			Wait(Settings)
 
 #==========================================================================================#
