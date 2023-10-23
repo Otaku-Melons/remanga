@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
+from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, Shutdown, WriteJSON
 from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles
-from dublib.Methods import Cls, Shutdown, ReadJSON, WriteJSON
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
@@ -18,22 +18,17 @@ import sys
 import os
 
 #==========================================================================================#
-# >>>>> ПРОВЕРКА ВЕРСИИ PYTHON <<<<< #
+# >>>>> ИНИЦИАЛИЗАЦИЯ СКРИПТА <<<<< #
 #==========================================================================================#
 
-# Минимальная требуемая версия Python.
-PythonMinimalVersion = (3, 10)
-# Проверка соответствия.
-if sys.version_info < PythonMinimalVersion:
-	sys.exit("Python %s.%s or later is required.\n" % PythonMinimalVersion)
+# Проверка поддержки используемой версии Python.
+CheckPythonMinimalVersion(3, 10)
+# Создание папок в корневой директории.
+MakeRootDirectories(["Logs"])
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ ЛОГОВ <<<<< #
 #==========================================================================================#
-
-# Создать директорию для логов, если такая отсутствует.
-if os.path.exists("Logs") is False:
-	os.makedirs("Logs")
 
 # Получение текущей даты.
 CurrentDate = datetime.datetime.now()
@@ -130,6 +125,7 @@ COM_parse.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
 COM_parse.addFlagPosition(["collection"], LayoutIndex = 1)
 COM_parse.addFlagPosition(["f"])
 COM_parse.addFlagPosition(["s"])
+COM_parse.addKeyPosition(["from"], ArgumentType.All)
 CommandsList.append(COM_parse)
 
 # Создание команды: proxval.
@@ -288,14 +284,16 @@ if "parse" == CommandDataStruct.Name:
 	logging.info("====== Parsing ======")
 	# Генерация сообщения.
 	ExternalMessage = InFuncMessage_Shutdown
+	# Список тайтлов для парсинга.
+	TitlesList = list()
+	# Индекс стартового алиаса.
+	StartIndex = 0
 	
 	# Если активирован флаг парсинга коллекций.
 	if "collection" in CommandDataStruct.Flags:
 		
 		# Если существует файл коллекции.
 		if os.path.exists("Collection.txt"):
-			# Список тайтлов для парсинга.
-			TitlesList = list()
 			# Индекс обрабатываемого тайтла.
 			CurrentTitleIndex = 0
 			
@@ -311,17 +309,6 @@ if "parse" == CommandDataStruct.Name:
 
 			# Запись в лог сообщения: количество тайтлов в коллекции.
 			logging.info("Titles count in collection: " + str(len(TitlesList)) + ".")
-			
-			# Спарсить каждый тайтл.
-			for Slug in TitlesList:
-				# Инкремент текущего индекса.
-				CurrentTitleIndex += 1
-				# Генерация сообщения.
-				ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parsing titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
-				# Парсинг тайтла.
-				LocalTitle = TitleParser(Settings, Slug, ForceMode = IsForceModeActivated, Message = ExternalMessage)
-				# Сохранение локальных файлов тайтла.
-				LocalTitle.save()
 
 		else:
 			# Запись в лог критической ошибки: отсутствует файл коллекций.
@@ -334,6 +321,39 @@ if "parse" == CommandDataStruct.Name:
 		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = ExternalMessage)
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
+		
+	# Если указан стартовый тайтл.
+	if "from" in CommandDataStruct.Keys:
+		# Запись в лог сообщения: стартовый тайтл обновления.
+		logging.info("Parsing starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
+				
+		# Если стартовый алиас найден.
+		if CommandDataStruct.Values["from"] in TitlesList:
+			# Указать индекс алиаса в качестве стартового.
+			StartIndex = TitlesList.index(CommandDataStruct.Values["from"])
+			
+		else:
+			# Запись в лог предупреждения: стартовый алиас не найден.
+			logging.warning("Unable to find start slug. All titles skipped.")
+			# Пропустить все тайтлы.
+			StartIndex = len(TitlesList)
+			
+	# Парсинг тайтлов.
+	for Index in range(StartIndex, len(TitlesList)):
+		# Очистка терминала.
+		Cls()
+		# Вывод в терминал прогресса.
+		print("Parsing titles: " + str(Index + 1) + " / " + str(len(TitlesList)))
+		# Генерация сообщения.
+		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parsing titles: " + str(Index + 1) + " / " + str(len(TitlesList)) + "\n"
+		# Парсинг тайтла.
+		LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)		
+		# Сохранение локальных файлов тайтла.
+		LocalTitle.save()
+
+		# Выжидание указанного интервала, если не все тайтлы обновлены.
+		if Index < len(TitlesList):
+			Wait(Settings)
 
 # Обработка команды: proxval.
 if "proxval" == CommandDataStruct.Name:
@@ -409,8 +429,8 @@ if "update" == CommandDataStruct.Name:
 	logging.info("====== Updating ======")
 	# Алиасы обновляемых тайтлов.
 	TitlesList = list()
-	# Индекс обрабатываемого тайтла.
-	CurrentTitleIndex = 0
+	# Индекс стартового алиаса.
+	StartIndex = 0
 	# Запись в лог сообщения: режим обновления.
 	logging.info("Update only description: " + ("ON." if "onlydesc" in CommandDataStruct.Flags else "OFF."))
 		
@@ -422,12 +442,6 @@ if "update" == CommandDataStruct.Name:
 		TitlesSlugs = os.listdir(Settings["titles-directory"])
 		# Фильтрация только файлов формата JSON.
 		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
-		# Алиас стартового тайтла.
-		FromTitle = None
-
-		# Если активирован ключ, указывающий стартовый тайтл.
-		if "from" in CommandDataStruct.Keys:
-			FromTitle = CommandDataStruct.Values["from"]
 			
 		# Чтение всех алиасов из локальных файлов.
 		for File in TitlesSlugs:
@@ -445,66 +459,57 @@ if "update" == CommandDataStruct.Name:
 		# Запись в лог сообщения: количество доступных для обновления тайтлов.
 		logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
 
-		# Старт с указанного тайтла.
-		if FromTitle != None:
-			# Запись в лог сообщения: стартовый тайтл обновления.
-			logging.info("Updating starts from title with slug: \"" + FromTitle + "\".")
-			# Буферный список тайтлов.
-			BuferTitleSlugs = list()
-			# Состояние: записывать ли тайтлы.
-			IsWriteSlugs = False
-				
-			# Перебор тайтлов.
-			for Slug in TitlesList:
-					
-				# Если обнаружен стартовый тайтл, то включить запись тайтлов в новый список обновлений.
-				if Slug == FromTitle:
-					IsWriteSlugs = True
-						
-				# Добавить алиас в список обновляемых тайтлов.
-				if IsWriteSlugs is True:
-					BuferTitleSlugs.append(Slug)
-
-			# Перезапись списка обновляемых тайтлов.
-			TitlesList = BuferTitleSlugs
-
 	# Обновить изменённые на сервере за последнее время тайтлы.
 	else:
 		# Инициализация проверки обновлений.
 		UpdateChecker = Updater(Settings)
 		# Получение списка обновлённых тайтлов.
 		TitlesList = UpdateChecker.getUpdatesList()
+		
+	# Если указан стартовый тайтл.
+	if "from" in CommandDataStruct.Keys:
+		# Запись в лог сообщения: стартовый тайтл обновления.
+		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
+				
+		# Если стартовый алиас найден.
+		if CommandDataStruct.Values["from"] in TitlesList:
+			# Указать индекс алиаса в качестве стартового.
+			StartIndex = TitlesList.index(CommandDataStruct.Values["from"])
+			
+		else:
+			# Запись в лог предупреждения: стартовый алиас не найден.
+			logging.warning("Unable to find start slug. All titles skipped.")
+			# Пропустить все тайтлы.
+			StartIndex = len(TitlesList)
 
 	# Запись в лог сообщения: заголовог парсинга.
 	logging.info("====== Parsing ======")
 
 	# Парсинг обновлённых тайтлов.
-	for Slug in TitlesList:
-		# Инкремент текущего индекса.
-		CurrentTitleIndex += 1
+	for Index in range(StartIndex, len(TitlesList)):
 		# Очистка терминала.
 		Cls()
 		# Вывод в терминал прогресса.
-		print("Updating titles: " + str(CurrentTitleIndex) + " / " + str(len(TitlesList)))
+		print("Updating titles: " + str(Index + 1) + " / " + str(len(TitlesList)))
 		# Генерация сообщения.
-		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(len(TitlesList) - len(TitlesList) + CurrentTitleIndex) + " / " + str(len(TitlesList)) + "\n"
+		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Updating titles: " + str(Index + 1) + " / " + str(len(TitlesList)) + "\n"
 		# Локальный описательный файл.
 		LocalTitle = None
 			
 		# Если включено обновление только описания.
 		if "onlydesc" in CommandDataStruct.Flags:
 			# Парсинг тайтла (без глав).
-			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
+			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
 				
 		else:
 			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, Slug.replace(".json", ""), ForceMode = IsForceModeActivated, Message = ExternalMessage)
+			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
 
 		# Выжидание указанного интервала, если не все тайтлы обновлены.
-		if CurrentTitleIndex < len(TitlesList):
+		if Index < len(TitlesList):
 			Wait(Settings)
 
 #==========================================================================================#
