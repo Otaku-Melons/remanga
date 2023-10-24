@@ -19,8 +19,8 @@ class TitleParser:
 		# Сравнение изображений.
 		Result = CompareImages("Source/Filters/" + FiltersFilenames[CoverIndex] + ".jpg", CoverPath)
 		
-		# Если разница между обложкой и шаблоном составляет более 7.5%.
-		if Result != None and Result < 7.5:
+		# Если разница между обложкой и шаблоном составляет менее 50%.
+		if Result != None and Result < 50.0:
 			# Удалить файл обложки.
 			os.remove(CoverPath)
 			# Удалить запись об обложке.

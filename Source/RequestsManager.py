@@ -316,41 +316,62 @@ class RequestsManager:
 					Response.text = None
 					# Выставление статуса кода.
 					Response.status_code = 200
-
-			# Попытка выполнения запроса JSON.
-			else:
-				Response.text = self.__Browser.execute_script(Script)
-			
-			try:
-				# Обработка ответа для выяснения успешности.
-				if Response.text == "":
-					Response.status_code = 403
-					Status = 2
-
-				elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Для просмотра нужно авторизироваться":
-					Response.status_code = 401
 					Status = 0
-
-				elif Response.text != None and dict(json.loads(Response.text))["msg"] == "Тайтл не найден":
+					
+				else:
+					# Выставление статуса кода.
 					Response.status_code = 404
 					Status = 0
 					
+			# Попытка выполнения запроса JSON.
+			else:
+				Response.text = self.__Browser.execute_script(Script)
+				
+			try:
+				# Парсинг ответа сервера в JSON.
+				ResponseJSON = dict(json.loads(Response.text)) if Response.text != None else None
+				
 			except json.JSONDecodeError:
 				# Запись в лог ошибки: не удалось преобразовать ответ сайта в JSON.
 				logging.error("Unable to decode site response to JSON.")
 				# Установка кода ответа и статуса запроса.
 				Response.status_code = 499
 				Status = 0
-
+				
 			else:
-				Response.status_code = 200
-				Status = 0
+				
+				# Если ответ имеет текст.
+				if Response.text != None:
+					
+					# Обработка ошибки: 401.
+					if ResponseJSON["msg"] == "Для просмотра нужно авторизироваться":
+						Response.status_code = 401
+						Status = 0
+						
+					# Обработка ошибки: 404.
+					elif ResponseJSON["msg"] == "Тайтл не найден":
+						Response.status_code = 404
+						Status = 0
+
+					# Обработка ошибки: 403.
+					elif Response.text == "":
+						Response.status_code = 403
+						Status = 2
+					
+					# Обработка успешного запроса.
+					elif "content" in ResponseJSON.keys():
+						# Установка кода ответа и статуса запроса.
+						Response.status_code = 200
+						Status = 0
 
 		# Обработка ошибки: не удалось выполнить JavaScript или нерабочий прокси.
-		except (SeleniumExceptions.JavascriptException, SeleniumExceptions.WebDriverException):
+		except (SeleniumExceptions.JavascriptException, SeleniumExceptions.WebDriverException) as ExceptionData:
+			# Запись в лог ошибки: не удалось преобразовать ответ сайта в JSON.
+			logging.error("Selenium exception: \"" + str(ExceptionData).split('\n')[0] + "\".")
+			# Установка кода ответа и статуса запроса.
 			Response.status_code = 403
 			Status = 1
-		
+
 		return Response, Status
 	
 	# Удаляет определение прокси.
@@ -477,44 +498,42 @@ class RequestsManager:
 			Headers = self.__RequestHeaders
 		
 		# Обработка повторов запроса с использованием прокси.
-		if self.__Settings["use-proxy"] is True:
-
-			# Повторять пока не будут получены данные или не сработает исключение.
-			while Status != 0:
-				# Обнуление индекса повторов прокси.
-				CurrentTry = 0
+		if self.__Settings["use-proxy"] == True:
 				
-				# Повторять пока не закончатся попытки для каждого прокси.
-				while Status != 0 and CurrentTry <= self.__Settings["retry-tries"]:
+			# Повторять пока не закончатся попытки для каждого прокси.
+			while Status != 0:
 					
-					# Выжидание интервала при повторе.
-					if CurrentTry > 0:
-						# Запись в лог ошибки: не удалось выполнить запрос.
-						logging.error("Unable to request data with proxy: " + str(self.__CurrentProxy) + ". Retrying...")
-						# Реинициализация браузера.
-						self.__InitializeWebDriver()
-						# Выжидание интервала.
-						time.sleep(self.__Settings["retry-delay"])
+				# Выжидание интервала при повторе.
+				if CurrentTry > 0:
+					# Запись в лог ошибки: не удалось выполнить запрос.
+					logging.error("Unable to request data with proxy: " + str(self.__CurrentProxy) + ". Retrying...")
+					# Реинициализация браузера.
+					self.__InitializeWebDriver()
+					# Выжидание интервала.
+					time.sleep(self.__Settings["retry-delay"])
+
+				# Выполнение запроса в указанном режиме.
+				if self.__Settings["selenium-mode"] == True:
+					Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
 						
-
-					# Выполнение запроса в указанном режиме.
-					if self.__Settings["selenium-mode"] is True:
-						Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
-						
-					else:
-						Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
-
-					# Инкремент попыток повтора.
-					CurrentTry += 1
-
-				# Обработка кода статуса запроса.
-				self.__ProcessStatusCode(Status, self.__CurrentProxy)
+				else:
+					Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
+				
+				# Инкремент попыток повтора.
+				CurrentTry += 1
+				
+				# Если достигнуто максимальное число повторов, то прервать цикл запросов.
+				if CurrentTry == self.__Settings["retry-tries"]:
+					break
+			
+			# Обработка кода статуса запроса.
+			self.__ProcessStatusCode(Status, self.__CurrentProxy)
 		
 		# Обработка повторов запроса без использования прокси.
 		else:
 
 			# Повторять пока не закончатся попытки.
-			while Status != 0 and CurrentTry <= self.__Settings["retry-tries"]:
+			while Status != 0:
 				
 				# Выжидание интервала при повторе.
 				if CurrentTry > 0:
@@ -533,6 +552,10 @@ class RequestsManager:
 
 				# Инкремент попыток повтора.
 				CurrentTry += 1
+				
+				# Если достигнуто максимальное число повторов, то прервать цикл запросов.
+				if CurrentTry == self.__Settings["retry-tries"]:
+					break
 
 		return Response
 
