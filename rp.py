@@ -98,9 +98,10 @@ CommandsList.append(COM_collect)
 
 # Создание команды: convert.
 COM_convert = Command("convert")
+COM_convert.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
 COM_convert.addArgument(ArgumentType.All, Important = True)
 COM_convert.addArgument(ArgumentType.All, Important = True)
-COM_convert.addArgument(ArgumentType.All, Important = True)
+COM_convert.addFlagPosition(["all"], Important = True, LayoutIndex = 1)
 COM_convert.addFlagPosition(["s"])
 CommandsList.append(COM_convert)
 
@@ -225,17 +226,32 @@ if "convert" == CommandDataStruct.Name:
 	logging.info("====== Converting ======")
 	# Структура тайтла.
 	Title = None
-	# Имя файла тайтла.
-	Filename = None	
+	# Список конвертируемых файлов.
+	TitlesSlugs = list()
+	# Состояние: конвертировать ли все тайтлы.
+	IsConvertAll = False
+	
+	# Если указано флагом.
+	if "all" in CommandDataStruct.Flags:
+		# Переключение конвертирования на все файлы.
+		IsConvertAll = True
+		# Получение списка файлов в директории.
+		TitlesSlugs = os.listdir(Settings["titles-directory"])
+		# Фильтрация только файлов формата JSON.
+		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
 
 	# Добавление расширения к файлу в случае отсутствия такового.
-	if ".json" not in CommandDataStruct.Arguments[0]:
-		Filename = CommandDataStruct.Arguments[0] + ".json"
-
-	# Чтение тайтла.
-	with open(Settings["titles-directory"] + Filename, encoding = "utf-8") as FileRead:
-		# Декодирование файла.
-		Title = json.load(FileRead)
+	elif ".json" not in CommandDataStruct.Arguments[0]:
+		TitlesSlugs.append(CommandDataStruct.Arguments[0] + ".json")
+	
+	# Для каждого тайтла.
+	for Index in range(0, len(TitlesSlugs)):
+		# Очистка консоли.
+		Cls()
+		# Вывод в консоль: прогресс.
+		print("Progress: " + str(Index + 1) + " / " + str(len(TitlesSlugs)))
+		# Чтение описательного файла.
+		LocalTitle = ReadJSON(Settings["titles-directory"] + TitlesSlugs[Index])
 		# Исходный формат.
 		SourceFormat = None
 
@@ -243,19 +259,27 @@ if "convert" == CommandDataStruct.Name:
 		if CommandDataStruct.Arguments[1] == "-auto":
 
 			# Если формат указан.
-			if "format" in Title.keys():
-				SourceFormat = Title["format"]
+			if "format" in LocalTitle.keys():
+				SourceFormat = LocalTitle["format"]
 
 		else:
 			SourceFormat = CommandDataStruct.Arguments[1]
 
 		# Создание объекта форматирования.
-		FormatterObject = Formatter(Settings, Title, Format = SourceFormat)
+		FormatterObject = Formatter(Settings, LocalTitle, Format = SourceFormat)
 		# Конвертирование структуры тайтла.
-		Title = FormatterObject.convert(CommandDataStruct.Arguments[2])
-
-	# Сохранение переформатированного описательного файла.
-	WriteJSON(Settings["titles-directory"] + Filename, Title)
+		LocalTitle = FormatterObject.convert(CommandDataStruct.Arguments[2])
+		
+		# Если файл не нуждается в конвертировании.
+		if SourceFormat != None and SourceFormat.lower() == CommandDataStruct.Arguments[2].lower():
+			# Запись в лог сообщения: файл пропущен.
+			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Skipped.")
+			
+		else:
+			# Сохранение переформатированного описательного файла.
+			WriteJSON(Settings["titles-directory"] + TitlesSlugs[Index], LocalTitle)
+			# Запись в лог сообщения: файл преобразован.
+			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Converted.")
 
 # Обработка команды: getcov.
 if "getcov" == CommandDataStruct.Name:
@@ -270,7 +294,6 @@ if "getcov" == CommandDataStruct.Name:
 if "manage" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок менеджмента.
 	logging.info("====== Management ======")
-	
 	# Вывод в консоль: идёт поиск тайтлов.
 	print("Management...", end = "")
 	# Менеджмент файлов с другим форматом.
