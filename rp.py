@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, Shutdown, WriteJSON
-from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles
+from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles, Unstub
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
@@ -115,7 +115,7 @@ CommandsList.append(COM_getcov)
 # Создание команды: manage.
 COM_manage = Command("manage")
 COM_manage.addArgument(ArgumentType.All, Important = True)
-COM_manage.addFlagPosition(["del"], Important = True, LayoutIndex = 1)
+COM_manage.addFlagPosition(["del", "unstub"], Important = True, LayoutIndex = 1)
 COM_manage.addKeyPosition(["move"], ArgumentType.ValidPath, Important = True, LayoutIndex = 1)
 COM_manage.addFlagPosition(["s"])
 CommandsList.append(COM_manage)
@@ -141,6 +141,11 @@ COM_repair.addArgument(ArgumentType.All, Important = True)
 COM_repair.addKeyPosition(["chapter"], ArgumentType.Number, Important = True)
 COM_repair.addFlagPosition(["s"])
 CommandsList.append(COM_repair)
+
+# Создание команды: unstub.
+COM_unstub = Command("unstub")
+COM_unstub.addFlagPosition(["s"])
+CommandsList.append(COM_unstub)
 
 # Создание команды: update.
 COM_update = Command("update")
@@ -445,6 +450,35 @@ if "repair" == CommandDataStruct.Name:
 	
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.save(DownloadCovers = False)
+
+# Обработка команды: unstub.
+if "unstub" == CommandDataStruct.Name:
+	# Запись в лог сообщения: заголовок менеджмента.
+	logging.info("====== Management ======")
+	# Вывод в консоль: идёт поиск тайтлов.
+	print("Scanning titles...")
+	# Получение списка файлов в директории.
+	TitlesSlugs = os.listdir(Settings["titles-directory"])
+	# Фильтрация только файлов формата JSON.
+	TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
+	# Запись в лог сообщения: количество доступных для фильтрации заглушек тайтлов.
+	logging.info("Local titles for unstubbing: " + str(len(TitlesSlugs)) + ".")
+	# Количество удалённых заглушек.
+	FilteredCoversCount = 0
+	
+	# Для каждого тайтла.
+	for Index in range(0, len(TitlesSlugs)):
+		# Очистка консоли.
+		Cls()
+		# Вывод в консоль: прогресс.
+		print("Progress: " + str(Index + 1) + " / " + str(len(TitlesSlugs)), "\nStubs removed: " + str(FilteredCoversCount))
+		
+		# Если произошла фильтрация, произвести инкремент количества удалённых заглушек.
+		if Unstub(Settings, TitlesSlugs[Index]) == True:
+			FilteredCoversCount += 1
+			
+	# Запись в лог сообщения: количество удалённых заглушек.
+	logging.info("Total stubs removed: " + str(FilteredCoversCount) + ".")
 
 # Обработка команды: update.
 if "update" == CommandDataStruct.Name:
