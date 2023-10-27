@@ -123,7 +123,8 @@ CommandsList.append(COM_manage)
 # Создание команды: parse.
 COM_parse = Command("parse")
 COM_parse.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
-COM_parse.addFlagPosition(["collection"], LayoutIndex = 1)
+COM_parse.addFlagPosition(["collection", "local"], LayoutIndex = 1)
+COM_parse.addFlagPosition(["onlydesc"])
 COM_parse.addFlagPosition(["f"])
 COM_parse.addFlagPosition(["s"])
 COM_parse.addKeyPosition(["from"], ArgumentType.All)
@@ -149,8 +150,6 @@ CommandsList.append(COM_unstub)
 
 # Создание команды: update.
 COM_update = Command("update")
-COM_update.addArgument(ArgumentType.All, LayoutIndex = 1)
-COM_update.addFlagPosition(["local"], LayoutIndex = 1)
 COM_update.addFlagPosition(["onlydesc"])
 COM_update.addFlagPosition(["f"])
 COM_update.addFlagPosition(["s"])
@@ -310,14 +309,14 @@ if "manage" == CommandDataStruct.Name:
 if "parse" == CommandDataStruct.Name:
 	# Запись в лог сообщения: парсинг.
 	logging.info("====== Parsing ======")
-	# Генерация сообщения.
-	ExternalMessage = InFuncMessage_Shutdown
-	# Список тайтлов для парсинга.
+	# Алиасы обновляемых тайтлов.
 	TitlesList = list()
 	# Индекс стартового алиаса.
 	StartIndex = 0
+	# Запись в лог сообщения: режим парсинга.
+	logging.info("Parse only description: " + ("ON." if "onlydesc" in CommandDataStruct.Flags else "OFF."))
 	
-	# Если активирован флаг парсинга коллекций.
+	# Если активирован флаг парсинга коллекции.
 	if "collection" in CommandDataStruct.Flags:
 		
 		# Если существует файл коллекции.
@@ -343,17 +342,32 @@ if "parse" == CommandDataStruct.Name:
 			logging.critical("Unable to find collection file.")
 			# Выброс исключения.
 			raise FileNotFoundError("Collection.txt")
-	
-	else:
-		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = ExternalMessage)
-		# Сохранение локальных файлов тайтла.
-		LocalTitle.save()
+		
+	# Если активирован флаг обновления локальных файлов.
+	elif "local" in CommandDataStruct.Flags:
+		# Вывод в консоль: идёт поиск тайтлов.
+		print("Scanning titles...")
+		# Получение списка файлов в директории.
+		TitlesSlugs = os.listdir(Settings["titles-directory"])
+		# Фильтрация только файлов формата JSON.
+		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
+			
+		# Чтение всех алиасов из локальных файлов.
+		for File in TitlesSlugs:
+			# Открытие локального описательного файла JSON.
+			with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
+				# JSON файл тайтла.
+				LocalTitle = json.load(FileRead)
+				# Помещение алиаса в список.
+				TitlesList.append(str(LocalTitle["slug"]) if "slug" in LocalTitle.keys() else str(LocalTitle["dir"]))
+
+		# Запись в лог сообщения: количество доступных для парсинга тайтлов.
+		logging.info("Local titles to parsing: " + str(len(TitlesList)) + ".")
 		
 	# Если указан стартовый тайтл.
 	if "from" in CommandDataStruct.Keys:
-		# Запись в лог сообщения: стартовый тайтл обновления.
-		logging.info("Parsing starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
+		# Запись в лог сообщения: стартовый тайтл парсинга.
+		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
 				
 		# Если стартовый алиас найден.
 		if CommandDataStruct.Values["from"] in TitlesList:
@@ -365,8 +379,8 @@ if "parse" == CommandDataStruct.Name:
 			logging.warning("Unable to find start slug. All titles skipped.")
 			# Пропустить все тайтлы.
 			StartIndex = len(TitlesList)
-			
-	# Парсинг тайтлов.
+
+	# Парсинг обновлённых тайтлов.
 	for Index in range(StartIndex, len(TitlesList)):
 		# Очистка терминала.
 		Cls()
@@ -374,12 +388,22 @@ if "parse" == CommandDataStruct.Name:
 		print("Parsing titles: " + str(Index + 1) + " / " + str(len(TitlesList)))
 		# Генерация сообщения.
 		ExternalMessage = InFuncMessage_Shutdown + InFuncMessage_ForceMode + "Parsing titles: " + str(Index + 1) + " / " + str(len(TitlesList)) + "\n"
-		# Парсинг тайтла.
-		LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)		
+		# Локальный описательный файл.
+		LocalTitle = None
+			
+		# Если включён парсинг только описания.
+		if "onlydesc" in CommandDataStruct.Flags:
+			# Парсинг тайтла (без глав).
+			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
+				
+		else:
+			# Парсинг тайтла.
+			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
+				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
 
-		# Выжидание указанного интервала, если не все тайтлы обновлены.
+		# Выжидание указанного интервала, если не все тайтлы спаршены.
 		if Index < len(TitlesList):
 			Wait(Settings)
 
@@ -484,44 +508,12 @@ if "unstub" == CommandDataStruct.Name:
 if "update" == CommandDataStruct.Name:
 	# Запись в лог сообщения: получение списка обновлений.
 	logging.info("====== Updating ======")
-	# Алиасы обновляемых тайтлов.
-	TitlesList = list()
 	# Индекс стартового алиаса.
 	StartIndex = 0
-	# Запись в лог сообщения: режим обновления.
-	logging.info("Update only description: " + ("ON." if "onlydesc" in CommandDataStruct.Flags else "OFF."))
-		
-	# Обновить все локальные файлы.
-	if "local" in CommandDataStruct.Flags:
-		# Вывод в консоль: идёт поиск тайтлов.
-		print("Scanning titles...")
-		# Получение списка файлов в директории.
-		TitlesSlugs = os.listdir(Settings["titles-directory"])
-		# Фильтрация только файлов формата JSON.
-		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
-			
-		# Чтение всех алиасов из локальных файлов.
-		for File in TitlesSlugs:
-			# Открытие локального описательного файла JSON.
-			with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
-				# JSON файл тайтла.
-				LocalTitle = json.load(FileRead)
-
-				# Помещение алиаса в список.
-				if "slug" in LocalTitle.keys():
-					TitlesList.append(str(LocalTitle["slug"]))
-				elif "dir" in LocalTitle.keys():
-					TitlesList.append(str(LocalTitle["dir"]))
-
-		# Запись в лог сообщения: количество доступных для обновления тайтлов.
-		logging.info("Local titles to update: " + str(len(TitlesList)) + ".")
-
-	# Обновить изменённые на сервере за последнее время тайтлы.
-	else:
-		# Инициализация проверки обновлений.
-		UpdateChecker = Updater(Settings)
-		# Получение списка обновлённых тайтлов.
-		TitlesList = UpdateChecker.getUpdatesList()
+	# Инициализация проверки обновлений.
+	UpdateChecker = Updater(Settings)
+	# Получение списка обновлённых тайтлов.
+	TitlesList = UpdateChecker.getUpdatesList()
 		
 	# Если указан стартовый тайтл.
 	if "from" in CommandDataStruct.Keys:
@@ -538,9 +530,6 @@ if "update" == CommandDataStruct.Name:
 			logging.warning("Unable to find start slug. All titles skipped.")
 			# Пропустить все тайтлы.
 			StartIndex = len(TitlesList)
-
-	# Запись в лог сообщения: заголовог парсинга.
-	logging.info("====== Parsing ======")
 
 	# Парсинг обновлённых тайтлов.
 	for Index in range(StartIndex, len(TitlesList)):
@@ -579,12 +568,12 @@ logging.info("====== Exiting ======")
 Cls()
 # Время завершения работы скрипта.
 EndTime = time.time()
-# Запись времени завершения работы скрипта.
+# Запись в лог сообщения: время исполнения скрипта.
 logging.info("Script finished. Execution time: " + SecondsToTimeString(EndTime - StartTime) + ".")
 
 # Выключение ПК, если установлен соответствующий флаг.
 if IsShutdowAfterEnd == True:
-	# Запись в лог сообщения о немедленном выключении ПК.
+	# Запись в лог сообщения: немедленное выключение ПК.
 	logging.info("Turning off the computer.")
 	# Выключение ПК.
 	Shutdown()

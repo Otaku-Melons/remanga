@@ -1,4 +1,4 @@
-from Source.Functions import CompareImages, GetRandomUserAgent, MergeListOfLists, Wait
+from Source.Functions import CompareImages, GetRandomUserAgent, MergeListOfLists, RemoveFolderContent, Wait
 from Source.RequestsManager import RequestsManager
 from dublib.Methods import Cls, ReadJSON
 from Source.Formatter import Formatter
@@ -463,10 +463,10 @@ class TitleParser:
 			ImageRequestHeaders["content-type"] = "image/jpeg"
 			# Ответ запроса.
 			Response = None
-			# Счётчик обложек.
-			CoversCounter = 0
-			# Счётчик отфильтрованных обложек.
-			FilteredCoversCount = 0
+			# Количество загруженных обложек.
+			DownloadedCoversCount = 0
+			# Состояние: отфильтрованы ли обложки.
+			IsCoversFiltered = False
 			# Запись URL обложек.
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
 			CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
@@ -522,7 +522,7 @@ class TitleParser:
 							# Запись изображения.
 							FileWrite.write(Response.content)
 							# Инкремент счётчика загруженных обложек.
-							CoversCounter += 1
+							DownloadedCoversCount += 1
 							# Вывод в терминал: успешная загрузка.
 							print("Done.")
 
@@ -531,35 +531,37 @@ class TitleParser:
 						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + CoversURL[Index] + "\". Response code: " + str(Response.status_code) + ".")
 						# Вывод в терминал: ошибка загрузки.
 						print("Failure!")
-						
-						# Выжидание указанного интервала, если не все обложки загружены.
-						if CoversCounter < 3:
-							Wait(self.__Settings) 
 
 				else:
 					# Вывод в терминал URL загружаемой обложки.
 					print("Cover already exist: \"" + CoversURL[Index] + "\". Skipped.")
-					# Инкремент счётчика загруженных обложек.
-					CoversCounter += 1
 					
-				# Если включена фильтрация заглушек.
-				if self.__Settings["filter-covers"] == True:
-					
-					# Если обложка отфильтрована.
-					if self.__FilterCovers(CoverFilename, Index) == True:
-						# Инкремент количества отфильтрованных обложек.
-						FilteredCoversCount += 1
-
+				# Если включена фильтрация заглушек и обложка отфильтрована.
+				if self.__Settings["filter-covers"] == True and self.__FilterCovers(CoverFilename, Index) == True:
+					# Переключение статуса фильтрации.
+					IsCoversFiltered = True
+					# Удаление файлов обложек.
+					RemoveFolderContent(self.__Settings["covers-directory"] + UsedTitleName)
+					# Очистка записей об обложках.
+					self.__Title["img"]["high"] = ""
+					self.__Title["img"]["mid"] = ""
+					self.__Title["img"]["low"] = ""
+					# Остановка цикла.
+					break
+						
 				# Выжидание указанного интервала, если не все обложки загружены.
-				if CoversCounter < 3 and CoversCounter > 0:
-					Wait(self.__Settings)
-
-			# Вывод в терминал: количество отфильтрованных обложек.
-			if FilteredCoversCount > 0:
-				print(f"\nFiltered covers count: {FilteredCoversCount}")
+				if DownloadedCoversCount < 3:
+					Wait(self.__Settings) 
+			
+			if IsCoversFiltered == True:
+				# Вывод в терминал: обложки отфильтрованы.
+				print(f"\n All covers filtered as stubs!")
+				# Запись в лог сообщения: обложки отфильтрованы.
+				logging.info("Title: \"" + self.__TitleHeader + "\". Covers filtered as stubs.")
 				
-			# Запись в лог сообщения: количество загруженных обложек.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Covers count: " + str(CoversCounter - FilteredCoversCount) + "." + (f" Filtered: {FilteredCoversCount}." if FilteredCoversCount > 0 else ""))
+			else:
+				# Запись в лог сообщения: количество загруженных обложек.
+				logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCount) + ".")
 			
 	# Заменяет главу свежей версией с сервера.
 	def repairChapter(self, ChapterID: str):

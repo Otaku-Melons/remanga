@@ -19,27 +19,32 @@ def CompareImages(PatternPath: str, ImagePath: str) -> float | None:
 	if os.path.exists(PatternPath) == False:
 		raise FileNotFoundError(PatternPath)
 	
-	# Если не удалось найти файл для сравнения.
-	elif os.path.exists(ImagePath) == False:
-		raise FileNotFoundError(ImagePath)
-	
-	else:
-		# Чтение изображений.
-		Pattern = cv2.imread(PatternPath)
-		Image = cv2.imread(ImagePath)
-		# Преобразование изображений в чёрно-белый формат.
-		Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
-		Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
-		# Получение разрешений изображений.
-		PatternHeight, PatternWidth = Pattern.shape
-		ImageHeight, ImageWidth = Image.shape
+	# Если удалось найти файл для сравнения.
+	elif os.path.exists(ImagePath) == True:
+
+		try:
+			# Чтение изображений.
+			Pattern = cv2.imread(PatternPath)
+			Image = cv2.imread(ImagePath)
+			# Преобразование изображений в чёрно-белый формат.
+			Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
+			Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
+			# Получение разрешений изображений.
+			PatternHeight, PatternWidth = Pattern.shape
+			ImageHeight, ImageWidth = Image.shape
 		
-		# Если шаблон и изображение имеют одинаковое разрешение.
-		if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
-			# Сравнение двух изображений.
-			(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
-			# Конвертирование в проценты.
-			Differences = 100.0 - (float(Similarity) * 100.0)
+			# Если шаблон и изображение имеют одинаковое разрешение.
+			if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
+				# Сравнение двух изображений.
+				(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
+				# Конвертирование в проценты.
+				Differences = 100.0 - (float(Similarity) * 100.0)
+
+		except cv2.error as ExceptionData:
+			# Запись в лог ошибки: исключение.
+			logging.error("Error occurred during comparing images: \"" + str(ExceptionData) + "\".")		
+			# Обнуление процента отличий.
+			Differences = None
 
 	return Differences
 
