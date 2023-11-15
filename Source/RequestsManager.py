@@ -2,6 +2,7 @@ from selenium.common import exceptions as SeleniumExceptions
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from Source.Functions import GetRandomUserAgent
+from dublib.Methods import ReadJSON
 from seleniumwire import webdriver
 from bs4 import BeautifulSoup
 
@@ -68,7 +69,7 @@ class RequestsManager:
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Запись в лог предупреждения: прокси заблокирован как невалидный.
-		logging.warning("Proxy: " + Proxy["https"] + ". Blocked as invalid.")
+		logging.warning("Proxy: " + Proxy["http"] + ". Blocked as invalid.")
 
 	# Блокирует прокси как запрещённый.
 	def __BlockProxyAsForbidden(self, Proxy: dict):
@@ -79,7 +80,7 @@ class RequestsManager:
 		# Сохранение новой структуры прокси в файл.
 		self.__SaveProxiesJSON()
 		# Запись в лог предупреждения: прокси заблокирован как заблокированный.
-		logging.warning("Proxy: " + Proxy["https"] + ". Blocked as forbidden.")
+		logging.warning("Proxy: " + Proxy["http"] + ". Blocked as forbidden.")
 
 	# Строит JavaScript XHR запрос.
 	def __BuildXHR(self, URL: str, Headers: dict, ResponseType: str) -> str:
@@ -117,7 +118,7 @@ class RequestsManager:
 					pass
 				else:
 					HeadersInXHR += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-
+					
 			# Формирование скрипта методом форматированной строки.
 			Script = f'''
 				var Done = arguments[0];
@@ -154,36 +155,68 @@ class RequestsManager:
 		# Опции веб-драйвера.
 		ChromeOptions = webdriver.ChromeOptions()
 		# Настройка прокси.
-		SeleniumWireOptions = None
+		SeleniumWireOptions = {
+			"disable_capture": True
+		}
 		
 		# При включённом прокси создать и установить дополнение.
 		if self.__Settings["use-proxy"] == True:
 			# Получение данных текущего прокси.
 			UserName, Password, IP, Port = self.__GetProxyData(self.__CurrentProxy)
 			# Формирование настроек.
-			SeleniumWireOptions = {
-				"disable_capture": True,
-				"proxy": {
-					"http": f"http://{UserName}:{Password}@{IP}:{Port}", 
-					"https": f"http://{UserName}:{Password}@{IP}:{Port}"
-				}
+			SeleniumWireOptions["proxy"] = {
+				"http": f"https://{UserName}:{Password}@{IP}:{Port}", 
+				"https": f"https://{UserName}:{Password}@{IP}:{Port}"
 			}
 
-		# Установка опций.
-		ChromeOptions.add_argument("--no-sandbox")
-		ChromeOptions.add_argument("--disable-dev-shm-usage")
-		ChromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
+		# Если Selenoid не используется.
+		if self.__Settings["selenoid-remote"] == None:
 
-		# При отключённом режиме отладки скрыть окно браузера.
-		if self.__Settings["debug"] == False:
-			ChromeOptions.add_argument("--headless=new")
+			# Установка опций.
+			ChromeOptions.add_argument("--no-sandbox")
+			ChromeOptions.add_argument("--disable-dev-shm-usage")
+			ChromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
+			
+			# При отключённом режиме отладки скрыть окно браузера.
+			if self.__Settings["debug"] == False:
+				ChromeOptions.add_argument("--headless=new")
 
-		# Инициализация веб-драйвера.
-		try:
-			self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
+			# Инициализация веб-драйвера.
+			try:
+				self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
 
-		except FileNotFoundError:
-			logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
+			except FileNotFoundError:
+				# Запись в лог критической ошибки: не удалось найти веб-драйвер.
+				logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
+			
+			except Exception as ExceptionData:
+				# Запись в лог критической ошибки: неизвестное исключение.
+				logging.critical("Unable to launch Selenium. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
+				
+		else:
+			# Опции Selenoid.
+			SelenoidCapabilities = {
+				"browserName": "chrome",
+				"browserVersion": "119",
+				"selenoid:options": {
+					"enableVideo": False,
+					"enableVNC": True
+				}
+			}
+			# Добавление удалённого адреса в параметры selenium-wire.
+			SeleniumWireOptions["auto_config"] = False
+			SeleniumWireOptions["addr"] = "127.0.0.1"
+			# Установка опций.
+			ChromeOptions.set_capability("cloud:options", SelenoidCapabilities)
+			
+			try:
+				# Инициализация веб-драйвера.
+				self.__Browser = webdriver.Remote(command_executor = self.__Settings["selenoid-remote"], seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
+			
+			except Exception as ExceptionData:
+				# Запись в лог критической ошибки: неизвестное исключение.
+				logging.critical("Unable to connect Selenoid. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
+
 
 	# Обработать статусы ответов.
 	def __ProcessStatusCode(self, Status: int, Proxy: dict):
@@ -228,7 +261,7 @@ class RequestsManager:
 		IP = None
 		Port = None
 		# Строка описания прокси.
-		ProxyDescription = Proxy["https"].split('/')[-1]
+		ProxyDescription = Proxy["http"].split('/')[-1]
 		
 		# Если для прокси нужна авторизация.
 		if "@" in ProxyDescription:
@@ -245,6 +278,34 @@ class RequestsManager:
 			Port = ProxyDescription.split(':')[1]
 
 		return UserName, Password, IP, Port
+	
+	# Читает прокси.
+	def __ReadProxy(self):
+		# Чтение прокси в буфер.
+		Bufer = ReadJSON("Proxies.json")
+		# Ключи хранилищ прокси.
+		ProxyStorages = ["proxies", "forbidden-proxies", "invalid-proxies"]
+		
+		# Для каждого хранилища прокси.
+		for Storage in ProxyStorages:
+		
+			# Для каждого прокси создать аналог для другого протокола.
+			for Index in range(0, len(Bufer[Storage])):
+				# Список протоколов.
+				Protocols = Bufer[Storage][Index].keys()
+			
+				# Если не указана HTTPS-версия.
+				if "http" in Protocols and "https" not in Protocols:
+					# Запись HTTPS-версии.
+					Bufer[Storage][Index]["https"] = Bufer[Storage][Index]["http"]
+				
+				# Если не указана HTTP-версия.
+				elif "https" in Protocols and "http" not in Protocols:
+					# Запись HTTPS-версии.
+					Bufer[Storage][Index]["http"] = Bufer[Storage][Index]["https"]
+					
+		# Сохранение прокси.
+		self.__Proxies = Bufer
 
 	# Непосредственно выполняет запрос к серверу через библиотеку requests.
 	def __RequestDataWith_requests(self, URL: str, Headers: dict, Proxy: dict):
@@ -256,13 +317,13 @@ class RequestsManager:
 		Status = None
 
 		# Интерпретация прокси.
-		if Proxy is None:
+		if Proxy == None:
 			Proxy = dict()
-
+			
 		try:
 			# Попытка выполнения запроса.
 			Response = Scraper.get(URL, headers = Headers, proxies = Proxy)
-
+			
 			# Если запрос успешен.
 			if Response.status_code in [200, 401, 404]:
 				Status = 0
@@ -293,7 +354,7 @@ class RequestsManager:
 		Response = ResponseEmulation()
 		# Статус ответа.
 		Status = None
-
+		
 		# Интерпретация прокси.
 		if Proxy is None:
 			Proxy = dict()
@@ -398,7 +459,7 @@ class RequestsManager:
 			# Сохранение новой структуры прокси в файл.
 			self.__SaveProxiesJSON()
 			# Запись в лог сообщения: прокси помечен как доступный.
-			logging.info("Proxy: " + Proxy["https"] + ". Marked as valid.")
+			logging.info("Proxy: " + Proxy["http"] + ". Marked as valid.")
 
 	# Сохраняет JSON с прокси.
 	def __SaveProxiesJSON(self):
@@ -435,23 +496,23 @@ class RequestsManager:
 		#---> Загрузка и валидация прокси-серверов.
 		#==========================================================================================#
 
-		# Чтение файла определений прокси, если необходимо.
 		try:
-			if Settings["use-proxy"] is True or LoadProxy is True:
-				with open("Proxies.json") as FileRead:
-					self.__Proxies = json.load(FileRead)
+			# Если прокси используется или указано,что его необходимо загрузить.
+			if Settings["use-proxy"] == True or LoadProxy == True:
+				# Чтение прокси.
+				self.__ReadProxy()
 		
 		except FileNotFoundError:
 			# Запись в лог критической ошибки: не удалось найти файл 
 			logging.critical("Unable to open \"Proxies.json\" file!")
 			# Прерывание выполнения.
-			sys.exit()
+			sys.exit(-1)
 
 		except json.JSONDecodeError:
 			# Запись в лог критической ошибки: не удалось найти файл 
 			logging.critical("Error occurred while reading \"Proxies.json\" file!")
 			# Прерывание выполнения.
-			sys.exit()
+			sys.exit(-1)
 
 		# Если не запущена валидация, установить прокси автоматически.
 		if LoadProxy == False:
@@ -468,6 +529,44 @@ class RequestsManager:
 				
 		except Exception:
 			pass
+		
+	# Загружает изображение.
+	def downloadImage(self, URL: str, Path: str = "", Filename: str = "") -> int:
+		# Заголовки.
+		Headers = {
+			"Referer": "https://remanga.org/",
+			"User-Agent": GetRandomUserAgent()
+		}
+		# Выполнение запроса.
+		Response = self.request(URL, Headers = Headers)
+		# Получение имени файла.
+		Filename = URL.split('/')[-1] if Filename == "" else Filename
+		# Конвертирование косых черт.
+		Path = Path.replace('\\', '/')
+		
+		# Если задано название и не указано расширение.
+		if Filename.endswith(".jpeg") == False and Filename.endswith(".jpg") == False:
+			# Добавление расширения к названию файла.
+			Filename += "." + URL.split('.')[-1]
+	
+		# Если путь не зананчивается косой чертой и не пуст.
+		if Path.endswith('/') == False and Path.endswith('\\') == False and Path != "":
+			# Добавление в конец пути косой черты.
+			Path += "/"
+
+		# Проверка успешности запроса.
+		if Response.status_code == 200:
+
+			# Открытие потока записи.
+			with open(Path + Filename, "wb") as FileWriter:
+				# Запись изображения.
+				FileWriter.write(Response.content)
+			
+		else:
+			# Переключение состояния.
+			IsSuccess = False
+		
+		return Response.status_code
 
 	# Возвращает список прокси.
 	def getProxies(self, ProxiesType: str = "all"):
@@ -494,7 +593,7 @@ class RequestsManager:
 			self.__InitializeWebDriver()
 
 		# Установка заголовков по умолчанию.
-		if Headers is None:
+		if Headers == None:
 			Headers = self.__RequestHeaders
 		
 		# Обработка повторов запроса с использованием прокси.
@@ -507,11 +606,13 @@ class RequestsManager:
 				if CurrentTry > 0:
 					# Запись в лог ошибки: не удалось выполнить запрос.
 					logging.error("Unable to request data with proxy: " + str(self.__CurrentProxy) + ". Retrying...")
-					# Реинициализация браузера.
-					self.__InitializeWebDriver()
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
-
+					
+					# Если включён режим Selenium, реинициализировать браузер.
+					if self.__Settings["selenium-mode"] == True:
+						self.__InitializeWebDriver()
+						
 				# Выполнение запроса в указанном режиме.
 				if self.__Settings["selenium-mode"] == True:
 					Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
@@ -539,13 +640,15 @@ class RequestsManager:
 				if CurrentTry > 0:
 					# Запись в лог ошибки: не удалось выполнить запрос.
 					logging.error("Unable to request data. Retrying...")
-					# Реинициализация браузера.
-					self.__InitializeWebDriver()
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
+					
+					# Если включён режим Selenium, реинициализировать браузер.
+					if self.__Settings["selenium-mode"] == True:
+						self.__InitializeWebDriver()
 
 				# Выполнение запроса в указанном режиме.
-				if self.__Settings["selenium-mode"] is True:
+				if self.__Settings["selenium-mode"] == True:
 					Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
 				else:
 					Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
@@ -591,7 +694,7 @@ class RequestsManager:
 				BodyHTML = str(self.__Browser.execute_script("return document.body.innerHTML;"))
 				# Получение текущего IP согласно настройкам.
 				CurrentIP = BeautifulSoup(BodyHTML, "html.parser").find(self.__Proxies["selenium-validator"]["tag"], self.__Proxies["selenium-validator"]["properties"]).get_text().strip()
-
+				print(CurrentIP)
 				# Если текущий IP такой же, как у прокси.
 				if CurrentIP == Proxy["https"].split('@')[1].split(':')[0]:
 					# Установка кода.
@@ -602,7 +705,10 @@ class RequestsManager:
 				else:
 					StatusCode = 1
 
-			except Exception:
+			except Exception as ExceptionData:
+				# Запись в лог ошибки: неизвестное исключение.
+				logging.error("Unable to validate proxy. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
+				# Присвоение кода статуса.
 				StatusCode = 1
 
 		else:
@@ -610,7 +716,7 @@ class RequestsManager:
 			Headers["User-Agent"] = GetRandomUserAgent()
 			# Выполнение запроса через библиотеку Python.
 			Response, StatusCode = self.__RequestDataWith_requests(URL, Headers, Proxy)
-
+			
 		# Если указано флагом, обновить файл определений прокси.
 		if UpdateFile == True:
 			self.__ProcessStatusCode(StatusCode, Proxy)

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, Shutdown, WriteJSON
-from Source.Functions import SecondsToTimeString, ManageOtherFormatsFiles, Unstub
+from Source.Functions import ManageOtherFormatsFiles, SecondsToTimeString, Unstub
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
@@ -25,6 +25,11 @@ import os
 CheckPythonMinimalVersion(3, 10)
 # Создание папок в корневой директории.
 MakeRootDirectories(["Logs"])
+
+# Код завершения потока.
+EXIT_CODE = 0
+# Переключатель: удалять ли лог по завершению работы.
+REMOVE_LOGFILE = False
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ ЛОГОВ <<<<< #
@@ -104,6 +109,13 @@ COM_convert.addArgument(ArgumentType.All, Important = True)
 COM_convert.addFlagPosition(["all"], Important = True, LayoutIndex = 1)
 COM_convert.addFlagPosition(["s"])
 CommandsList.append(COM_convert)
+
+# Создание команды: get.
+COM_get = Command("get")
+COM_get.addKeyPosition(["dir"], ArgumentType.ValidPath)
+COM_get.addKeyPosition(["img"], ArgumentType.URL, Important = True)
+COM_get.addKeyPosition(["name"], ArgumentType.All)
+CommandsList.append(COM_get)
 
 # Создание команды: getcov.
 COM_getcov = Command("getcov")
@@ -285,6 +297,30 @@ if "convert" == CommandDataStruct.Name:
 			# Запись в лог сообщения: файл преобразован.
 			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Converted.")
 
+# Обработка команды: get.
+if "get" == CommandDataStruct.Name:
+	# Запись в лог сообщения: заголовок парсинга.
+	logging.info("====== Downloading ======")
+	# Переключение удаление лога.
+	REMOVE_LOGFILE = True
+	# URL изображения.
+	URL = CommandDataStruct.Values["img"]
+	# Директория.
+	Directory = "" if "dir" not in CommandDataStruct.Keys else CommandDataStruct.Values["dir"]
+	# Имя файла.
+	Filename = "" if "name" not in CommandDataStruct.Keys else CommandDataStruct.Values["name"]
+	# Инициализация менеджера запросов.
+	RequestsManagerObject = RequestsManager(Settings)
+	# Загрузка изображения.
+	Result = RequestsManagerObject.downloadImage(URL, Directory, Filename)
+
+	# Если загрузка изображения успешна.
+	if Result == 200:
+		# Изменение кода процесса.
+		EXIT_CODE = 1
+		# Запись в лог ошибки: не удалось загрузить файл.
+		logging.error(f"Unable to download image: \"{URL}\". Response code: {Result}.")
+
 # Обработка команды: getcov.
 if "getcov" == CommandDataStruct.Name:
 	# Запись в лог сообщения: заголовок парсинга.
@@ -363,6 +399,11 @@ if "parse" == CommandDataStruct.Name:
 
 		# Запись в лог сообщения: количество доступных для парсинга тайтлов.
 		logging.info("Local titles to parsing: " + str(len(TitlesList)) + ".")
+		
+	# Парсинг одного тайтла.
+	else:
+		# Запись аргумента в качестве цели парсинга.
+		TitlesList.append(CommandDataStruct.Arguments[0])
 		
 	# Если указан стартовый тайтл.
 	if "from" in CommandDataStruct.Keys:
@@ -580,3 +621,10 @@ if IsShutdowAfterEnd == True:
 
 # Выключение логгирования.
 logging.shutdown()
+
+# Если указано, удалить файл лога.
+if REMOVE_LOGFILE == True:
+	os.remove(LogFilename)
+
+# Завершение главного процесса.
+sys.exit(EXIT_CODE)

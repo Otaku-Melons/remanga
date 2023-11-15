@@ -8,6 +8,7 @@ import shutil
 import json
 import os
 
+# Обработчик взаимодействий парсера и сайта.
 class TitleParser:
 	
 	# Фильтрует заглушки для тайтлов без собственной обложки.

@@ -4,13 +4,13 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [dublib](https://github.com/DUB1401/dublib), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [opencv-python](https://github.com/opencv/opencv-python), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [scikit-image](https://github.com/scikit-image/scikit-image), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [dublib](https://github.com/DUB1401/dublib), [opencv-python-headless](https://github.com/opencv/opencv-python), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [scikit-image](https://github.com/scikit-image/scikit-image), [Pillow](https://github.com/python-pillow/Pillow).
 ```
 pip install git+https://github.com/DUB1401/dublib
+pip install opencv-python-headless
 pip install webdriver-manager
 pip install BeautifulSoup4
 pip install fake-useragent
-pip install opencv-python
 pip install selenium-wire
 pip install cloudscraper
 pip install scikit-image
@@ -56,6 +56,19 @@ convert [TARGET*] [SOURCE_FORMAT*] [OUTPUT_FORMAT*]
 	* Аргумент – название формата из [списка](Examples/) в любом регистре.
 	* Флаги:
 		* _**-auto**_ – берёт название формата из ключа `fromat` внутри описательного файла JSON.
+___
+```
+get [URL*] [KEYS]
+```
+Загружает любое изображение с сайта [Remanga](https://remanga.org/).
+
+**Описание позиций:**
+* **URL** – цель для конвертирования. Обязательная позиция.
+	* Аргумент – ссылка на изображение.
+
+**Список специфических ключей:**
+* _**--dir**_ – указывает директорию для сохранения файла;
+* _**--name**_ – указывает новое название файла (не меняет расширение).
 ___
 ```
 getcov [MANGA_SLUG*] [FLAGS]
@@ -175,6 +188,11 @@ ___
 "selenium-mode": false
 ```
 Переключает парсер в режим отправки запросов через интерпретатор Java Script в браузере [Google Chrome](https://www.google.com.iq/chrome/). Данный способ использует XHR для получения данных с сайта [Remanga](https://remanga.org/), что помогает обходить защиту от ботов при использовании прокси.
+___
+```JSON
+"selenoid-remote": null
+```
+Позволяет указать хаб [Selenoid](https://github.com/aerokube/selenoid) для удалённого использования Selenium, однако данный режим не поддерживает прокси и является экспериментальным.
 ___
 ```JSON
 "check-updates-period": 60

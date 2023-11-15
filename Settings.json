@@ -5,6 +5,7 @@
 	"max-delay": 3,
 	"use-proxy": false,
 	"selenium-mode": false,
+	"selenoid-remote": null,
 	"check-updates-period": 60,
 	"use-id-instead-slug": false,
 	"titles-directory": "",

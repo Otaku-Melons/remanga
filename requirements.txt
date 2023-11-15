@@ -1,8 +1,8 @@
 git+https://github.com/DUB1401/dublib
+opencv-python-headless
 webdriver-manager
 BeautifulSoup4
 fake-useragent
-opencv-python
 selenium-wire
 cloudscraper
 scikit-image
