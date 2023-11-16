@@ -43,7 +43,7 @@ ___
 ```
 convert [TARGET*] [SOURCE_FORMAT*] [OUTPUT_FORMAT*]
 ```
-Преобразует внутреннюю структуру JSON файлов определений тайтлов согласно одному из поддерживаемых форматов: [DMP-V1](Examples/DMP-V1.md), [HTCRN-V1](Examples/HTCRN-V1.md), [HTMP-V1](Examples/HTMP-V1.md), [RN-V1](Examples/RN-V1.md).
+Преобразует внутреннюю структуру JSON файлов определений тайтлов согласно одному из поддерживаемых форматов: [DMP-V1](Examples/DMP-V1.md), [HTCRN-V1](Examples/HTCRN-V1.md), [HTMP-V1](Examples/HTMP-V1.md), [RN-V1](Examples/RN-V1.md), [RN-V2](Examples/RN-V2.md).
 
 **Описание позиций:**
 * **TARGET** – цель для конвертирования. Обязательная позиция.

@@ -41,7 +41,7 @@ class Formatter:
 	#==========================================================================================#
 
 	# Конвертер: DMP-V1 > HCMP-V1.
-	def __DMP1_to_HCMP1(self):
+	def __DMP1_to_HCMP1(self) -> dict:
 		# Перечисление типов тайтла.
 		Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
 		# Перечисление статусов тайтла.
@@ -169,7 +169,7 @@ class Formatter:
 		return FormattedTitle
 
 	# Конвертер: DMP-V1 > HTMP-V1.
-	def __DMP1_to_HTMP1(self):
+	def __DMP1_to_HTMP1(self) -> dict:
 		# Перечисление типов тайтла.
 		Types = ["MANGA", "MANHWA", "MANHUA", "WESTERN_COMIC", "RUS_COMIC", "INDONESIAN_COMIC", "ANOTHER"]
 		# Перечисление статусов тайтла.
@@ -367,7 +367,7 @@ class Formatter:
 		return FormattedTitle
 
 	# Конвертер: DMP-V1 > RN-V1.
-	def __DMP1_to_RN1(self):
+	def __DMP1_to_RN1(self) -> dict:
 		# Перечисление типов тайтла.
 		Types = ["Манга", "Манхва", "Маньхуа", "Западный комикс", "Рукомикс", "Индонезийский комикс", "Другое", "Другое"]
 		# Перечисление типов тайтла DMP-V1.
@@ -828,6 +828,217 @@ class Formatter:
 		FormattedTitle["chapters"] = sorted(FormattedTitle["chapters"], key = lambda d: d["id"]) 
 
 		return FormattedTitle
+	
+	# Конвертер: RN-V1 > RN-V2.
+	def __RN1_to_RN2(self) -> dict:
+		# Буфер обработки возвращаемой структуры.
+		FormattedTitle = dict()
+
+		#---> Вложенные функции.
+		#==========================================================================================#
+
+		# Определяет тип тайтла.
+		def IdentifyTitleType(TypeDetermination) -> str:
+			# Тип тайтла.
+			Type = None
+
+			# Перебор типов тайтла.
+			if type(TypeDetermination) is dict and "name" in TypeDetermination.keys():
+				if TypeDetermination["name"] in ["Манга"]:
+					Type = "MANGA"
+				elif TypeDetermination["name"] in ["Манхва"]:
+					Type = "MANHWA"
+				elif TypeDetermination["name"] in ["Маньхуа"]:
+					Type = "MANHUA"
+				elif TypeDetermination["name"] in ["Западный комикс"]:
+					Type = "WESTERN_COMIC"
+				elif TypeDetermination["name"] in ["Рукомикс", "Руманга"]:
+					Type = "RUS_COMIC"
+				elif TypeDetermination["name"] in ["Индонезийский комикс"]:
+					Type = "INDONESIAN_COMIC"
+				elif TypeDetermination["name"] in ["OEL-манга"]:
+					Type = "OEL"
+				else:
+					Type = "UNKNOWN"
+
+			else:
+				pass
+
+			return Type
+
+		# Определяет статус тайтла.
+		def IdentifyTitleStatus(TitleStatusDetermination) -> str:
+			# Тип тайтла.
+			Status = None
+
+			# Перебор типов тайтла.
+			if type(TitleStatusDetermination) is dict and "name" in TitleStatusDetermination.keys():
+				if TitleStatusDetermination["name"] in ["Анонс"]:
+					Status = "ANNOUNCED"
+				elif TitleStatusDetermination["name"] in ["Продолжается"]:
+					Status = "ONGOING"
+				elif TitleStatusDetermination["name"] in ["Закончен"]:
+					Status = "COMPLETED"
+				elif TitleStatusDetermination["name"] in ["Заморожен", "Нет переводчика", "Лицензировано"]:
+					Status = "ABANDONED"
+				else:
+					Status = "UNKNOWN"
+
+			else:
+				pass
+
+			return Status
+		
+		#---> Генерация структуры.
+		#==========================================================================================#
+		FormattedTitle["format"] = "rn-v2"
+		FormattedTitle["site"] = "remanga.org"
+		FormattedTitle["id"] = self.__OriginalTitle["id"]
+		FormattedTitle["slug"] = self.__OriginalTitle["dir"]
+		FormattedTitle["covers"] = list()
+		FormattedTitle["ru-name"] = self.__OriginalTitle["rus_name"]
+		FormattedTitle["en-name"] = self.__OriginalTitle["en_name"]
+		FormattedTitle["another-names"] = self.__OriginalTitle["another_name"].split(" / ")
+		FormattedTitle["author"] = None
+		FormattedTitle["publication-year"] = self.__OriginalTitle["issue_year"]
+		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
+		FormattedTitle["description"] = RemoveHTML(self.__OriginalTitle["description"]).replace("\r\n\r\n", "\n")
+		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
+		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
+		FormattedTitle["is-licensed"] = self.__OriginalTitle["is_licensed"]
+		FormattedTitle["series"] = list()
+		FormattedTitle["genres"] = list()
+		FormattedTitle["tags"] = list()
+		FormattedTitle["branches"] = list()
+		FormattedTitle["chapters"] = dict()
+
+		#---> Внесение правок.
+		#==========================================================================================#
+
+		# Конвертирование обложек.
+		for CoverType in self.__OriginalTitle["img"].keys():
+			
+			# Если есть данные об обложке.
+			if self.__OriginalTitle["img"][CoverType] != "":
+				FormattedTitle["covers"].append({"link": "https://remanga.org" + self.__OriginalTitle["img"][CoverType], "filename": self.__OriginalTitle["img"][CoverType].split('/')[-1], "width": None, "height": None})
+
+		# Конвертирование ветвей.
+		for OriginalBranch in self.__OriginalTitle["branches"]:
+			# Буфер текущей ветви.
+			CurrentBranch = dict()
+			# Перенос данных.
+			CurrentBranch["id"] = OriginalBranch["id"]
+			CurrentBranch["chapters-count"] = OriginalBranch["count_chapters"]
+			# Сохранение результата.
+			FormattedTitle["branches"].append(CurrentBranch)
+
+		# Конвертирование глав.
+		for CurrentBranchID in self.__OriginalTitle["chapters"].keys():
+			# Буфер текущей ветви.
+			CurrentBranch = list()
+
+			# Конвертирование глав.
+			for Chapter in self.__OriginalTitle["chapters"][CurrentBranchID]:
+				# Буфер текущей главы.
+				CurrentChapter = dict()
+				# Счётчик слайдов.
+				SlideIndex = 0
+				# Перенос данных.
+				CurrentChapter["id"] = Chapter["id"]
+				CurrentChapter["number"] = None
+				CurrentChapter["volume"] = Chapter["tome"]
+				CurrentChapter["name"] = Chapter["name"]
+				CurrentChapter["is-paid"] = Chapter["is_paid"]
+				CurrentChapter["free-publication-date"] = Chapter["pub_date"] if CurrentChapter["is-paid"] == True else None
+				CurrentChapter["translator"] = ""
+				CurrentChapter["slides"] = list()
+
+				# Если у главы нет названия, то обнулить его.
+				if CurrentChapter["name"] == "":
+					CurrentChapter["name"] = None
+
+				# Перенос номера главы c конвертированием.
+				if '.' in str(Chapter["chapter"]):
+					CurrentChapter["number"] = float(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))
+				else:
+					CurrentChapter["number"] = int(re.search(r"\d+(\.\d+)?", str(Chapter["chapter"])).group(0))
+
+				# Перенос переводчиков.
+				for Publisher in Chapter["publishers"]:
+					CurrentChapter["translator"] += Publisher["name"] + " / "
+
+				# Перенос слайдов.
+				for Slide in Chapter["slides"]:
+					# Инкремент индекса слайда.
+					SlideIndex += 1
+					# Буфер текущего слайда.
+					CurrentSlide = dict()
+					# Перенос данных.
+					CurrentSlide["index"] = SlideIndex
+					CurrentSlide["link"] = Slide["link"]
+					CurrentSlide["width"] = Slide["width"]
+					CurrentSlide["height"] = Slide["height"]
+					# Сохранение результата.
+					CurrentChapter["slides"].append(CurrentSlide)
+
+				# Удаление запятой из конца поля переводчика или обнуление поля.
+				if CurrentChapter["translator"] != "":
+					CurrentChapter["translator"] = CurrentChapter["translator"][:-3]
+				else:
+					CurrentChapter["translator"] = None
+
+				# Сохранение результата.
+				CurrentBranch.append(CurrentChapter)
+
+			# Сохранение результата.
+			FormattedTitle["chapters"][CurrentBranchID] = CurrentBranch
+
+		# Вычисление размера локальных обложек.
+		for CoverIndex in range(0, len(FormattedTitle["covers"])):
+			# Буфер изображения.
+			CoverImage = None
+
+			try:
+
+				# Поиск локальных файлов обложек c ID в названии.
+				if self.__Settings["use-id-instead-slug"] is True and os.path.exists(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
+					CoverImage = Image.open(self.__Settings["covers-directory"] + str(FormattedTitle["id"]) + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+
+				# Поиск локальных файлов обложек c алиасом в названии.
+				elif self.__Settings["use-id-instead-slug"] is False and os.path.exists(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"]):
+					CoverImage = Image.open(self.__Settings["covers-directory"] + FormattedTitle["slug"] + "/" + FormattedTitle["covers"][CoverIndex]["filename"])
+
+			except UnidentifiedImageError:
+				# Запись в лог ошибки: неизвестная ошибка при чтении изображения.
+				logging.error("Resolution of the cover couldn't be determined.")
+
+			# Получение размеров.
+			if CoverImage is not None:
+				FormattedTitle["covers"][CoverIndex]["width"], FormattedTitle["covers"][CoverIndex]["height"] = CoverImage.size
+
+		# Конвертирование тегов.
+		for TagIndex in range(0, len(self.__OriginalTitle["categories"])):
+			FormattedTitle["tags"].append(self.__OriginalTitle["categories"][TagIndex]["name"].lower())
+
+		# Конвертирование жанров.
+		for GenreIndex in range(0, len(self.__OriginalTitle["genres"])):
+			FormattedTitle["genres"].append(self.__OriginalTitle["genres"][GenreIndex]["name"].lower())
+
+		# Сортировка глав по возрастанию.
+		for BranchID in FormattedTitle["chapters"].keys():
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: d["id"]) 
+
+		return FormattedTitle
+				
+
+		return FormattedTitle
+	
+	# Конвертер: RN-V2 > RN-V1.
+	def __RN2_to_RN1(self) -> dict:
+		# Преобразование DMP-V1 в RN-V1.
+		FormattedTitle = self.__DMP1_to_RN1()
+		
+		return FormattedTitle
 
 	#==========================================================================================#
 	# >>>>> МЕТОДЫ <<<<< #
@@ -839,7 +1050,7 @@ class Formatter:
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
 		# Список известных форматов.
-		self.__FormatsList = ["dmp-v1", "hcmp-v1", "htcrn-v1", "htmp-v1", "rn-v1"]
+		self.__FormatsList = ["dmp-v1", "hcmp-v1", "htcrn-v1", "htmp-v1", "rn-v1", "rn-v2"]
 		# Формат оригинальной структуры тайтла.
 		self.__OriginalFormat = None
 		# Оригинальная структура тайтла.
@@ -889,6 +1100,10 @@ class Formatter:
 				# Выброс исключения: не существует подходящего конвертера.
 				if Format == "rn-v1":
 					raise UnableToConvert(self.__OriginalFormat, Format)
+				
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "rn-v2":
+					raise UnableToConvert(self.__OriginalFormat, Format)
 
 			# Конвертирование: HTCRN-V1.
 			if self.__OriginalFormat == "htcrn-v1":
@@ -911,6 +1126,10 @@ class Formatter:
 
 				# Выброс исключения: не существует подходящего конвертера.
 				if Format == "rn-v1":
+					raise UnableToConvert(self.__OriginalFormat, Format)
+				
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "rn-v2":
 					raise UnableToConvert(self.__OriginalFormat, Format)
 
 			# Конвертирование: HTMP-V1.
@@ -935,6 +1154,10 @@ class Formatter:
 				# Выброс исключения: не существует подходящего конвертера.
 				if Format == "rn-v1":
 					raise UnableToConvert(self.__OriginalFormat, Format)
+				
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "rn-v2":
+					raise UnableToConvert(self.__OriginalFormat, Format)
 
 			# Конвертирование: DMP-V1.
 			if self.__OriginalFormat == "dmp-v1":
@@ -958,6 +1181,10 @@ class Formatter:
 				# Выброс исключения: не существует подходящего конвертера.
 				if Format == "rn-v1":
 					FormattedTitle = self.__DMP1_to_RN1()
+					
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "rn-v2":
+					raise UnableToConvert(self.__OriginalFormat, Format)
 
 			# Конвертирование: RN-V1.
 			if self.__OriginalFormat == "rn-v1":
@@ -980,6 +1207,37 @@ class Formatter:
 
 				# Не конвертировать исходный формат.
 				if Format == "rn-v1":
+					FormattedTitle = self.__OriginalTitle
+					
+				# Запуск конвертера: RN-V1 > RN-V2.
+				if Format == "rn-v2":
+					FormattedTitle = self.__RN1_to_RN2()
+					
+			# Конвертирование: RN-V2.
+			if self.__OriginalFormat == "rn-v2":
+
+				# Запуск конвертера: RN-V1 > DMP-V1.
+				if Format == "dmp-v1":
+					raise UnableToConvert(self.__OriginalFormat, Format)
+
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "hcmp-v1":
+					raise UnableToConvert(self.__OriginalFormat, Format)
+
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "htcrn-v1":
+					raise UnableToConvert(self.__OriginalFormat, Format)
+
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "htmp-v1":
+					raise UnableToConvert(self.__OriginalFormat, Format)
+
+				# Выброс исключения: не существует подходящего конвертера.
+				if Format == "rn-v1":
+					FormattedTitle = self.__RN2_to_RN1()
+					
+				# Запуск конвертера: RN-V2 > RN-V1.
+				if Format == "rn-v2":
 					FormattedTitle = self.__OriginalTitle
 
 		return FormattedTitle
