@@ -1,4 +1,4 @@
-from dublib.Methods import MergeDictionaries, RemoveHTML
+from dublib.Methods import MergeDictionaries, RemoveHTML, RenameDictionaryKey
 from PIL import Image, UnidentifiedImageError
 
 import logging
@@ -748,7 +748,7 @@ class Formatter:
 
 		# Сортировка глав по возрастанию.
 		for BranchID in FormattedTitle["chapters"].keys():
-			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: d["id"]) 
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: float(d["number"])) 
 
 		return FormattedTitle
 
@@ -786,22 +786,22 @@ class Formatter:
 		FormattedTitle["format"] = "htmp-v1"
 		FormattedTitle["site"] = "remanga.org"
 		FormattedTitle = MergeDictionaries(FormattedTitle, self.__OriginalTitle)
-		FormattedTitle = RenameDictKey(FormattedTitle, "rus_name", "rusTitle")
-		FormattedTitle = RenameDictKey(FormattedTitle, "en_name", "engTitle")
-		FormattedTitle = RenameDictKey(FormattedTitle, "another_name", "alternativeTitle")
-		FormattedTitle = RenameDictKey(FormattedTitle, "description", "desc")
-		FormattedTitle = RenameDictKey(FormattedTitle, "dir", "slug")
-		FormattedTitle = RenameDictKey(FormattedTitle, "categories", "tags")
-		FormattedTitle = RenameDictKey(FormattedTitle, "is_yaoi", "isYaoi")
-		FormattedTitle = RenameDictKey(FormattedTitle, "is_erotic", "isHentai")
-		FormattedTitle = RenameDictKey(FormattedTitle, "can_post_comments", "isHomo")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "rus_name", "rusTitle")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "en_name", "engTitle")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "another_name", "alternativeTitle")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "description", "desc")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "dir", "slug")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "categories", "tags")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "is_yaoi", "isYaoi")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "is_erotic", "isHentai")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "can_post_comments", "isHomo")
 		FormattedTitle["status"] = Statuses[FormattedTitle["status"]["id"]]
 		FormattedTitle["type"] = Types[FormattedTitle["type"]["id"]]
 		FormattedTitle["isHomo"] = False
 		FormattedTitle["img"]["high"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
 		FormattedTitle["img"]["mid"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
 		FormattedTitle["img"]["low"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
-		FormattedTitle = RenameDictKey(FormattedTitle, "avg_rating", "branchId")
+		FormattedTitle = RenameDictionaryKey(FormattedTitle, "avg_rating", "branchId")
 		FormattedTitle["branchId"] = FormattedTitle["branches"][0]["id"]
 		FormattedTitle["chapters"] = FormattedTitle["chapters"][str(FormattedTitle["branches"][0]["id"])]
 
@@ -816,8 +816,8 @@ class Formatter:
 
 		# Переформатирование глав.
 		for ChapterIndex in range(0, len(FormattedTitle["chapters"])):
-			FormattedTitle["chapters"][ChapterIndex] = RenameDictKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
-			FormattedTitle["chapters"][ChapterIndex] = RenameDictKey(FormattedTitle["chapters"][ChapterIndex], "name", "title")
+			FormattedTitle["chapters"][ChapterIndex] = RenameDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
+			FormattedTitle["chapters"][ChapterIndex] = RenameDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "name", "title")
 			FormattedTitle["chapters"][ChapterIndex]["chapter"] = float(re.search(r"\d+(\.\d+)?", str(FormattedTitle["chapters"][ChapterIndex]["chapter"])).group(0))
 
 			# Усечение нуля у float.
@@ -1026,10 +1026,7 @@ class Formatter:
 
 		# Сортировка глав по возрастанию.
 		for BranchID in FormattedTitle["chapters"].keys():
-			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: d["id"]) 
-
-		return FormattedTitle
-				
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: float(d["number"])) 
 
 		return FormattedTitle
 	

@@ -217,7 +217,6 @@ class RequestsManager:
 				# Запись в лог критической ошибки: неизвестное исключение.
 				logging.critical("Unable to connect Selenoid. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
 
-
 	# Обработать статусы ответов.
 	def __ProcessStatusCode(self, Status: int, Proxy: dict):
 
