@@ -342,6 +342,10 @@ class RequestsManager:
 		# Обработка ошибки: запрошена капча Cloudflare V2.
 		except cloudscraper.exceptions.CloudflareChallengeError:
 			Status = 2
+			
+		# Обработка ошибки: любая другая ошибка.
+		except Exception:
+			Status = 3
 
 		return Response, Status
 
