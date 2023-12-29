@@ -31,7 +31,6 @@ class MissingValidProxy(Exception):
 # Эмулятор структуры ответа библиотеки requests.
 class ResponseEmulation():
 
-
 	# Конструктор.
 	def __init__(self):
 
@@ -232,7 +231,7 @@ class RequestsManager:
 				self.__InitializeWebDriver()
 				
 			elif Status == 3:
-				raise requests.exceptions.HTTPError
+				pass
 			
 			elif Status == 0:
 				self.__RestoreProxyAsValid(Proxy)
@@ -344,8 +343,11 @@ class RequestsManager:
 			Status = 2
 			
 		# Обработка ошибки: любая другая ошибка.
-		except Exception:
+		except Exception as ExceptionData:
+			# Смена статуса.
 			Status = 3
+			# Запись в лог ошибки: не удалось выполнить запрос.
+			logging.error("Unable to request. Description: \"" + str(ExceptionData).rstrip(".") + "\".")
 
 		return Response, Status
 
@@ -608,7 +610,7 @@ class RequestsManager:
 				# Выжидание интервала при повторе.
 				if CurrentTry > 0:
 					# Запись в лог ошибки: не удалось выполнить запрос.
-					logging.error("Unable to request data with proxy: " + str(self.__CurrentProxy) + ". Retrying...")
+					logging.error("Unable to request data with proxy: \"" + self.__CurrentProxy["http"] + "\". Retrying...")
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
 					

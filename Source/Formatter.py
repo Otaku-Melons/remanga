@@ -668,8 +668,8 @@ class Formatter:
 				SlideIndex = 0
 				# Перенос данных.
 				CurrentChapter["id"] = Chapter["id"]
-				CurrentChapter["number"] = None
 				CurrentChapter["volume"] = Chapter["tome"]
+				CurrentChapter["number"] = None
 				CurrentChapter["name"] = Chapter["name"]
 				CurrentChapter["is-paid"] = Chapter["is_paid"]
 				CurrentChapter["translator"] = ""
@@ -748,7 +748,7 @@ class Formatter:
 
 		# Сортировка глав по возрастанию.
 		for BranchID in FormattedTitle["chapters"].keys():
-			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: float(d["number"])) 
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda Value: (Value["volume"], Value["number"])) 
 
 		return FormattedTitle
 
@@ -945,8 +945,8 @@ class Formatter:
 				SlideIndex = 0
 				# Перенос данных.
 				CurrentChapter["id"] = Chapter["id"]
-				CurrentChapter["number"] = None
 				CurrentChapter["volume"] = Chapter["tome"]
+				CurrentChapter["number"] = None
 				CurrentChapter["name"] = Chapter["name"]
 				CurrentChapter["is-paid"] = Chapter["is_paid"]
 				CurrentChapter["free-publication-date"] = Chapter["pub_date"] if CurrentChapter["is-paid"] == True else None
@@ -1026,7 +1026,7 @@ class Formatter:
 
 		# Сортировка глав по возрастанию.
 		for BranchID in FormattedTitle["chapters"].keys():
-			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda d: float(d["number"])) 
+			FormattedTitle["chapters"][BranchID] = sorted(FormattedTitle["chapters"][BranchID], key = lambda Value: (Value["volume"], Value["number"])) 
 
 		return FormattedTitle
 	
