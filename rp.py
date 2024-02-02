@@ -1,13 +1,11 @@
-#!/usr/bin/python
-
 from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, Shutdown, WriteJSON
 from Source.Functions import ManageOtherFormatsFiles, SecondsToTimeString, Unstub
+from dublib.Terminalyzer import ArgumentsTypes, Terminalyzer, Command
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
 from Source.Formatter import Formatter
 from Source.Updater import Updater
-from dublib.Terminalyzer import *
 from Source.Functions import Wait
 
 import datetime
@@ -25,11 +23,10 @@ import os
 CheckPythonMinimalVersion(3, 10)
 # Создание папок в корневой директории.
 MakeRootDirectories(["Logs"])
-
-# Код завершения потока.
-EXIT_CODE = 0
 # Переключатель: удалять ли лог по завершению работы.
 REMOVE_LOGFILE = False
+# Код выполнения.
+EXIT_CODE = 0
 
 #==========================================================================================#
 # >>>>> ИНИЦИАЛИЗАЦИЯ ЛОГОВ <<<<< #
@@ -41,11 +38,9 @@ CurrentDate = datetime.datetime.now()
 StartTime = time.time()
 # Формирование пути к файлу лога.
 LogFilename = "Logs/" + str(CurrentDate)[:-7] + ".log"
-LogFilename = LogFilename.replace(':', '-')
+LogFilename = LogFilename.replace(":", "-")
 # Установка конфигнурации.
 logging.basicConfig(filename = LogFilename, encoding = "utf-8", level = logging.INFO, format = "%(asctime)s %(levelname)s: %(message)s", datefmt = "%Y-%m-%d %H:%M:%S")
-# Отключение логгирования selenium-wire.
-logging.getLogger("seleniumwire").setLevel(logging.CRITICAL)
 
 #==========================================================================================#
 # >>>>> ЧТЕНИЕ НАСТРОЕК <<<<< #
@@ -57,29 +52,15 @@ logging.info("====== Preparing to starting ======")
 logging.info("Starting with Python " + str(sys.version_info.major) + "." + str(sys.version_info.minor) + "." + str(sys.version_info.micro) + " on " + str(sys.platform) + ".")
 # Запись команды, использовавшейся для запуска скрипта.
 logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
-# Расположении папки установки веб-драйвера в директории скрипта.
-os.environ["WDM_LOCAL"] = "1"
-# Отключение логов WebDriver.
-os.environ["WDM_LOG"] = str(logging.NOTSET)
 # Глобальные настройки.
 Settings = ReadJSON("Settings.json")
 
-# Интерпретация выходной директории обложек и коррекция пути.
-if Settings["covers-directory"] == "":
-	Settings["covers-directory"] = "Covers/"
-	
-elif Settings["covers-directory"][-1] != '/':
-	Settings["covers-directory"] += "/"
+# Форматирование путей.
+if Settings["covers-directory"] == "": Settings["covers-directory"] = "Covers/"
+if Settings["covers-directory"].endswith("/") == False: Settings["covers-directory"] += "/"
+if Settings["titles-directory"] == "": Settings["titles-directory"] = "Titles/"
+if Settings["titles-directory"].endswith("/") == False: Settings["titles-directory"] += "/"
 
-# Интерпретация выходной директории обложек и коррекция пути.
-if Settings["titles-directory"] == "":
-	Settings["titles-directory"] = "Titles/"
-	
-elif Settings["titles-directory"][-1] != '/':
-	Settings["titles-directory"] += "/"
-
-# Запись в лог сообщения: выбранный режим запроса.
-logging.info("Requests type: Selenium (JavaScript interpreter in Google Chrome)." if  Settings["selenium-mode"] == True else "Requests type: requests (Python library).")
 # Приведение формата описательного файла к нижнему регистру.
 Settings["format"] = Settings["format"].lower()
 # Запись в лог сообщения: формат выходного файла.
@@ -96,82 +77,82 @@ CommandsList = list()
 
 # Создание команды: collect.
 COM_collect = Command("collect")
-COM_collect.addKeyPosition(["filters"], ArgumentType.All, Important = True)
-COM_collect.addFlagPosition(["f"])
-COM_collect.addFlagPosition(["s"])
+COM_collect.add_key_position(["filters"], ArgumentsTypes.All, important = True)
+COM_collect.add_flag_position(["f"])
+COM_collect.add_flag_position(["s"])
 CommandsList.append(COM_collect)
 
 # Создание команды: convert.
 COM_convert = Command("convert")
-COM_convert.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
-COM_convert.addArgument(ArgumentType.All, Important = True)
-COM_convert.addArgument(ArgumentType.All, Important = True)
-COM_convert.addFlagPosition(["all"], Important = True, LayoutIndex = 1)
-COM_convert.addFlagPosition(["s"])
+COM_convert.add_argument(ArgumentsTypes.All, important = True, layout_index = 1)
+COM_convert.add_argument(ArgumentsTypes.All, important = True)
+COM_convert.add_argument(ArgumentsTypes.All, important = True)
+COM_convert.add_flag_position(["all"], important = True, layout_index = 1)
+COM_convert.add_flag_position(["s"])
 CommandsList.append(COM_convert)
 
 # Создание команды: get.
 COM_get = Command("get")
-COM_get.addKeyPosition(["dir"], ArgumentType.ValidPath)
-COM_get.addKeyPosition(["img"], ArgumentType.URL, Important = True)
-COM_get.addKeyPosition(["name"], ArgumentType.All)
+COM_get.add_argument(ArgumentsTypes.URL, important = True)
+COM_get.add_key_position(["dir"], ArgumentsTypes.ValidPath)
+COM_get.add_key_position(["name"], ArgumentsTypes.All)
 CommandsList.append(COM_get)
 
 # Создание команды: getcov.
 COM_getcov = Command("getcov")
-COM_getcov.addArgument(ArgumentType.All, Important = True)
-COM_getcov.addFlagPosition(["f"])
-COM_getcov.addFlagPosition(["s"])
+COM_getcov.add_argument(ArgumentsTypes.All, important = True)
+COM_getcov.add_flag_position(["f"])
+COM_getcov.add_flag_position(["s"])
 CommandsList.append(COM_getcov)
 
 # Создание команды: manage.
 COM_manage = Command("manage")
-COM_manage.addArgument(ArgumentType.All, Important = True)
-COM_manage.addFlagPosition(["del", "unstub"], Important = True, LayoutIndex = 1)
-COM_manage.addKeyPosition(["move"], ArgumentType.ValidPath, Important = True, LayoutIndex = 1)
-COM_manage.addFlagPosition(["s"])
+COM_manage.add_argument(ArgumentsTypes.All, important = True)
+COM_manage.add_flag_position(["del", "unstub"], important = True, layout_index = 1)
+COM_manage.add_key_position(["move"], ArgumentsTypes.ValidPath, important = True, layout_index = 1)
+COM_manage.add_flag_position(["s"])
 CommandsList.append(COM_manage)
 
 # Создание команды: parse.
 COM_parse = Command("parse")
-COM_parse.addArgument(ArgumentType.All, Important = True, LayoutIndex = 1)
-COM_parse.addFlagPosition(["collection", "local"], LayoutIndex = 1)
-COM_parse.addFlagPosition(["onlydesc"])
-COM_parse.addFlagPosition(["f"])
-COM_parse.addFlagPosition(["s"])
-COM_parse.addKeyPosition(["from"], ArgumentType.All)
+COM_parse.add_argument(ArgumentsTypes.All, important = True, layout_index = 1)
+COM_parse.add_flag_position(["collection", "local"], layout_index = 1)
+COM_parse.add_flag_position(["onlydesc"])
+COM_parse.add_flag_position(["f"])
+COM_parse.add_flag_position(["s"])
+COM_parse.add_key_position(["from"], ArgumentsTypes.All)
 CommandsList.append(COM_parse)
 
 # Создание команды: proxval.
 COM_proxval = Command("proxval")
-COM_proxval.addFlagPosition(["f"])
-COM_proxval.addFlagPosition(["s"])
+COM_proxval.add_flag_position(["f"])
+COM_proxval.add_flag_position(["s"])
 CommandsList.append(COM_proxval)
 
 # Создание команды: repair.
 COM_repair = Command("repair")
-COM_repair.addArgument(ArgumentType.All, Important = True)
-COM_repair.addKeyPosition(["chapter"], ArgumentType.Number, Important = True)
-COM_repair.addFlagPosition(["s"])
+COM_repair.add_argument(ArgumentsTypes.All, important = True)
+COM_repair.add_key_position(["chapter"], ArgumentsTypes.Number, important = True)
+COM_repair.add_flag_position(["s"])
 CommandsList.append(COM_repair)
 
 # Создание команды: unstub.
 COM_unstub = Command("unstub")
-COM_unstub.addFlagPosition(["s"])
+COM_unstub.add_flag_position(["s"])
 CommandsList.append(COM_unstub)
 
 # Создание команды: update.
 COM_update = Command("update")
-COM_update.addFlagPosition(["onlydesc"])
-COM_update.addFlagPosition(["f"])
-COM_update.addFlagPosition(["s"])
-COM_update.addKeyPosition(["from"], ArgumentType.All)
+COM_update.add_flag_position(["onlydesc"])
+COM_update.add_flag_position(["f"])
+COM_update.add_flag_position(["s"])
+COM_update.add_key_position(["from"], ArgumentsTypes.All)
 CommandsList.append(COM_update)
 
 # Инициализация обработчика консольных аргументов.
 CAC = Terminalyzer()
 # Получение информации о проверке команд.
-CommandDataStruct = CAC.checkCommands(CommandsList)
+CommandDataStruct = CAC.check_commands(CommandsList)
 
 # Если не удалось определить команду.
 if CommandDataStruct == None:
@@ -196,7 +177,7 @@ InFuncMessage_ForceMode = ""
 Cls()
 
 # Обработка флага: режим перезаписи.
-if "f" in CommandDataStruct.Flags and CommandDataStruct.Name not in ["convert", "manage", "repair"]:
+if "f" in CommandDataStruct.flags and CommandDataStruct.name not in ["convert", "manage", "repair"]:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения: включён режим перезаписи.
@@ -211,7 +192,7 @@ else:
 	InFuncMessage_ForceMode = "Force mode: OFF\n"
 
 # Обработка флага: выключение ПК после завершения работы скрипта.
-if "s" in CommandDataStruct.Flags:
+if "s" in CommandDataStruct.flags:
 	# Включение режима.
 	IsShutdowAfterEnd = True
 	# Запись в лог сообщения о том, что ПК будет выключен после завершения работы.
@@ -224,7 +205,7 @@ if "s" in CommandDataStruct.Flags:
 #==========================================================================================#
 
 # Обработка команды: collect.
-if "collect" == CommandDataStruct.Name:
+if "collect" == CommandDataStruct.name:
 	# Запись в лог сообщения: сбор списка тайтлов.
 	logging.info("====== Collecting ======")
 	# Инициализация сборщика.
@@ -234,10 +215,10 @@ if "collect" == CommandDataStruct.Name:
 	# ID параметра фильтрации.
 	FilterID = None
 	# Сбор списка алиасов тайтлов, подходящих под фильтр.
-	CollectorObject.collect(CommandDataStruct.Values["filters"], IsForceModeActivated)
+	CollectorObject.collect(CommandDataStruct.values["filters"], IsForceModeActivated)
 	
 # Обработка команды: convert.
-if "convert" == CommandDataStruct.Name:
+if "convert" == CommandDataStruct.name:
 	# Запись в лог сообщения: конвертирование.
 	logging.info("====== Converting ======")
 	# Структура тайтла.
@@ -248,7 +229,7 @@ if "convert" == CommandDataStruct.Name:
 	IsConvertAll = False
 	
 	# Если указано флагом.
-	if "all" in CommandDataStruct.Flags:
+	if "all" in CommandDataStruct.flags:
 		# Переключение конвертирования на все файлы.
 		IsConvertAll = True
 		# Получение списка файлов в директории.
@@ -257,8 +238,8 @@ if "convert" == CommandDataStruct.Name:
 		TitlesSlugs = list(filter(lambda x: x.endswith(".json"), TitlesSlugs))
 
 	# Добавление расширения к файлу в случае отсутствия такового.
-	elif ".json" not in CommandDataStruct.Arguments[0]:
-		TitlesSlugs.append(CommandDataStruct.Arguments[0] + ".json")
+	elif ".json" not in CommandDataStruct.arguments[0]:
+		TitlesSlugs.append(CommandDataStruct.arguments[0] + ".json")
 	
 	# Для каждого тайтла.
 	for Index in range(0, len(TitlesSlugs)):
@@ -272,22 +253,22 @@ if "convert" == CommandDataStruct.Name:
 		SourceFormat = None
 
 		# Определение исходного формата.
-		if CommandDataStruct.Arguments[1] == "-auto":
+		if CommandDataStruct.arguments[1] == "-auto":
 
 			# Если формат указан.
 			if "format" in LocalTitle.keys():
 				SourceFormat = LocalTitle["format"]
 
 		else:
-			SourceFormat = CommandDataStruct.Arguments[1]
+			SourceFormat = CommandDataStruct.arguments[1]
 
 		# Создание объекта форматирования.
 		FormatterObject = Formatter(Settings, LocalTitle, Format = SourceFormat)
 		# Конвертирование структуры тайтла.
-		LocalTitle = FormatterObject.convert(CommandDataStruct.Arguments[2])
+		LocalTitle = FormatterObject.convert(CommandDataStruct.arguments[2])
 		
 		# Если файл не нуждается в конвертировании.
-		if SourceFormat != None and SourceFormat.lower() == CommandDataStruct.Arguments[2].lower():
+		if SourceFormat != None and SourceFormat.lower() == CommandDataStruct.arguments[2].lower():
 			# Запись в лог сообщения: файл пропущен.
 			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Skipped.")
 			
@@ -298,51 +279,53 @@ if "convert" == CommandDataStruct.Name:
 			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Converted.")
 
 # Обработка команды: get.
-if "get" == CommandDataStruct.Name:
+if "get" == CommandDataStruct.name:
 	# Запись в лог сообщения: заголовок парсинга.
 	logging.info("====== Downloading ======")
-	# Переключение удаление лога.
-	REMOVE_LOGFILE = True
 	# URL изображения.
-	URL = CommandDataStruct.Values["img"]
+	URL = CommandDataStruct.arguments[0]
 	# Директория.
-	Directory = "" if "dir" not in CommandDataStruct.Keys else CommandDataStruct.Values["dir"]
+	Directory = "" if "dir" not in CommandDataStruct.values else CommandDataStruct.values["dir"]
 	# Имя файла.
-	Filename = "" if "name" not in CommandDataStruct.Keys else CommandDataStruct.Values["name"]
+	Filename = "" if "name" not in CommandDataStruct.values else CommandDataStruct.values["name"]
 	# Инициализация менеджера запросов.
 	RequestsManagerObject = RequestsManager(Settings)
 	# Загрузка изображения.
 	Result = RequestsManagerObject.downloadImage(URL, Directory, Filename)
 
-	# Если загрузка изображения успешна.
-	if Result == 200:
+	# Если загрузка изображения не успешна.
+	if Result != 200:
 		# Изменение кода процесса.
 		EXIT_CODE = 1
 		# Запись в лог ошибки: не удалось загрузить файл.
 		logging.error(f"Unable to download image: \"{URL}\". Response code: {Result}.")
+		
+	else:
+		# Переключение удаление лога.
+		REMOVE_LOGFILE = True
 
 # Обработка команды: getcov.
-if "getcov" == CommandDataStruct.Name:
+if "getcov" == CommandDataStruct.name:
 	# Запись в лог сообщения: заголовок парсинга.
 	logging.info("====== Parsing ======")
 	# Парсинг тайтла (без глав).
-	LocalTitle = TitleParser(Settings, CommandDataStruct.Arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
+	LocalTitle = TitleParser(Settings, CommandDataStruct.arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.downloadCovers()
 
 # Обработка команды: manage.
-if "manage" == CommandDataStruct.Name:
+if "manage" == CommandDataStruct.name:
 	# Запись в лог сообщения: заголовок менеджмента.
 	logging.info("====== Management ======")
 	# Вывод в консоль: идёт поиск тайтлов.
 	print("Management...", end = "")
 	# Менеджмент файлов с другим форматом.
-	ManageOtherFormatsFiles(Settings, CommandDataStruct.Arguments[0], CommandDataStruct.Values["move"] if "move" in CommandDataStruct.Keys else None)
+	ManageOtherFormatsFiles(Settings, CommandDataStruct.arguments[0], CommandDataStruct.values["move"] if "move" in CommandDataStruct.keys else None)
 	# Вывод в консоль: процесс завершён.
 	print("Done.")
 
 # Обработка команды: parse.
-if "parse" == CommandDataStruct.Name:
+if "parse" == CommandDataStruct.name:
 	# Запись в лог сообщения: парсинг.
 	logging.info("====== Parsing ======")
 	# Алиасы обновляемых тайтлов.
@@ -350,10 +333,10 @@ if "parse" == CommandDataStruct.Name:
 	# Индекс стартового алиаса.
 	StartIndex = 0
 	# Запись в лог сообщения: режим парсинга.
-	logging.info("Parse only description: " + ("ON." if "onlydesc" in CommandDataStruct.Flags else "OFF."))
+	logging.info("Parse only description: " + ("ON." if "onlydesc" in CommandDataStruct.flags else "OFF."))
 	
 	# Если активирован флаг парсинга коллекции.
-	if "collection" in CommandDataStruct.Flags:
+	if "collection" in CommandDataStruct.flags:
 		
 		# Если существует файл коллекции.
 		if os.path.exists("Collection.txt"):
@@ -380,7 +363,7 @@ if "parse" == CommandDataStruct.Name:
 			raise FileNotFoundError("Collection.txt")
 		
 	# Если активирован флаг обновления локальных файлов.
-	elif "local" in CommandDataStruct.Flags:
+	elif "local" in CommandDataStruct.flags:
 		# Вывод в консоль: идёт поиск тайтлов.
 		print("Scanning titles...")
 		# Получение списка файлов в директории.
@@ -403,17 +386,17 @@ if "parse" == CommandDataStruct.Name:
 	# Парсинг одного тайтла.
 	else:
 		# Запись аргумента в качестве цели парсинга.
-		TitlesList.append(CommandDataStruct.Arguments[0])
+		TitlesList.append(CommandDataStruct.arguments[0])
 		
 	# Если указан стартовый тайтл.
-	if "from" in CommandDataStruct.Keys:
+	if "from" in CommandDataStruct.keys:
 		# Запись в лог сообщения: стартовый тайтл парсинга.
-		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
+		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.values["from"] + "\".")
 				
 		# Если стартовый алиас найден.
-		if CommandDataStruct.Values["from"] in TitlesList:
+		if CommandDataStruct.values["from"] in TitlesList:
 			# Указать индекс алиаса в качестве стартового.
-			StartIndex = TitlesList.index(CommandDataStruct.Values["from"])
+			StartIndex = TitlesList.index(CommandDataStruct.values["from"])
 			
 		else:
 			# Запись в лог предупреждения: стартовый алиас не найден.
@@ -433,7 +416,7 @@ if "parse" == CommandDataStruct.Name:
 		LocalTitle = None
 			
 		# Если включён парсинг только описания.
-		if "onlydesc" in CommandDataStruct.Flags:
+		if "onlydesc" in CommandDataStruct.flags:
 			# Парсинг тайтла (без глав).
 			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
 				
@@ -443,13 +426,11 @@ if "parse" == CommandDataStruct.Name:
 				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
-
 		# Выжидание указанного интервала, если не все тайтлы спаршены.
-		if Index < len(TitlesList):
-			Wait(Settings)
+		if Index < len(TitlesList): Wait(Settings)
 
 # Обработка команды: proxval.
-if "proxval" == CommandDataStruct.Name:
+if "proxval" == CommandDataStruct.name:
 	# Запись в лог сообщения: валидация.
 	logging.info("====== Validation ======")
 	# Инициализация менеджера прокси.
@@ -485,13 +466,13 @@ if "proxval" == CommandDataStruct.Name:
 	input()
 	
 # Обработка команды: repair.
-if "repair" == CommandDataStruct.Name:
+if "repair" == CommandDataStruct.name:
 	# Запись в лог сообщения: восстановление.
 	logging.info("====== Repairing ======")
 	# Алиас тайтла.
 	TitleSlug = None
 	# Название файла тайтла с расширением.
-	Filename = (CommandDataStruct.Arguments[0] + ".json") if ".json" not in CommandDataStruct.Arguments[0] else CommandDataStruct.Arguments[0]
+	Filename = (CommandDataStruct.arguments[0] + ".json") if ".json" not in CommandDataStruct.arguments[0] else CommandDataStruct.arguments[0]
 	# Чтение тайтла.
 	TitleContent = ReadJSON(Settings["titles-directory"] + Filename)
 	# Генерация сообщения.
@@ -510,14 +491,14 @@ if "repair" == CommandDataStruct.Name:
 	LocalTitle = TitleParser(Settings, TitleSlug, ForceMode = False, Message = ExternalMessage, Amending = False)
 	
 	# Если указано, восстановить главу.
-	if "chapter" in CommandDataStruct.Keys:
-		LocalTitle.repairChapter(CommandDataStruct.Values["chapter"])
+	if "chapter" in CommandDataStruct.keys:
+		LocalTitle.repairChapter(CommandDataStruct.values["chapter"])
 	
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.save(DownloadCovers = False)
 
 # Обработка команды: unstub.
-if "unstub" == CommandDataStruct.Name:
+if "unstub" == CommandDataStruct.name:
 	# Запись в лог сообщения: заголовок менеджмента.
 	logging.info("====== Management ======")
 	# Вывод в консоль: идёт поиск тайтлов.
@@ -546,7 +527,7 @@ if "unstub" == CommandDataStruct.Name:
 	logging.info("Total stubs removed: " + str(FilteredCoversCount) + ".")
 
 # Обработка команды: update.
-if "update" == CommandDataStruct.Name:
+if "update" == CommandDataStruct.name:
 	# Запись в лог сообщения: получение списка обновлений.
 	logging.info("====== Updating ======")
 	# Индекс стартового алиаса.
@@ -557,14 +538,14 @@ if "update" == CommandDataStruct.Name:
 	TitlesList = UpdateChecker.getUpdatesList()
 		
 	# Если указан стартовый тайтл.
-	if "from" in CommandDataStruct.Keys:
+	if "from" in CommandDataStruct.keys:
 		# Запись в лог сообщения: стартовый тайтл обновления.
-		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.Values["from"] + "\".")
+		logging.info("Updating starts from title with slug: \"" + CommandDataStruct.values["from"] + "\".")
 				
 		# Если стартовый алиас найден.
-		if CommandDataStruct.Values["from"] in TitlesList:
+		if CommandDataStruct.values["from"] in TitlesList:
 			# Указать индекс алиаса в качестве стартового.
-			StartIndex = TitlesList.index(CommandDataStruct.Values["from"])
+			StartIndex = TitlesList.index(CommandDataStruct.values["from"])
 			
 		else:
 			# Запись в лог предупреждения: стартовый алиас не найден.
@@ -584,7 +565,7 @@ if "update" == CommandDataStruct.Name:
 		LocalTitle = None
 			
 		# Если включено обновление только описания.
-		if "onlydesc" in CommandDataStruct.Flags:
+		if "onlydesc" in CommandDataStruct.flags:
 			# Парсинг тайтла (без глав).
 			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
 				
@@ -594,10 +575,8 @@ if "update" == CommandDataStruct.Name:
 				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
-
 		# Выжидание указанного интервала, если не все тайтлы обновлены.
-		if Index < len(TitlesList):
-			Wait(Settings)
+		if Index < len(TitlesList): Wait(Settings)
 
 #==========================================================================================#
 # >>>>> ЗАВЕРШЕНИЕ РАБОТЫ СКРИПТА <<<<< #
@@ -621,10 +600,7 @@ if IsShutdowAfterEnd == True:
 
 # Выключение логгирования.
 logging.shutdown()
-
 # Если указано, удалить файл лога.
-if REMOVE_LOGFILE == True:
-	os.remove(LogFilename)
-
+if REMOVE_LOGFILE == True: os.remove(LogFilename)
 # Завершение главного процесса.
 sys.exit(EXIT_CODE)

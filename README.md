@@ -4,16 +4,13 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [dublib](https://github.com/DUB1401/dublib), [opencv-python-headless](https://github.com/opencv/opencv-python), [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [selenium-wire](https://github.com/wkeeling/selenium-wire), [cloudscraper](https://github.com/VeNoMouS/cloudscraper), [scikit-image](https://github.com/scikit-image/scikit-image), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [opencv-python-headless](https://github.com/opencv/opencv-python), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [scikit-image](https://github.com/scikit-image/scikit-image), [dublib](https://github.com/DUB1401/dublib), [Pillow](https://github.com/python-pillow/Pillow).
 ```
-pip install git+https://github.com/DUB1401/dublib
 pip install opencv-python-headless
-pip install webdriver-manager
 pip install BeautifulSoup4
 pip install fake-useragent
-pip install selenium-wire
-pip install cloudscraper
 pip install scikit-image
+pip install dublib
 pip install Pillow
 ```
 Либо установить сразу все пакеты при помощи следующей команды, выполненной из директории скрипта.
@@ -21,9 +18,8 @@ pip install Pillow
 pip install -r requirements.txt
 ```
 4. Настроить скрипт путём редактирования _Settings.json_ и _Proxies.json_.
-5. При использовании [Selenium](https://github.com/SeleniumHQ/selenium) для отправки запросов необходимо установить браузер [Google Chrome](https://www.google.com.iq/chrome/) в стандартную директорию на Windows, либо использовать _*.deb_ или _*.rpm_ пакет на Linux.
-6. Открыть директорию со скриптом в терминале. Можно использовать метод `cd` и прописать путь к папке, либо запустить терминал из проводника.
-7. Указать для выполнения главный файл скрипта `rp.py`, передать ему команду вместе с параметрами, нажать кнопку ввода и дождаться завершения работы.
+5. Открыть директорию со скриптом в терминале. Можно использовать метод `cd` и прописать путь к папке, либо запустить терминал из проводника.
+6. Указать для выполнения главный файл скрипта `rp.py`, передать ему команду вместе с параметрами, нажать кнопку ввода и дождаться завершения работы.
 
 # Консольные команды
 ```
@@ -63,7 +59,7 @@ get [URL*] [KEYS]
 Загружает любое изображение с сайта [Remanga](https://remanga.org/).
 
 **Описание позиций:**
-* **URL** – цель для конвертирования. Обязательная позиция.
+* **URL** – ссылка на загружаемое изображение. Обязательная позиция.
 	* Аргумент – ссылка на изображение.
 
 **Список специфических ключей:**
@@ -122,12 +118,16 @@ proxval [FLAGS]
 * _**-f**_ – дополнительно производит сортировку прокси внутри файла определений согласно их статусам валидации.
 ___
 ```
-repair [FILENAME*] [KEYS]
+repair [FILENAME*] [CHAPTER_ID*]
 ```
-Обновляет данные конкретной главы в локальном файле. Имя файла может задаваться как с расширением, так и без него.
+Обновляет и перезаписывает сведения о слайдах конкретной главы в локальном файле.
 
-**Список специфических ключей:**
-* _**--chapter**_ – указывает ID главы, данные которой необходимо обновить.
+**Описание позиций:**
+* **FILENAME** – имя локального файла, в котором необходимо исправить слайды. Обязательная позиция.
+	* Аргумент – имя файла (с расширением или без него).
+* **CHAPTER_ID** – ID главы в локальном файле, слайды которой необходимо заново получить с сервера. Обязательная позиция.
+	* Ключи:
+		* _**--chapter**_ – указывает ID главы.
 ___
 ```
 unstub
@@ -185,14 +185,9 @@ ___
 Указывает, следует ли использовать прокси-сервера.
 ___
 ```JSON
-"selenium-mode": false
+"ru-links": true
 ```
-Переключает парсер в режим отправки запросов через интерпретатор Java Script в браузере [Google Chrome](https://www.google.com.iq/chrome/). Данный способ использует XHR для получения данных с сайта [Remanga](https://remanga.org/), что помогает обходить защиту от ботов при использовании прокси.
-___
-```JSON
-"selenoid-remote": null
-```
-Позволяет указать хаб [Selenoid](https://github.com/aerokube/selenoid) для удалённого использования Selenium, однако данный режим не поддерживает прокси и является экспериментальным.
+Для региона РФ выделены отедльные сервера изображений. Если вы находитесь на территории данной страны или используете её прокси, рекомендуется включить данный параметр для преобразования базовых ссылок в русифицированные.
 ___
 ```JSON
 "check-updates-period": 60
@@ -279,4 +274,4 @@ ___
 ```
 Сюда помещаются прокси, по той или иной причине не годящиеся для установления стабильной связи с сервером или отказавшие в доступе при валидации.
 
-_Copyright © DUB1401. 2022-2023._
+_Copyright © DUB1401. 2022-2024._

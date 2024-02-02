@@ -13,6 +13,3 @@ Collection.txt
 
 # Python cache.
 __pycache__
-
-# WebDriver manager configuration.
-.wdm

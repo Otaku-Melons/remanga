@@ -1,6 +1,5 @@
 from Source.RequestsManager import RequestsManager
-from Source.Functions import GetRandomUserAgent
-from Source.Functions import Wait
+from Source.Functions import GetRandomUserAgent, Wait
 
 import logging
 import json

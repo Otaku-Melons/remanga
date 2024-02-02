@@ -1,4 +1,4 @@
-from dublib.Methods import ReadJSON, WriteJSON, RemoveFolderContent
+from dublib.Methods import ReadJSON, RemoveFolderContent, WriteJSON
 from skimage.metrics import structural_similarity
 from Source.Formatter import Formatter
 from fake_useragent import UserAgent

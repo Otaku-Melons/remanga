@@ -23,7 +23,7 @@
 	"engTitle": "Manga name",
 	"rusTitle": "Название манги",
 	"alternativeTitle": "漫画名 / Mangamei",
-	"slug": "manga-name",
+	"slug": "manga-slug",
 	"desc": "<p>Первый абзац описания.</p>\r\n\r\n<p>Второй абзац описания.</p>",
 	"issue_year": 1970,
 	"branchId": 456,

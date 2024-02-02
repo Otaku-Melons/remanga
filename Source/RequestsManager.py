@@ -93,8 +93,6 @@ class RequestsManager:
 			for HeaderName in Headers.keys():
 				if HeaderName == "authorization" and Headers[HeaderName] != "":
 					Script += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-				elif HeaderName == "User-Agent" and self.__Settings["selenium-mode"] is True:
-					pass
 				elif HeaderName == "referer" or HeaderName == "referrerPolicy":
 					pass
 				else:
@@ -111,8 +109,6 @@ class RequestsManager:
 			for HeaderName in Headers.keys():
 				if HeaderName == "authorization" and Headers[HeaderName] != "":
 					HeadersInXHR += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-				elif HeaderName == "User-Agent" and self.__Settings["selenium-mode"] is True:
-					pass
 				elif HeaderName == "referer" or HeaderName == "referrerPolicy":
 					pass
 				else:
@@ -218,38 +214,18 @@ class RequestsManager:
 
 	# Обработать статусы ответов.
 	def __ProcessStatusCode(self, Status: int, Proxy: dict):
-
-		# Обработка статусов ответа в режиме Selenium.
-		if self.__Settings["selenium-mode"] == True:
 			
-			if Status == 1:
-				self.__BlockProxyAsInvalid(Proxy)
-				self.__InitializeWebDriver()
+		if Status == 1:
+			self.__BlockProxyAsInvalid(Proxy)
 				
-			elif Status == 2:
-				self.__BlockProxyAsForbidden(Proxy)
-				self.__InitializeWebDriver()
+		elif Status == 2:
+			self.__BlockProxyAsForbidden(Proxy)
 				
-			elif Status == 3:
-				pass
+		elif Status == 3:
+			raise requests.exceptions.HTTPError
 			
-			elif Status == 0:
-				self.__RestoreProxyAsValid(Proxy)
-
-		# Обработка статусов ответа в режиме requests.
-		else: 
-			
-			if Status == 1:
-				self.__BlockProxyAsInvalid(Proxy)
-				
-			elif Status == 2:
-				self.__BlockProxyAsForbidden(Proxy)
-				
-			elif Status == 3:
-				raise requests.exceptions.HTTPError
-			
-			elif Status == 0:
-				self.__RestoreProxyAsValid(Proxy)
+		elif Status == 0:
+			self.__RestoreProxyAsValid(Proxy)
 
 	# Форматирует прокси в формат дополнения.
 	def __GetProxyData(self, Proxy: dict):
@@ -566,10 +542,6 @@ class RequestsManager:
 			with open(Path + Filename, "wb") as FileWriter:
 				# Запись изображения.
 				FileWriter.write(Response.content)
-			
-		else:
-			# Переключение состояния.
-			IsSuccess = False
 		
 		return Response.status_code
 
@@ -592,10 +564,6 @@ class RequestsManager:
 		Status = None
 		# Текущий индекс повтора.
 		CurrentTry = 0
-		
-		# Инициализация и настройка веб-драйвера.
-		if self.__Settings["selenium-mode"] and self.__Browser == None:
-			self.__InitializeWebDriver()
 
 		# Установка заголовков по умолчанию.
 		if Headers == None:
@@ -613,17 +581,8 @@ class RequestsManager:
 					logging.error("Unable to request data with proxy: \"" + self.__CurrentProxy["http"] + "\". Retrying...")
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
-					
-					# Если включён режим Selenium, реинициализировать браузер.
-					if self.__Settings["selenium-mode"] == True:
-						self.__InitializeWebDriver()
 						
-				# Выполнение запроса в указанном режиме.
-				if self.__Settings["selenium-mode"] == True:
-					Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
-						
-				else:
-					Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
+				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
 				
 				# Инкремент попыток повтора.
 				CurrentTry += 1
@@ -647,16 +606,8 @@ class RequestsManager:
 					logging.error("Unable to request data. Retrying...")
 					# Выжидание интервала.
 					time.sleep(self.__Settings["retry-delay"])
-					
-					# Если включён режим Selenium, реинициализировать браузер.
-					if self.__Settings["selenium-mode"] == True:
-						self.__InitializeWebDriver()
 
-				# Выполнение запроса в указанном режиме.
-				if self.__Settings["selenium-mode"] == True:
-					Response, Status = self.__RequestDataWith_ChromeJavaScript(URL, Headers, self.__CurrentProxy)
-				else:
-					Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
+				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
 
 				# Инкремент попыток повтора.
 				CurrentTry += 1
@@ -685,42 +636,10 @@ class RequestsManager:
 		# Установка текущего прокси.
 		self.__CurrentProxy = Proxy
 		
-		# Выполнение запроса с прокси или без.
-		if self.__Settings["selenium-mode"] == True:
-			# Включение прокси.
-			self.__Settings["use-proxy"] = True
-			# Инициализация и настройка веб-драйвера.
-			self.__InitializeWebDriver()
-
-			try:
-				# Переход на указанную страницу валидации.
-				self.__Browser.get(self.__Proxies["selenium-validator"]["url"])
-				# HTML код тела страницы после полной загрузки.
-				BodyHTML = str(self.__Browser.execute_script("return document.body.innerHTML;"))
-				# Получение текущего IP согласно настройкам.
-				CurrentIP = BeautifulSoup(BodyHTML, "html.parser").find(self.__Proxies["selenium-validator"]["tag"], self.__Proxies["selenium-validator"]["properties"]).get_text().strip()
-				print(CurrentIP)
-				# Если текущий IP такой же, как у прокси.
-				if CurrentIP == Proxy["https"].split('@')[1].split(':')[0]:
-					# Установка кода.
-					StatusCode = 0
-					# Запись в лог сообщения: прокси помечен как доступный.
-					logging.info("Proxy: " + Proxy["https"] + ". Marked as valid.")
-					
-				else:
-					StatusCode = 1
-
-			except Exception as ExceptionData:
-				# Запись в лог ошибки: неизвестное исключение.
-				logging.error("Unable to validate proxy. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
-				# Присвоение кода статуса.
-				StatusCode = 1
-
-		else:
-			# Генерация User-Agent.
-			Headers["User-Agent"] = GetRandomUserAgent()
-			# Выполнение запроса через библиотеку Python.
-			Response, StatusCode = self.__RequestDataWith_requests(URL, Headers, Proxy)
+		# Генерация User-Agent.
+		Headers["User-Agent"] = GetRandomUserAgent()
+		# Выполнение запроса через библиотеку Python.
+		Response, StatusCode = self.__RequestDataWith_requests(URL, Headers, Proxy)
 			
 		# Если указано флагом, обновить файл определений прокси.
 		if UpdateFile == True:

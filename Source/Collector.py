@@ -1,6 +1,5 @@
+from Source.Functions import GetRandomUserAgent, Wait
 from Source.RequestsManager import RequestsManager
-from Source.Functions import GetRandomUserAgent
-from Source.Functions import Wait
 from dublib.Methods import Cls
 
 import logging

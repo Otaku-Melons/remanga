@@ -1,5 +1,6 @@
-from dublib.Methods import MergeDictionaries, RemoveHTML, RenameDictionaryKey
+from dublib.Methods import MergeDictionaries, ReplaceDictionaryKey
 from PIL import Image, UnidentifiedImageError
+from dublib.Polyglot import HTML
 
 import logging
 import os
@@ -625,7 +626,7 @@ class Formatter:
 		FormattedTitle["author"] = None
 		FormattedTitle["publication-year"] = self.__OriginalTitle["issue_year"]
 		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
-		FormattedTitle["description"] = RemoveHTML(self.__OriginalTitle["description"]).replace("\r\n\r\n", "\n")
+		FormattedTitle["description"] = HTML(self.__OriginalTitle["description"]).plain_text.replace("\r\n\r\n", "\n")
 		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
 		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
 		FormattedTitle["is-licensed"] = self.__OriginalTitle["is_licensed"]
@@ -786,22 +787,22 @@ class Formatter:
 		FormattedTitle["format"] = "htmp-v1"
 		FormattedTitle["site"] = "remanga.org"
 		FormattedTitle = MergeDictionaries(FormattedTitle, self.__OriginalTitle)
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "rus_name", "rusTitle")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "en_name", "engTitle")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "another_name", "alternativeTitle")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "description", "desc")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "dir", "slug")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "categories", "tags")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "is_yaoi", "isYaoi")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "is_erotic", "isHentai")
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "can_post_comments", "isHomo")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "rus_name", "rusTitle")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "en_name", "engTitle")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "another_name", "alternativeTitle")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "description", "desc")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "dir", "slug")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "categories", "tags")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "is_yaoi", "isYaoi")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "is_erotic", "isHentai")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "can_post_comments", "isHomo")
 		FormattedTitle["status"] = Statuses[FormattedTitle["status"]["id"]]
 		FormattedTitle["type"] = Types[FormattedTitle["type"]["id"]]
 		FormattedTitle["isHomo"] = False
 		FormattedTitle["img"]["high"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
 		FormattedTitle["img"]["mid"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
 		FormattedTitle["img"]["low"] = str(FormattedTitle["id"]) + "/" + FormattedTitle["img"]["high"].split('/')[-1]
-		FormattedTitle = RenameDictionaryKey(FormattedTitle, "avg_rating", "branchId")
+		FormattedTitle = ReplaceDictionaryKey(FormattedTitle, "avg_rating", "branchId")
 		FormattedTitle["branchId"] = FormattedTitle["branches"][0]["id"]
 		FormattedTitle["chapters"] = FormattedTitle["chapters"][str(FormattedTitle["branches"][0]["id"])]
 
@@ -816,8 +817,8 @@ class Formatter:
 
 		# Переформатирование глав.
 		for ChapterIndex in range(0, len(FormattedTitle["chapters"])):
-			FormattedTitle["chapters"][ChapterIndex] = RenameDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
-			FormattedTitle["chapters"][ChapterIndex] = RenameDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "name", "title")
+			FormattedTitle["chapters"][ChapterIndex] = ReplaceDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "tome", "tom")
+			FormattedTitle["chapters"][ChapterIndex] = ReplaceDictionaryKey(FormattedTitle["chapters"][ChapterIndex], "name", "title")
 			FormattedTitle["chapters"][ChapterIndex]["chapter"] = float(re.search(r"\d+(\.\d+)?", str(FormattedTitle["chapters"][ChapterIndex]["chapter"])).group(0))
 
 			# Усечение нуля у float.
@@ -902,7 +903,7 @@ class Formatter:
 		FormattedTitle["author"] = None
 		FormattedTitle["publication-year"] = self.__OriginalTitle["issue_year"]
 		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
-		FormattedTitle["description"] = RemoveHTML(self.__OriginalTitle["description"]).replace("\r\n\r\n", "\n")
+		FormattedTitle["description"] = HTML(self.__OriginalTitle["description"]).plain_text.replace("\r\n\r\n", "\n")
 		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
 		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
 		FormattedTitle["is-licensed"] = self.__OriginalTitle["is_licensed"]

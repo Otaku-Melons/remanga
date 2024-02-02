@@ -21,7 +21,7 @@
 	"en_name": "Manga name",
 	"rus_name": "Название манги",
 	"another_name": "漫画名 / Mangamei",
-	"dir": "manga-name",
+	"dir": "manga-slug",
 	"description": "<p>Первый абзац описания.</p>\r\n\r\n<p>Второй абзац описания.</p>",
 	"issue_year": 1970,
 	"avg_rating": "0.0",
