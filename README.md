@@ -4,11 +4,10 @@
 ## Порядок установки и использования
 1. Загрузить последний релиз. Распаковать.
 2. Установить Python версии не старше 3.10. Рекомендуется добавить в PATH.
-3. В среду исполнения установить следующие пакеты: [opencv-python-headless](https://github.com/opencv/opencv-python), [BeautifulSoup4](https://launchpad.net/beautifulsoup), [fake-useragent](https://github.com/fake-useragent/fake-useragent), [scikit-image](https://github.com/scikit-image/scikit-image), [dublib](https://github.com/DUB1401/dublib), [Pillow](https://github.com/python-pillow/Pillow).
+3. В среду исполнения установить следующие пакеты: [opencv-python-headless](https://github.com/opencv/opencv-python), [scikit-image](https://github.com/scikit-image/scikit-image), [dublib](https://github.com/DUB1401/dublib), [Pillow](https://github.com/python-pillow/Pillow).
 ```
 pip install opencv-python-headless
 pip install BeautifulSoup4
-pip install fake-useragent
 pip install scikit-image
 pip install dublib
 pip install Pillow
@@ -161,23 +160,9 @@ update [MODE] [FLAGS] [KEYS]
 Токен авторизации аккаунта [Remanga](https://remanga.org/) для доступа к 18+ произведениям. Получить можно из одноимённого поля заголовка GET-запросов на страницах с контентом для взрослых.
 ___
 ```JSON
-"format": "dmp-v1"
+"format": "rn-v2"
 ```
 Задаёт внутреннюю структуру описательных файлов тайтлов. Поддерживаются следующие форматы: [DMP-V1](Examples/DMP-V1.md), [HTCRN-V1](Examples/HTCRN-V1.md), [HTMP-V1](Examples/HTMP-V1.md), [RN-V1](Examples/RN-V1.md).
-___
-```JSON
-"min-delay": 1
-```
-Задаёт минимальный интервал в секундах для паузы между GET-запросами к серверу.
-
-Рекомендуемое значение: не менее 1 секунды.
-___
-```JSON
-"max-delay": 3
-```
-Задаёт максимальный интервал в секундах для паузы между GET-запросами к серверу.
-
-Рекомендуемое значение: не менее 3 секунд.
 ___
 ```JSON
 "use-proxy": false
@@ -215,35 +200,16 @@ ___
 Переключает режим фильтрации заглушек для тайтлов, не имеющих собственных обложек. В активном состоянии похожие на [шаблоны](Source/Filters/) обложки не будут сохранены и добавлены в JSON.
 ___
 ```JSON
-"retry-tries": 3
+"delay": 1
+```
+Задаёт интервал в секундах для паузы между GET-запросами к серверу.
+___
+```JSON
+"tries": 1
 ```
 Указывает, сколко раз проводить повторные попытки при ошибке выполнения запроса.
-___
-```JSON
-"retry-delay": 15
-```
-Указывает, через какой промежуток времени (в секундах) провести повторную попытку при ошибке выполнения запроса.
-___
-```JSON
-"debug": false
-```
-Переключает отображение окна браузера во время выполнения запросов через [Selenium](https://github.com/SeleniumHQ/selenium).
 
 # Proxies.json
-```JSON
-"selenium-validator": {
-	"url": "{IP_CHECKER_URL}",
-	"tag": "{IP_CONTAIER_TAG}",
-	"properties": {
-		"{PROPERTY_NAME}": "{PROPERTY_VALUE}"
-	}
-}
-```
-Указывает данные сайта для валидации прокси:
-* _url_ – адрес сайта, определяющего IP подключения;
-* _tag_ – название HTML-тега, содержащего только IP;
-* _properties_ – словарное представление свойств тега для поиска IP при помощи [BeautifulSoup4](https://launchpad.net/beautifulsoup).
-___
 ```JSON
 "example": [
 	{
@@ -257,7 +223,7 @@ ___
 Указывает два примера настройки для публичного и приватного (требующего логин и пароль) прокси-серверов. Не влияет на работу скрипта.
 
 > [!WARNING]  
-> Несмотря на использование протокола HTTPS, в описании приватного прокси-сервера необходимо прописывать «_http://_». Это связано с особенностями распознавания настроек прокси в библиотеке [requests](https://github.com/psf/requests).
+> Несмотря на использование протокола HTTPS, в ключе прокси-сервера необходимо прописывать «_http://_». Это связано с особенностями обработки прокси в библиотеке [requests](https://github.com/psf/requests).
 ___
 ```JSON
 "proxies": []
@@ -267,7 +233,7 @@ ___
 ```JSON
 "forbidden-proxies": []
 ```
-Сюда помещаются прокси, вызывающие ошибку 403 или срабатывание капчи Cloudflare при обращении к серверу [Remanga](https://remanga.org/).
+Сюда помещаются прокси, вызывающие ошибку 403 или срабатывание капчи CloudFlare при обращении к серверу [Remanga](https://remanga.org/).
 ___
 ```JSON
 "invalid-proxies": []

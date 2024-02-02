@@ -1,18 +1,14 @@
-from selenium.common import exceptions as SeleniumExceptions
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-from Source.Functions import GetRandomUserAgent
-from dublib.Methods import ReadJSON
-from seleniumwire import webdriver
-from bs4 import BeautifulSoup
+from dublib.WebRequestor import Protocols, WebRequestor
+from dublib.Methods import ReadJSON, WriteJSON
+from fake_useragent import UserAgent
 
-import cloudscraper
 import requests
 import logging
-import base64
 import json
-import time
-import sys
+
+#==========================================================================================#
+# >>>>> ИСКЛЮЧЕНИЯ <<<<< #
+#==========================================================================================#
 
 # Исключение: отсутствуют валидные прокси.
 class MissingValidProxy(Exception):
@@ -20,7 +16,7 @@ class MissingValidProxy(Exception):
 	# Конструктор: вызывается при обработке исключения.
 	def __init__(self): 
 		# Добавление данных в сообщение об ошибке.
-		self.__Message = "There are no valid proxies in the \"Proxies.json\"."
+		self.__Message = "There are no valid proxies in \"Proxies.json\"."
 		# Обеспечение доступа к оригиналу наследованного свойства.
 		super().__init__(self.__Message) 
 
@@ -28,429 +24,113 @@ class MissingValidProxy(Exception):
 	def __str__(self):
 		return self.__Message
 
-# Эмулятор структуры ответа библиотеки requests.
-class ResponseEmulation():
+#==========================================================================================#
+# >>>>> ОСНОВНОЙ КЛАСС <<<<< #
+#==========================================================================================#
+
+# Менеджер запросов и прокси.
+class RequestsManager:
+	
+	# Перемещает активный прокси в список.
+	def __MoveCurrentProxyToList(self, List: str, From: str = "proxies", Initialize: bool = True):
+		# Помещение активного прокси в список.
+		self.__Proxies[List].append(self.__CurrentProxy)
+		# Удаление активного прокси из валидных.
+		self.__Proxies[From].remove(self.__CurrentProxy)
+		# Сохранение списка прокси.
+		WriteJSON("Proxies.json", self.__Proxies)
+		# Выбор нового прокси.
+		self.__SelectProxy()
+		# Если указано, инициализировать запросчик.
+		if Initialize == True: self.__Initialize()
+	
+	# Инициализирует запросчик.
+	def __Initialize(self):
+		
+		# Если запросчик уже инициализирован.
+		if self.__Requestor != None:
+			# Закрытие старого запросчика.
+			self.__Requestor.close()
+			# Обнуление старого запросчика.
+			self.__Requestor = None
+			
+		# Запросчик.
+		self.__Requestor = WebRequestor()
+		
+		# Если выбран прокси.
+		if self.__CurrentProxy != None:
+			# Парсинг данных прокси.
+			Data = self.__ParseProxy(self.__CurrentProxy["https"])
+			# Добавление прокси.
+			self.__Requestor.add_proxy(Protocols.HTTPS, Data["host"], Data["port"], Data["login"], Data["password"])
+			
+		# Инициализация запросчика.
+		self.__Requestor.initialize()
+	
+	# Парсит прокси.
+	def __ParseProxy(self, Proxy: str) -> dict:
+		# Результат парсинга.
+		Result = {
+			"host": None,
+			"posrt": None,
+			"login": None,
+			"password": None
+		}
+		# Парсинг.
+		Auth = None if "@" not in Proxy else Proxy.split("@")[0].split("/")[-1]
+		Host = Proxy.split("/")[-1] if "@" not in Proxy else Proxy.split("@")[-1]
+		Result["host"] = Host.split(":")[0]
+		Result["port"] = int(Host.split(":")[-1])
+		
+		# Если доступна авторизация.
+		if Auth != None:
+			# Парсинг данных авторизации.
+			Result["login"] = Auth.split(":")[0]
+			Result["password"] = Auth.split(":")[-1]
+			
+		return Result
+	
+	# Обрабатывает код ответа.
+	def __ProcessStatusCode(self, StatusCode: int):
+		
+		# Если запрос успешен.
+		if StatusCode == 200:
+			
+			# Если прокси был заблокирован.
+			if self.__CurrentProxy in self.__Proxies["forbidden-proxies"]:
+				# Восстановление прокси.
+				self.__MoveCurrentProxyToList("proxies", "forbidden-proxies", False)
+				
+			# Если прокси недоступен.
+			if self.__CurrentProxy in self.__Proxies["invalid-proxies"]:
+				# Восстановление прокси.
+				self.__MoveCurrentProxyToList("proxies", "invalid-proxies", False)
+		
+		else:
+			
+			# Если доступ запрещён.
+			if StatusCode in [403]:
+				# Перемещение прокси в список заблокированных.
+				self.__MoveCurrentProxyToList("forbidden-proxies")
+			
+			else:
+				# Перемещение прокси в список недоступных.
+				self.__MoveCurrentProxyToList("invalid-proxies")
+
+	# Выбирает прокси.
+	def __SelectProxy(self):
+		
+		# Если присутствуют валидные прокси.
+		if len(self.__Proxies["proxies"]) > 0:
+			# Выбор первого прокси.
+			self.__CurrentProxy = self.__Proxies["proxies"][0]
+		
+		else:
+			# Выброс исключения.
+			raise MissingValidProxy()
 
 	# Конструктор.
-	def __init__(self):
-
-		#---> Генерация динамических свойств.
-		#==========================================================================================#
-		# Код ответа.
-		self.status_code = 0
-		# Бинарный вариант ответа.
-		self.content = None
-		# Текст ответа.
-		self.text = ""
-
-# Менеджер запросов и регулирования работы прокси.
-class RequestsManager:
-
-	# Автоматический выбор текущего прокси.
-	def __AutoSetCurrentProxy(self):
-		
-		# Проверка наличия рабочих прокси.
-		if self.__Settings["use-proxy"] == True and len(self.__Proxies["proxies"]) > 0:
-			self.__CurrentProxy = self.__Proxies["proxies"][0]
-			
-		elif self.__Settings["use-proxy"] == True and len(self.__Proxies["proxies"]) == 0:
-			# Запись в лог критической ошибки: отсутствуют валидные прокси.
-			logging.critical("Valid proxies required!")
-			# Выброс исключения.
-			raise MissingValidProxy
-
-	# Блокирует прокси как невалидный.
-	def __BlockProxyAsInvalid(self, Proxy: dict):
-		# Удаление прокси.
-		self.__RemoveProxy(Proxy)
-		# Помещение прокси в новый список.
-		self.__Proxies["invalid-proxies"].append(Proxy)
-		# Сохранение новой структуры прокси в файл.
-		self.__SaveProxiesJSON()
-		# Запись в лог предупреждения: прокси заблокирован как невалидный.
-		logging.warning("Proxy: " + Proxy["http"] + ". Blocked as invalid.")
-
-	# Блокирует прокси как запрещённый.
-	def __BlockProxyAsForbidden(self, Proxy: dict):
-		# Удаление прокси.
-		self.__RemoveProxy(Proxy)
-		# Помещение прокси в новый список.
-		self.__Proxies["forbidden-proxies"].append(Proxy)
-		# Сохранение новой структуры прокси в файл.
-		self.__SaveProxiesJSON()
-		# Запись в лог предупреждения: прокси заблокирован как заблокированный.
-		logging.warning("Proxy: " + Proxy["http"] + ". Blocked as forbidden.")
-
-	# Строит JavaScript XHR запрос.
-	def __BuildXHR(self, URL: str, Headers: dict, ResponseType: str) -> str:
-		# Скрипт XHR запроса.
-		Script = None
-
-		# Построение запроса для JSON-файла.
-		if ResponseType == "application/json":
-			Script = "var XHR = new XMLHttpRequest();\n"
-			Script += "XHR.open(\"GET\", \"" + URL + "\", false);\n"
-			for HeaderName in Headers.keys():
-				if HeaderName == "authorization" and Headers[HeaderName] != "":
-					Script += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-				elif HeaderName == "referer" or HeaderName == "referrerPolicy":
-					pass
-				else:
-					Script += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-			Script += "XHR.send();\n"
-			Script += "return XHR.response"
-
-		# Построение запроса для изображения в формате Base64.
-		elif ResponseType == "image/jpeg":
-			# Заголовки для встраивания в XHR запрос.
-			HeadersInXHR = ""
-
-			# Заполнение заголовков XHR.
-			for HeaderName in Headers.keys():
-				if HeaderName == "authorization" and Headers[HeaderName] != "":
-					HeadersInXHR += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-				elif HeaderName == "referer" or HeaderName == "referrerPolicy":
-					pass
-				else:
-					HeadersInXHR += "XHR.setRequestHeader(\"" + HeaderName + "\", \"" + Headers[HeaderName] + "\");\n"
-					
-			# Формирование скрипта методом форматированной строки.
-			Script = f'''
-				var Done = arguments[0];
-				function toDataURL(url, callback) {{
-					var XHR = new XMLHttpRequest();
-					XHR.onload = function() {{
-						var Reader = new FileReader();
-						Reader.onloadend = function() {{
-							callback(Reader.result);
-						}}
-						Reader.readAsDataURL(XHR.response);
-					}};
-					XHR.open("GET", url);
-					{HeadersInXHR}
-					XHR.responseType = "blob";
-					XHR.send();
-				}}
-
-				toDataURL("{URL}", function(dataUrl) {{ Done(dataUrl); }})
-			'''
-
-		return Script
-
-	# Инициализирует веб-драйвер.
-	def __InitializeWebDriver(self):
-		
-		try:
-			# Попытка закрыть браузер.
-			self.close()
-			
-		except Exception:
-			pass
-		
-		# Опции веб-драйвера.
-		ChromeOptions = webdriver.ChromeOptions()
-		# Настройка прокси.
-		SeleniumWireOptions = {
-			"disable_capture": True
-		}
-		
-		# При включённом прокси создать и установить дополнение.
-		if self.__Settings["use-proxy"] == True:
-			# Получение данных текущего прокси.
-			UserName, Password, IP, Port = self.__GetProxyData(self.__CurrentProxy)
-			# Формирование настроек.
-			SeleniumWireOptions["proxy"] = {
-				"http": f"https://{UserName}:{Password}@{IP}:{Port}", 
-				"https": f"https://{UserName}:{Password}@{IP}:{Port}"
-			}
-
-		# Если Selenoid не используется.
-		if self.__Settings["selenoid-remote"] == None:
-
-			# Установка опций.
-			ChromeOptions.add_argument("--no-sandbox")
-			ChromeOptions.add_argument("--disable-dev-shm-usage")
-			ChromeOptions.add_experimental_option("excludeSwitches", ["enable-logging"])
-			
-			# При отключённом режиме отладки скрыть окно браузера.
-			if self.__Settings["debug"] == False:
-				ChromeOptions.add_argument("--headless=new")
-
-			# Инициализация веб-драйвера.
-			try:
-				self.__Browser = webdriver.Chrome(service = Service(ChromeDriverManager().install()), seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
-
-			except FileNotFoundError:
-				# Запись в лог критической ошибки: не удалось найти веб-драйвер.
-				logging.critical("Unable to locate webdriver! Try to remove \".wdm\" folder in script directory.")
-			
-			except Exception as ExceptionData:
-				# Запись в лог критической ошибки: неизвестное исключение.
-				logging.critical("Unable to launch Selenium. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
-				
-		else:
-			# Опции Selenoid.
-			SelenoidCapabilities = {
-				"browserName": "chrome",
-				"browserVersion": "119",
-				"selenoid:options": {
-					"enableVideo": False,
-					"enableVNC": True
-				}
-			}
-			# Добавление удалённого адреса в параметры selenium-wire.
-			SeleniumWireOptions["auto_config"] = False
-			SeleniumWireOptions["addr"] = "127.0.0.1"
-			# Установка опций.
-			ChromeOptions.set_capability("cloud:options", SelenoidCapabilities)
-			
-			try:
-				# Инициализация веб-драйвера.
-				self.__Browser = webdriver.Remote(command_executor = self.__Settings["selenoid-remote"], seleniumwire_options = SeleniumWireOptions, options = ChromeOptions)
-			
-			except Exception as ExceptionData:
-				# Запись в лог критической ошибки: неизвестное исключение.
-				logging.critical("Unable to connect Selenoid. Description: \"" + str(ExceptionData).split('\n')[0] + "\".")
-
-	# Обработать статусы ответов.
-	def __ProcessStatusCode(self, Status: int, Proxy: dict):
-			
-		if Status == 1:
-			self.__BlockProxyAsInvalid(Proxy)
-				
-		elif Status == 2:
-			self.__BlockProxyAsForbidden(Proxy)
-				
-		elif Status == 3:
-			raise requests.exceptions.HTTPError
-			
-		elif Status == 0:
-			self.__RestoreProxyAsValid(Proxy)
-
-	# Форматирует прокси в формат дополнения.
-	def __GetProxyData(self, Proxy: dict):
-		# Данные прокси.
-		UserName = None
-		Password = None
-		IP = None
-		Port = None
-		# Строка описания прокси.
-		ProxyDescription = Proxy["http"].split('/')[-1]
-		
-		# Если для прокси нужна авторизация.
-		if "@" in ProxyDescription:
-			UserName = ProxyDescription.split('@')[0].split(':')[0]
-			Password = ProxyDescription.split('@')[0].split(':')[1]
-			IP = ProxyDescription.split('@')[1].split(':')[0]
-			Port = ProxyDescription.split('@')[1].split(':')[1]
-
-		# Если прокси без авторизации.
-		else:
-			UserName = ""
-			Password = ""
-			IP = ProxyDescription.split(':')[0]
-			Port = ProxyDescription.split(':')[1]
-
-		return UserName, Password, IP, Port
-	
-	# Читает прокси.
-	def __ReadProxy(self):
-		# Чтение прокси в буфер.
-		Bufer = ReadJSON("Proxies.json")
-		# Ключи хранилищ прокси.
-		ProxyStorages = ["proxies", "forbidden-proxies", "invalid-proxies"]
-		
-		# Для каждого хранилища прокси.
-		for Storage in ProxyStorages:
-		
-			# Для каждого прокси создать аналог для другого протокола.
-			for Index in range(0, len(Bufer[Storage])):
-				# Список протоколов.
-				Protocols = Bufer[Storage][Index].keys()
-			
-				# Если не указана HTTPS-версия.
-				if "http" in Protocols and "https" not in Protocols:
-					# Запись HTTPS-версии.
-					Bufer[Storage][Index]["https"] = Bufer[Storage][Index]["http"]
-				
-				# Если не указана HTTP-версия.
-				elif "https" in Protocols and "http" not in Protocols:
-					# Запись HTTPS-версии.
-					Bufer[Storage][Index]["http"] = Bufer[Storage][Index]["https"]
-					
-		# Сохранение прокси.
-		self.__Proxies = Bufer
-
-	# Непосредственно выполняет запрос к серверу через библиотеку requests.
-	def __RequestDataWith_requests(self, URL: str, Headers: dict, Proxy: dict):
-		# Сессия с обходом Cloudflare.
-		Scraper = cloudscraper.create_scraper()
-		# Ответ сервера.
-		Response = None
-		# Статус ответа.
-		Status = None
-
-		# Интерпретация прокси.
-		if Proxy == None:
-			Proxy = dict()
-			
-		try:
-			# Попытка выполнения запроса.
-			Response = Scraper.get(URL, headers = Headers, proxies = Proxy)
-			
-			# Если запрос успешен.
-			if Response.status_code in [200, 401, 404]:
-				Status = 0
-
-			# Если запрос отклонён сервером.
-			elif Response.status_code == 403:
-				Status = 2
-
-			# Если возникла ошибка на сервере.
-			elif Response.status_code in [502]:
-				Status = 3
-
-		# Обработка ошибки: прокси недоступен.
-		except requests.exceptions.ProxyError:
-			Status = 1
-
-		# Обработка ошибки: запрошена капча Cloudflare V2.
-		except cloudscraper.exceptions.CloudflareChallengeError:
-			Status = 2
-			
-		# Обработка ошибки: любая другая ошибка.
-		except Exception as ExceptionData:
-			# Смена статуса.
-			Status = 3
-			# Запись в лог ошибки: не удалось выполнить запрос.
-			logging.error("Unable to request. Description: \"" + str(ExceptionData).rstrip(".") + "\".")
-
-		return Response, Status
-
-	# Непосредственно выполняет запрос к серверу через JavaScript в браузере Google Chrome.
-	def __RequestDataWith_ChromeJavaScript(self, URL: str, Headers: dict, Proxy: dict):
-		# Скрипт XHR запроса.
-		Script = self.__BuildXHR(URL, Headers, Headers["content-type"])
-		# Ответ сервера.
-		Response = ResponseEmulation()
-		# Статус ответа.
-		Status = None
-		
-		# Интерпретация прокси.
-		if Proxy is None:
-			Proxy = dict()
-
-		try:
-
-			# Переход на главную страницу.
-			if self.__Browser.current_url != "https://remanga.org/":
-				self.__Browser.get("https://remanga.org/")
-
-			# Попытка выполнения запроса изображения.
-			if Headers["content-type"] == "image/jpeg":
-				Response.text = self.__Browser.execute_async_script(Script)
-
-				# Проверка получения изображения в формате Base64.
-				if "base64" in Response.text:
-					# Удаление определяющей части blob.
-					Response.content = base64.b64decode(Response.text.split(',')[1])
-					# Обнуление текста ответа.
-					Response.text = None
-					# Выставление статуса кода.
-					Response.status_code = 200
-					Status = 0
-					
-				else:
-					# Выставление статуса кода.
-					Response.status_code = 404
-					Status = 0
-					
-			# Попытка выполнения запроса JSON.
-			else:
-				Response.text = self.__Browser.execute_script(Script)
-				
-			try:
-				# Парсинг ответа сервера в JSON.
-				ResponseJSON = dict(json.loads(Response.text)) if Response.text != None else None
-				
-			except json.JSONDecodeError:
-				# Запись в лог ошибки: не удалось преобразовать ответ сайта в JSON.
-				logging.error("Unable to decode site response to JSON.")
-				# Установка кода ответа и статуса запроса.
-				Response.status_code = 499
-				Status = 0
-				
-			else:
-				
-				# Если ответ имеет текст.
-				if Response.text != None:
-					
-					# Обработка ошибки: 401.
-					if ResponseJSON["msg"] == "Для просмотра нужно авторизироваться":
-						Response.status_code = 401
-						Status = 0
-						
-					# Обработка ошибки: 404.
-					elif ResponseJSON["msg"] == "Тайтл не найден":
-						Response.status_code = 404
-						Status = 0
-
-					# Обработка ошибки: 403.
-					elif Response.text == "":
-						Response.status_code = 403
-						Status = 2
-					
-					# Обработка успешного запроса.
-					elif "content" in ResponseJSON.keys():
-						# Установка кода ответа и статуса запроса.
-						Response.status_code = 200
-						Status = 0
-
-		# Обработка ошибки: не удалось выполнить JavaScript или нерабочий прокси.
-		except (SeleniumExceptions.JavascriptException, SeleniumExceptions.WebDriverException) as ExceptionData:
-			# Запись в лог ошибки: не удалось преобразовать ответ сайта в JSON.
-			logging.error("Selenium exception: \"" + str(ExceptionData).split('\n')[0] + "\".")
-			# Установка кода ответа и статуса запроса.
-			Response.status_code = 403
-			Status = 1
-
-		return Response, Status
-	
-	# Удаляет определение прокси.
-	def __RemoveProxy(self, Proxy: dict):
-		# Названия списков прокси.
-		ProxyTypes = ["proxies", "forbidden-proxies", "invalid-proxies"]
-		
-		# Для каждого типа прокси.
-		for ProxyType in ProxyTypes:
-			
-			# Если прокси присутствует в списке, то удалить его.
-			if Proxy in self.__Proxies[ProxyType]:
-				self.__Proxies[ProxyType].remove(Proxy)
-
-	# Проверяет, находится ли активный прокси в валидном списке, и восстанавливает его.
-	def __RestoreProxyAsValid(self, Proxy: dict):
-
-		# Проверка наличия прокси в валидном списке.
-		if self.__Proxies != dict() and Proxy not in self.__Proxies["proxies"]:
-			# Удаление прокси.
-			self.__RemoveProxy(Proxy)
-			# Помещение прокси в новый список.
-			self.__Proxies["proxies"].append(Proxy)
-			# Сохранение новой структуры прокси в файл.
-			self.__SaveProxiesJSON()
-			# Запись в лог сообщения: прокси помечен как доступный.
-			logging.info("Proxy: " + Proxy["http"] + ". Marked as valid.")
-
-	# Сохраняет JSON с прокси.
-	def __SaveProxiesJSON(self):
-		with open("Proxies.json", "w", encoding = "utf-8") as FileWrite:
-			json.dump(self.__Proxies, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
-
-	# Конструктор: читает список прокси и инициализирует менеджер.
 	def __init__(self, Settings: dict, LoadProxy: bool = False):
-		# Генерация User-Agent.
-		UserAgent = GetRandomUserAgent()
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -458,68 +138,47 @@ class RequestsManager:
 		self.__Settings = Settings.copy()
 		# Текущий прокси.
 		self.__CurrentProxy = None
-		# Хранилище прокси.
+		# Словарь прокси.
 		self.__Proxies = dict()
-		# Экземпляр браузера, управляемого Selenium.
-		self.__Browser = None
 		# Заголовки запроса.
-		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization-token"],
-			"accept": "*/*",
-			"accept-language": "ru,en;q=0.9",
-			"content-type": "application/json",
-			"preference": "0",
-			"referer": "https://remanga.org/",
-			"referrerPolicy": "strict-origin-when-cross-origin",
-			"User-Agent": UserAgent
+		self.__Headers = {
+			"Authorization": self.__Settings["authorization-token"],
+			"Referer": "https://remanga.org/",
+			"User-Agent": UserAgent().chrome
 		}
+		# Запросчик.
+		self.__Requestor = None
 
 		#---> Загрузка и валидация прокси-серверов.
 		#==========================================================================================#
 
 		try:
-			# Если прокси используется или указано,что его необходимо загрузить.
+			# Если настройками или аргументом указано использование прокси.
 			if Settings["use-proxy"] == True or LoadProxy == True:
 				# Чтение прокси.
-				self.__ReadProxy()
+				self.__Proxies = ReadJSON("Proxies.json")
 		
 		except FileNotFoundError:
 			# Запись в лог критической ошибки: не удалось найти файл 
-			logging.critical("Unable to open \"Proxies.json\" file!")
-			# Прерывание выполнения.
-			sys.exit(-1)
+			logging.critical("Unable to open \"Proxies.json\".")
+			# Завершение работы скрипта с кодом ошибки.
+			exit(1)
 
 		except json.JSONDecodeError:
 			# Запись в лог критической ошибки: не удалось найти файл 
-			logging.critical("Error occurred while reading \"Proxies.json\" file!")
-			# Прерывание выполнения.
-			sys.exit(-1)
+			logging.critical("Error occurred while reading \"Proxies.json\".")
+			# Завершение работы скрипта с кодом ошибки.
+			exit(1)
 
-		# Если не запущена валидация, установить прокси автоматически.
-		if LoadProxy == False:
-			self.__AutoSetCurrentProxy()
-
-	# Закрывает экземпляр браузера.
-	def close(self):
-		try:
-			
-			# Если активен экземпляр браузера. 
-			if self.__Browser != None:
-				self.__Browser.quit()
-				self.__Browser = None
-				
-		except Exception:
-			pass
+		# Если не запущена валидация, выбрать прокси.
+		if LoadProxy == False: self.__SelectProxy()
+		# Инициализация запросчика.
+		self.__Initialize()
 		
 	# Загружает изображение.
 	def downloadImage(self, URL: str, Path: str = "", Filename: str = "") -> int:
-		# Заголовки.
-		Headers = {
-			"Referer": "https://remanga.org/",
-			"User-Agent": GetRandomUserAgent()
-		}
 		# Выполнение запроса.
-		Response = self.request(URL, Headers = Headers)
+		Response = self.__Requestor.get(URL, headers = self.__Headers)
 		# Получение имени файла.
 		Filename = URL.split('/')[-1] if Filename == "" else Filename
 		# Конвертирование косых черт.
@@ -546,75 +205,31 @@ class RequestsManager:
 		return Response.status_code
 
 	# Возвращает список прокси.
-	def getProxies(self, ProxiesType: str = "all"):
-		if ProxiesType == "invalid":
-			return self.__Proxies["invalid-proxies"]
-		elif ProxiesType == "forbidden":
-			return self.__Proxies["forbidden-proxies"]
-		elif ProxiesType == "valid":
-			return self.__Proxies["proxies"]
-		elif ProxiesType == "all":
-			return self.__Proxies["proxies"] + self.__Proxies["forbidden-proxies"] + self.__Proxies["invalid-proxies"]
+	def getProxies(self, ProxiesType: str = "all") -> list[dict]:
+		# Возвращаемое значение.
+		Proxies = list()
+		# Если указаны валидные прокси, преобразовать ключ.
+		if ProxiesType == "valid": ProxiesType = "proxies"
+		
+		# Если запрошены все прокси.
+		if ProxiesType == "all":
+			# Запись всех прокси.
+			Proxies = self.__Proxies["proxies"] + self.__Proxies["forbidden-proxies"] + self.__Proxies["invalid-proxies"]
+			
+		else:
+			# Запись конкретного списка прокси.
+			Proxies = self.__Proxies[ProxiesType.replace("-proxies", "")]
+			
+		return Proxies
 
 	# Проводит запрос к API Remanga и интерпретирует результаты.
-	def request(self, URL: str, Headers: dict = None):
-		# Ответ сервера.
-		Response = None
-		# Статус ответа.
-		Status = None
-		# Текущий индекс повтора.
-		CurrentTry = 0
-
-		# Установка заголовков по умолчанию.
-		if Headers == None:
-			Headers = self.__RequestHeaders
-		
-		# Обработка повторов запроса с использованием прокси.
-		if self.__Settings["use-proxy"] == True:
-				
-			# Повторять пока не закончатся попытки для каждого прокси.
-			while Status != 0:
-					
-				# Выжидание интервала при повторе.
-				if CurrentTry > 0:
-					# Запись в лог ошибки: не удалось выполнить запрос.
-					logging.error("Unable to request data with proxy: \"" + self.__CurrentProxy["http"] + "\". Retrying...")
-					# Выжидание интервала.
-					time.sleep(self.__Settings["retry-delay"])
-						
-				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
-				
-				# Инкремент попыток повтора.
-				CurrentTry += 1
-				
-				# Если достигнуто максимальное число повторов, то прервать цикл запросов.
-				if CurrentTry == self.__Settings["retry-tries"]:
-					break
-			
-			# Обработка кода статуса запроса.
-			self.__ProcessStatusCode(Status, self.__CurrentProxy)
-		
-		# Обработка повторов запроса без использования прокси.
-		else:
-
-			# Повторять пока не закончатся попытки.
-			while Status != 0:
-				
-				# Выжидание интервала при повторе.
-				if CurrentTry > 0:
-					# Запись в лог ошибки: не удалось выполнить запрос.
-					logging.error("Unable to request data. Retrying...")
-					# Выжидание интервала.
-					time.sleep(self.__Settings["retry-delay"])
-
-				Response, Status = self.__RequestDataWith_requests(URL, Headers, self.__CurrentProxy)
-
-				# Инкремент попыток повтора.
-				CurrentTry += 1
-				
-				# Если достигнуто максимальное число повторов, то прервать цикл запросов.
-				if CurrentTry == self.__Settings["retry-tries"]:
-					break
+	def request(self, URL: str, Headers: dict = None) -> requests.Response:
+		# Если не заданы заголовки, использовать стандартные.
+		if Headers == None: Headers = self.__Headers
+		# Выполнение запроса.
+		Response = self.__Requestor.get(URL, headers = Headers, tries = self.__Settings["tries"])
+		# Обработка кода.
+		self.__ProcessStatusCode(Response.status_code)
 
 		return Response
 
@@ -622,27 +237,13 @@ class RequestsManager:
 	def validateProxy(self, Proxy: dict, UpdateFile: bool = False) -> int:
 		# Тестовый URL запроса.
 		URL = "https://api.remanga.org/api/titles/last-chapters/?page=1&count=20"
-		# Возвращает код статуса прокси: 0 – валиден, 1 – недоступен, 2 – заблокирован, 3 – ошибка сервера. 
-		StatusCode = None
-		# Заголовки запроса.
-		Headers = {
-			"accept": "*/*",
-			"accept-language": "ru,en;q=0.9",
-			"content-type": "application/json",
-			"preference": "0",
-			"referer": "https://remanga.org/",
-			"referrerPolicy": "strict-origin-when-cross-origin"
-			}
 		# Установка текущего прокси.
 		self.__CurrentProxy = Proxy
-		
-		# Генерация User-Agent.
-		Headers["User-Agent"] = GetRandomUserAgent()
-		# Выполнение запроса через библиотеку Python.
-		Response, StatusCode = self.__RequestDataWith_requests(URL, Headers, Proxy)
-			
+		# Инициализация запросчика.
+		self.__Initialize()
+		# Выполнение запроса.
+		Response = self.__Requestor.get(URL, headers = self.__Headers)
 		# Если указано флагом, обновить файл определений прокси.
-		if UpdateFile == True:
-			self.__ProcessStatusCode(StatusCode, Proxy)
+		if UpdateFile == True: self.__ProcessStatusCode(Response.status_code)
 
-		return StatusCode
+		return Response.status_code

@@ -1,12 +1,9 @@
 from dublib.Methods import ReadJSON, RemoveFolderContent, WriteJSON
 from skimage.metrics import structural_similarity
 from Source.Formatter import Formatter
-from fake_useragent import UserAgent
 
 import logging
-import random
 import shutil
-import time
 import cv2
 import os
 
@@ -47,13 +44,6 @@ def CompareImages(PatternPath: str, ImagePath: str) -> float | None:
 			Differences = None
 
 	return Differences
-
-# Возвращает случайное значение заголовка User-Agent.
-def GetRandomUserAgent() -> str:
-	# Генерация User-Agent.
-	UserAgentString = UserAgent().chrome
-
-	return UserAgentString
 
 # Удаляет или перемещает файлы JSON, имеющий отличный от заданного формат.
 def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | None):
@@ -151,10 +141,6 @@ def SecondsToTimeString(Seconds: float) -> str:
 # Усекает число до определённого количества знаков после запятой.
 def ToFixedFloat(FloatNumber: float, Digits: int = 0) -> float:
 	return float(f"{FloatNumber:.{Digits}f}")
-
-# Выжидает согласно заданному интервалу.
-def Wait(Settings: dict):
-	time.sleep(random.randint(Settings["min-delay"], Settings["max-delay"]))
 	
 # Фильтрует заглушки обложек.
 def Unstub(Settings: dict, Slug: str) -> bool:

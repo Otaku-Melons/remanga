@@ -1,12 +1,4 @@
 {
-	"selenium-validator": {
-		"url": "https://whoer.net/",
-		"tag": "strong",
-		"properties": {
-			"data-clipboard-target": ".your-ip",
-			"class": "your-ip"
-		}
-	},
 	"example": [
 		{
 			"https": "http://{USER_NAME}:{PASSWORD}@{IP}:{PORT}"
@@ -15,7 +7,15 @@
 			"https": "{IP}:{PORT}"
 		}
 	],
-	"proxies": [],
+	"proxies": [
+		{
+			"https": "http://5zEw9E:dxUYjQ@194.67.222.19:9704"
+		}
+	],
 	"forbidden-proxies": [],
-	"invalid-proxies": []
+	"invalid-proxies": [
+		{
+			"https": "http://LHjKav:nEBks5@193.124.176.123:972"
+		}
+	]
 }

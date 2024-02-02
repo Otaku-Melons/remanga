@@ -1,5 +1,5 @@
 from Source.RequestsManager import RequestsManager
-from Source.Functions import GetRandomUserAgent, Wait
+from time import sleep
 
 import logging
 import json
@@ -17,8 +17,6 @@ class Updater:
 
 	# Конструктор: задаёт глобальные настройки и инициализирует объект.
 	def __init__(self, Settings: dict):
-		# Генерация User-Agent.
-		UserAgent = GetRandomUserAgent()
 
 		#---> Генерация динамичкских свойств.
 		#==========================================================================================#
@@ -28,19 +26,13 @@ class Updater:
 		self.__RequestsManager = RequestsManager(Settings)
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization-token"],
-			"accept": "*/*",
-			"accept-language": "ru,en;q=0.9",
-			"content-type": "application/json",
-			"preference": "0",
-			"referer": "https://remanga.org/",
-			"referrerPolicy": "strict-origin-when-cross-origin",
-			"User-Agent": UserAgent
+			"Authorization": self.__Settings["authorization-token"],
+			"Referer": "https://remanga.org/"
 		}
 		
 		# Если токена авторизации нет, то удалить заголовок.
-		if self.__RequestHeaders["authorization"] == "":
-			del self.__RequestHeaders["authorization"]
+		if self.__RequestHeaders["Authorization"] == "":
+			del self.__RequestHeaders["Authorization"]
 
 	# Возвращает список алиасов обновлённых тайтлов.
 	def getUpdatesList(self) -> list:
@@ -94,13 +86,10 @@ class Updater:
 				# Инкремент страницы.
 				Page += 1
 				# Выжидание указанного интервала.
-				Wait(self.__Settings)
+				sleep(self.__Settings["delay"])
 
 			elif Response.status_code == 200:
 				# Запись в лог сообщения о завершении проверки обновлений.
 				logging.info("On " + str(Page) + " pages updates notes found: " + str(UpdatesCounter) + ".")
-
-		# Завершает сеанс запроса.
-		self.__RequestsManager.close()
 
 		return Updates

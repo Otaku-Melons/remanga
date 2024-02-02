@@ -1,7 +1,8 @@
-from Source.Functions import CompareImages, GetRandomUserAgent, MergeListOfLists, RemoveFolderContent, Wait
+from Source.Functions import CompareImages, MergeListOfLists, RemoveFolderContent
 from Source.RequestsManager import RequestsManager
 from dublib.Methods import Cls, ReadJSON
 from Source.Formatter import Formatter
+from time import sleep
 
 import logging
 import shutil
@@ -54,7 +55,7 @@ class TitleParser:
 			logging.error("Unable to request chapter data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
 
 		# Выжидание указанного интервала.
-		Wait(self.__Settings)
+		sleep(self.__Settings["delay"])
 
 		return ChapterData
 
@@ -100,7 +101,7 @@ class TitleParser:
 				logging.error("Unable to request branch data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
 
 			# Выжидание указанного интервала.
-			Wait(self.__Settings)
+			sleep(self.__Settings["delay"])
 
 		# Если ветвь не пустая.
 		if BranchData != None:
@@ -160,7 +161,7 @@ class TitleParser:
 			logging.error("Unable to request title description: \"" + TitlesAPI + "\". Response code: " + str(Response.status_code) + ".")
 
 		# Выжидание указанного интервала.
-		Wait(self.__Settings)
+		sleep(self.__Settings["delay"])
 
 		return Description
 
@@ -303,8 +304,6 @@ class TitleParser:
 
 	# Конструктор: строит каркас словаря и проверяет наличие локальных данных.
 	def __init__(self, Settings: dict, Slug: str, ForceMode: bool = True, Message: str = "", Amending: bool = True):
-		# Генерация User-Agent.
-		UserAgent = GetRandomUserAgent()
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -330,24 +329,16 @@ class TitleParser:
 		self.__ID = None
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization-token"],
-			"accept": "*/*",
-			"accept-language": "ru,en;q=0.9",
-			"content-type": "application/json",
-			"preference": "0",
-			"referer": "https://remanga.org/",
-			"referrerPolicy": "strict-origin-when-cross-origin",
-			"User-Agent": UserAgent
+			"Authorization": self.__Settings["authorization-token"],
+			"Referer": "https://remanga.org/",
 		}
 
 		# Если токена авторизации нет, то удалить заголовок.
-		if self.__RequestHeaders["authorization"] == "":
-			del self.__RequestHeaders["authorization"]
+		if self.__RequestHeaders["Authorization"] == "":
+			del self.__RequestHeaders["Authorization"]
 
 		# Запись в лог сообщения о начале парсинга.
 		logging.info("Title: \"" + self.__TitleHeader + "\". Parsing...")
-		# Запись в лог сообщения об использованном User-Agent.
-		logging.debug("User-Agent: \"" + UserAgent + "\".")
 
 		#---> Построение каркаса словаря.
 		#==========================================================================================#
@@ -439,7 +430,7 @@ class TitleParser:
 							# Инкремент счётчика.
 							UpdatedChaptersCounter += 1
 							# Выжидание указанного интервала.
-							Wait(self.__Settings)
+							sleep(self.__Settings["delay"])
 
 						else:
 							# Запись в лог сообщения: глава платная.
@@ -551,8 +542,7 @@ class TitleParser:
 					break
 						
 				# Выжидание указанного интервала, если не все обложки загружены.
-				if DownloadedCoversCount < 3:
-					Wait(self.__Settings) 
+				if DownloadedCoversCount < 3: sleep(self.__Settings["delay"])
 			
 			if IsCoversFiltered == True:
 				# Вывод в терминал: обложки отфильтрованы.
@@ -596,6 +586,26 @@ class TitleParser:
 			# Выброс исключения.
 			raise Exception(f"unable to find chapter in local file")
 
+	# Русифицирует ссылки на слайды.
+	def rusificateLinks(self):
+		
+		# Для каждой ветви.
+		for BranchID in self.__Title["chapters"].keys():
+			
+			# Для каждой главы.
+			for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
+				
+				# Для каждого слайда.
+				for SlideIndex in range(0, len(self.__Title["chapters"][BranchID][ChapterIndex]["slides"])):
+					# Ссылка на слайд.
+					Link = self.__Title["chapters"][BranchID][ChapterIndex]["slides"][SlideIndex]["link"]
+					# Если слайд на пятом международном сервере, заменить его.
+					if Link.startswith("https://img5.reimg.org"): Link = Link.replace("https://img5.reimg.org", "https://reimg2.org")
+					# Замена других серверов.
+					Link = Link.replace("reimg.org", "reimg2.org")
+					# Сохранение результата.
+					self.__Title["chapters"][BranchID][ChapterIndex]["slides"][SlideIndex]["link"] = Link
+
 	# Сохраняет локальный JSON файл.
 	def save(self, DownloadCovers: bool = True):
 		# Используемое имя тайтла: ID или алиас.
@@ -603,6 +613,9 @@ class TitleParser:
 		
 		# Если парсер активен.
 		if self.__IsActive == True:
+			
+			# Если указано, русифицировать ссылки на слайды.
+			if self.__Settings["ru-links"] == True: self.rusificateLinks()
 
 			# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
 			for State in [True, False]:
@@ -639,6 +652,3 @@ class TitleParser:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Parsed.")
-
-		# Завершает сеанс запроса.
-		self.__RequestsManager.close()

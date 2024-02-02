@@ -6,7 +6,7 @@ from Source.TitleParser import TitleParser
 from Source.Collector import Collector
 from Source.Formatter import Formatter
 from Source.Updater import Updater
-from Source.Functions import Wait
+from time import sleep
 
 import datetime
 import logging
@@ -427,7 +427,7 @@ if "parse" == CommandDataStruct.name:
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
 		# Выжидание указанного интервала, если не все тайтлы спаршены.
-		if Index < len(TitlesList): Wait(Settings)
+		if Index < len(TitlesList): sleep(Settings["delay"])
 
 # Обработка команды: proxval.
 if "proxval" == CommandDataStruct.name:
@@ -438,7 +438,7 @@ if "proxval" == CommandDataStruct.name:
 	# Список всех прокси.
 	ProxiesList = RequestsManagerObject.getProxies()
 	# Сообщение о валидации прокси.
-	Message = "Proxies.json updated.\n\n" if IsForceModeActivated == True else ""
+	Message = "\nProxies.json updated.\n" if IsForceModeActivated == True else ""
 	
 	# Если указаны прокси.
 	if len(ProxiesList) > 0:
@@ -447,10 +447,8 @@ if "proxval" == CommandDataStruct.name:
 		for ProxyIndex in range(0, len(ProxiesList)):
 			# Вывод результата.
 			print(ProxiesList[ProxyIndex], "status code:", RequestsManagerObject.validateProxy(ProxiesList[ProxyIndex], IsForceModeActivated))
-
 			# Выжидание интервала.
-			if ProxyIndex < len(ProxiesList) - 1:
-				Wait(Settings)
+			if ProxyIndex < len(ProxiesList) - 1: sleep(Settings["delay"])
 		
 	else:
 		# Вывод в консоль: файл определений не содержит прокси.
@@ -459,11 +457,9 @@ if "proxval" == CommandDataStruct.name:
 		logging.warning("Proxies are missing.")
 		
 	# Вывод в терминал сообщения о завершении работы.
-	print(f"\nStatus codes:\n0 – valid\n1 – invalid\n2 – forbidden\n3 – server error (502 Bad Gateway for example)\n\n{Message}Press ENTER to exit...")
-	# Закрытие менеджера.
-	RequestsManagerObject.close()
+	print(f"\nStatus codes:\n200 – valid\n403 – forbidden\nother – invalid\n{Message}")
 	# Пауза.
-	input()
+	input("Press ENTER to exit...")
 	
 # Обработка команды: repair.
 if "repair" == CommandDataStruct.name:
@@ -576,7 +572,7 @@ if "update" == CommandDataStruct.name:
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
 		# Выжидание указанного интервала, если не все тайтлы обновлены.
-		if Index < len(TitlesList): Wait(Settings)
+		if Index < len(TitlesList): sleep(Settings["delay"])
 
 #==========================================================================================#
 # >>>>> ЗАВЕРШЕНИЕ РАБОТЫ СКРИПТА <<<<< #

@@ -1,6 +1,6 @@
-from Source.Functions import GetRandomUserAgent, Wait
 from Source.RequestsManager import RequestsManager
 from dublib.Methods import Cls
+from time import sleep
 
 import logging
 import json
@@ -50,7 +50,7 @@ class Collector:
 					logging.info(f"Titles on page {Page} collected.")
 					
 				# Выжидание указанного интервала.
-				Wait(self.__Settings)
+				sleep(self.__Settings["delay"])
 
 			# Обработка ошибки доступа в виду отсутствия токена авторизации.
 			elif Response.status_code == 401:
@@ -76,8 +76,6 @@ class Collector:
 	
 	# Конструктор.
 	def __init__(self, Settings: dict):
-		# Генерация User-Agent.
-		UserAgent = GetRandomUserAgent()
 		
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -87,19 +85,13 @@ class Collector:
 		self.__Settings = Settings.copy()
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"authorization": self.__Settings["authorization-token"],
-			"accept": "*/*",
-			"accept-language": "ru,en;q=0.9",
-			"content-type": "application/json",
-			"preference": "0",
-			"referer": "https://remanga.org/",
-			"referrerPolicy": "strict-origin-when-cross-origin",
-			"User-Agent": UserAgent
+			"Authorization": self.__Settings["authorization-token"],
+			"Referer": "https://remanga.org/"
 		}
 		
 		# Если токена авторизации нет, то удалить заголовок.
-		if self.__RequestHeaders["authorization"] == "":
-			del self.__RequestHeaders["authorization"]
+		if self.__RequestHeaders["Authorization"] == "":
+			del self.__RequestHeaders["Authorization"]
 
 	# Сохраняет список алиасов тайтлов в файл.
 	def collect(self, Filters: str, ForceMode: bool = False) -> list[str]:

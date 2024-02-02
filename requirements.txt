@@ -1,6 +1,4 @@
 opencv-python-headless
-BeautifulSoup4
-fake-useragent
 scikit-image
 dublib
 Pillow
