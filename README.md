@@ -7,7 +7,6 @@
 3. В среду исполнения установить следующие пакеты: [opencv-python-headless](https://github.com/opencv/opencv-python), [scikit-image](https://github.com/scikit-image/scikit-image), [dublib](https://github.com/DUB1401/dublib), [Pillow](https://github.com/python-pillow/Pillow).
 ```
 pip install opencv-python-headless
-pip install BeautifulSoup4
 pip install scikit-image
 pip install dublib
 pip install Pillow
@@ -38,7 +37,7 @@ ___
 ```
 convert [TARGET*] [SOURCE_FORMAT*] [OUTPUT_FORMAT*]
 ```
-Преобразует внутреннюю структуру JSON файлов определений тайтлов согласно одному из поддерживаемых форматов: [DMP-V1](Examples/DMP-V1.md), [HTCRN-V1](Examples/HTCRN-V1.md), [HTMP-V1](Examples/HTMP-V1.md), [RN-V1](Examples/RN-V1.md), [RN-V2](Examples/RN-V2.md).
+Преобразует внутреннюю структуру JSON файлов определений тайтлов согласно одному из поддерживаемых форматов: [DMP-V1](Examples/DMP-V1.md), [RN-V1](Examples/RN-V1.md), [RN-V2](Examples/RN-V2.md).
 
 **Описание позиций:**
 * **TARGET** – цель для конвертирования. Обязательная позиция.
@@ -162,7 +161,7 @@ ___
 ```JSON
 "format": "rn-v2"
 ```
-Задаёт внутреннюю структуру описательных файлов тайтлов. Поддерживаются следующие форматы: [DMP-V1](Examples/DMP-V1.md), [HTCRN-V1](Examples/HTCRN-V1.md), [HTMP-V1](Examples/HTMP-V1.md), [RN-V1](Examples/RN-V1.md).
+Задаёт внутреннюю структуру описательных файлов тайтлов. Поддерживаются следующие форматы: [DMP-V1](Examples/DMP-V1.md), [RN-V1](Examples/RN-V1.md), [RN-V2](Examples/RN-V2.md).
 ___
 ```JSON
 "use-proxy": false
