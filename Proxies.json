@@ -7,15 +7,7 @@
 			"https": "{IP}:{PORT}"
 		}
 	],
-	"proxies": [
-		{
-			"https": "http://5zEw9E:dxUYjQ@194.67.222.19:9704"
-		}
-	],
+	"proxies": [],
 	"forbidden-proxies": [],
-	"invalid-proxies": [
-		{
-			"https": "http://LHjKav:nEBks5@193.124.176.123:972"
-		}
-	]
+	"invalid-proxies": []
 }

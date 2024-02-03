@@ -1,5 +1,5 @@
 from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, ReadJSON, Shutdown, WriteJSON
-from Source.Functions import ManageOtherFormatsFiles, SecondsToTimeString, Unstub
+from Source.Functions import ManageOtherFormatsFiles, SecondsToTimeString
 from dublib.Terminalyzer import ArgumentsTypes, Terminalyzer, Command
 from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
@@ -60,6 +60,9 @@ if Settings["covers-directory"] == "": Settings["covers-directory"] = "Covers/"
 if Settings["covers-directory"].endswith("/") == False: Settings["covers-directory"] += "/"
 if Settings["titles-directory"] == "": Settings["titles-directory"] = "Titles/"
 if Settings["titles-directory"].endswith("/") == False: Settings["titles-directory"] += "/"
+
+# Форматирование токена.
+if Settings["authorization-token"].startswith("bearer ") == False and len(Settings["authorization-token"]) > 0: Settings["authorization-token"] = "bearer " + Settings["authorization-token"]
 
 # Приведение формата описательного файла к нижнему регистру.
 Settings["format"] = Settings["format"].lower()
@@ -514,10 +517,10 @@ if "unstub" == CommandDataStruct.name:
 		Cls()
 		# Вывод в консоль: прогресс.
 		print("Progress: " + str(Index + 1) + " / " + str(len(TitlesSlugs)), "\nStubs removed: " + str(FilteredCoversCount))
-		
+		# Инициализация парсера.
+		Parser = TitleParser(Settings, TitlesSlugs[Index], Unstub = True)
 		# Если произошла фильтрация, произвести инкремент количества удалённых заглушек.
-		if Unstub(Settings, TitlesSlugs[Index]) == True:
-			FilteredCoversCount += 1
+		if Parser.unstub() == True: FilteredCoversCount += 1
 			
 	# Запись в лог сообщения: количество удалённых заглушек.
 	logging.info("Total stubs removed: " + str(FilteredCoversCount) + ".")

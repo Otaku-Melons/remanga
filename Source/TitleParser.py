@@ -1,6 +1,6 @@
 from Source.Functions import CompareImages, MergeListOfLists, RemoveFolderContent
 from Source.RequestsManager import RequestsManager
-from dublib.Methods import Cls, ReadJSON
+from dublib.Methods import Cls, ReadJSON, WriteJSON
 from Source.Formatter import Formatter
 from time import sleep
 
@@ -18,17 +18,20 @@ class TitleParser:
 		IsFiltered = False
 		# Список названий файлов фильтров.
 		FiltersFilenames = ["high", "mid", "low"]
-		# Сравнение изображений.
-		Result = CompareImages("Source/Filters/" + FiltersFilenames[CoverIndex] + ".jpg", CoverPath)
 		
-		# Если разница между обложкой и шаблоном составляет менее 50%.
-		if Result != None and Result < 50.0:
-			# Удалить файл обложки.
-			os.remove(CoverPath)
-			# Удалить запись об обложке.
-			self.__Title["img"][FiltersFilenames[CoverIndex]] = ""
-			# Переключить статус фильтрации.
-			IsFiltered = True
+		# Для каждого фильтра.
+		for Filter in os.listdir("Source/Filters"):
+			# Сравнение изображений.
+			Result = CompareImages(f"Source/Filters/{Filter}/" + FiltersFilenames[CoverIndex] + ".jpg", CoverPath)
+		
+			# Если разница между обложкой и шаблоном составляет менее 50%.
+			if Result != None and Result < 50.0:
+				# Удалить файл обложки.
+				os.remove(CoverPath)
+				# Удалить запись об обложке.
+				self.__Title["img"][FiltersFilenames[CoverIndex]] = ""
+				# Переключить статус фильтрации.
+				IsFiltered = True
 		
 		return IsFiltered
 		
@@ -303,7 +306,7 @@ class TitleParser:
 		return RemangaTitle
 
 	# Конструктор: строит каркас словаря и проверяет наличие локальных данных.
-	def __init__(self, Settings: dict, Slug: str, ForceMode: bool = True, Message: str = "", Amending: bool = True):
+	def __init__(self, Settings: dict, Slug: str, ForceMode: bool = True, Message: str = "", Amending: bool = True, Unstub: bool = False):
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
@@ -342,11 +345,11 @@ class TitleParser:
 
 		#---> Построение каркаса словаря.
 		#==========================================================================================#
-		# Получение описания тайтла.
-		self.__Title = self.__GetTitleDescription()
+		# Если не запущен режим фильтрации заглушек, запросить данные тайтла.
+		if Unstub == False: self.__Title = self.__GetTitleDescription()
 
-		# Проверка доступности тайтла.
-		if self.__IsActive == True:
+		# Если не запущен режим фильтрации заглушек и тайтл активен.
+		if Unstub == False and self.__IsActive == True:
 			# Получение ID тайтла.
 			self.__ID = str(self.__Title["id"])
 			# Формирование заголовка тайтла для вывода в консоль.
@@ -546,7 +549,7 @@ class TitleParser:
 			
 			if IsCoversFiltered == True:
 				# Вывод в терминал: обложки отфильтрованы.
-				print(f"\n All covers filtered as stubs!")
+				print(f"\nAll covers filtered as stubs!")
 				# Запись в лог сообщения: обложки отфильтрованы.
 				logging.info("Title: \"" + self.__TitleHeader + "\". Covers filtered as stubs.")
 				
@@ -652,3 +655,53 @@ class TitleParser:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
 				else:
 					logging.info("Title: \"" + self.__TitleHeader + "\". Parsed.")
+					
+	# Фильтрует заглушки обложек.
+	def unstub(self) -> bool:
+		# Используемое имя тайтла.
+		UsedTitleName = self.__Slug.replace(".json", "")
+		# Чтение тайтла.
+		self.__Title = ReadJSON(self.__Settings["titles-directory"] + self.__Slug)
+		# Инициализатора конвертера.
+		Converter = Formatter(self.__Settings, self.__Title)
+		# Конвертирование формата в совместимый.
+		self.__Title = Converter.convert("rn-v1")
+		# Список URL обложек.
+		CoversURL = list()
+		# Состояние: отфильтрованы ли обложки.
+		IsFiltered = False
+		# Запись URL обложек.
+		if self.__Title["img"]["high"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
+		if self.__Title["img"]["mid"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
+		if self.__Title["img"]["low"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
+		
+		# Скачивание обложек.
+		for Index in range(0, len(CoversURL)):
+			# Имя файла обложки.
+			CoverFilename = self.__Settings["covers-directory"] + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
+			
+			# Если обложка отфильтрована.
+			if self.__FilterCovers(CoverFilename, Index) == True:
+				# Переключение состояния.
+				IsFiltered = True
+				# Удаление файлов обложек.
+				RemoveFolderContent(self.__Settings["covers-directory"] + UsedTitleName)
+				# Очистка записей об обложках.
+				self.__Title["img"]["high"] = ""
+				self.__Title["img"]["mid"] = ""
+				self.__Title["img"]["low"] = ""
+				# Запись в лог сообщения: количество удалённых заглушек.
+				logging.info("Title: \"" + self.__Slug + "\". Covers filtered as stubs.")
+				# Остановка цикла.
+				break
+			
+		# Инициализатора конвертера.
+		Converter = Formatter(self.__Settings, self.__Title)
+		# Конвертирование формата в совместимый.
+		self.__Title = Converter.convert(self.__Settings["format"])
+		# Сохранение файла.
+		WriteJSON(self.__Settings["titles-directory"] + self.__Slug, self.__Title)
+		# Если обложки не были отфильтрованы, записать сообщение в лог.
+		if IsFiltered == False: logging.info("Title: \"" + self.__Slug + "\". Filtering done.")
+
+		return IsFiltered		

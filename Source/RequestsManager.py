@@ -171,7 +171,7 @@ class RequestsManager:
 			exit(1)
 
 		# Если не запущена валидация, выбрать прокси.
-		if LoadProxy == False: self.__SelectProxy()
+		if Settings["use-proxy"] == True and LoadProxy == False: self.__SelectProxy()
 		# Инициализация запросчика.
 		self.__Initialize()
 		
@@ -228,8 +228,8 @@ class RequestsManager:
 		if Headers == None: Headers = self.__Headers
 		# Выполнение запроса.
 		Response = self.__Requestor.get(URL, headers = Headers, tries = self.__Settings["tries"])
-		# Обработка кода.
-		self.__ProcessStatusCode(Response.status_code)
+		# Если использовался прокси, обработать код.
+		if self.__CurrentProxy != None: self.__ProcessStatusCode(Response.status_code)
 
 		return Response
 

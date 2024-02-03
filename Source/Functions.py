@@ -141,39 +141,3 @@ def SecondsToTimeString(Seconds: float) -> str:
 # Усекает число до определённого количества знаков после запятой.
 def ToFixedFloat(FloatNumber: float, Digits: int = 0) -> float:
 	return float(f"{FloatNumber:.{Digits}f}")
-	
-# Фильтрует заглушки обложек.
-def Unstub(Settings: dict, Slug: str) -> bool:
-	# Чтение тайтла.
-	LocalTitle = ReadJSON(Settings["titles-directory"] + Slug)
-	# Инициализатора конвертера.
-	Converter = Formatter(Settings, LocalTitle)
-	# Конвертирование формата в совместимый.
-	LocalTitle = Converter.convert("rn-v1")
-	# Результат сравнения изображений.
-	Result = None
-	# Состояние: произошла ли фильтрация.
-	IsFiltered = False
-	# Сравнение изображений.
-	Result = CompareImages("Source/Filters/high.jpg", Settings["covers-directory"] + Slug.replace(".json", "") + "/" + LocalTitle["img"]["high"].split('/')[-1])
-
-	# Если сравнение
-	if Result != None and Result < 50.0:
-		# Удаление файлов обложек.
-		RemoveFolderContent(Settings["covers-directory"] + Slug.replace(".json", ""))
-		# Очистка записей об обложках.
-		LocalTitle["img"]["high"] = ""
-		LocalTitle["img"]["mid"] = ""
-		LocalTitle["img"]["low"] = ""
-		# Переключение состояния фильтрации.
-		IsFiltered = True
-		# Реинициализатора конвертера.
-		Converter = Formatter(Settings, LocalTitle)
-		# Конвертирование формата в указанный настройками.
-		OutputTitle = Converter.convert(Settings["format"])
-		# Сохранение описательного файла.
-		WriteJSON(Settings["titles-directory"] + Slug, OutputTitle)
-		# Запись в лог сообщения: удалена заглушка из тайтла.
-		logging.info("Title: \"" + LocalTitle["dir"] + " (ID: " + str(LocalTitle["id"]) + ")\". Stub removed.")
-		
-	return IsFiltered
