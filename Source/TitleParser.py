@@ -1,6 +1,6 @@
-from Source.Functions import CompareImages, MergeListOfLists, RemoveFolderContent
+from dublib.Methods import Cls, ReadJSON, RemoveFolderContent, WriteJSON
+from Source.Functions import CompareImages, MergeListOfLists
 from Source.RequestsManager import RequestsManager
-from dublib.Methods import Cls, ReadJSON, WriteJSON
 from Source.Formatter import Formatter
 from time import sleep
 
