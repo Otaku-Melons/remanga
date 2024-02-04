@@ -5,6 +5,7 @@ from Source.RequestsManager import RequestsManager
 from Source.TitleParser import TitleParser
 from Source.Collector import Collector
 from Source.Formatter import Formatter
+from Source.Builder import Builder
 from Source.Updater import Updater
 from time import sleep
 
@@ -78,6 +79,16 @@ logging.info("Using ID instead slug: ON." if Settings["use-id-instead-slug"] == 
 # Список описаний обрабатываемых команд.
 CommandsList = list()
 
+# Создание команды: build.
+COM_build = Command("build")
+COM_build.add_argument(ArgumentsTypes.All, important = True)
+COM_build.add_flag_position(["cbz"])
+COM_build.add_flag_position(["no-filters"])
+COM_build.add_flag_position(["no-delay"])
+COM_build.add_key_position(["branch", "chapter", "volume"], ArgumentsTypes.All)
+COM_build.add_flag_position(["s"])
+CommandsList.append(COM_build)
+
 # Создание команды: collect.
 COM_collect = Command("collect")
 COM_collect.add_key_position(["filters"], ArgumentsTypes.All, important = True)
@@ -99,6 +110,7 @@ COM_get = Command("get")
 COM_get.add_argument(ArgumentsTypes.URL, important = True)
 COM_get.add_key_position(["dir"], ArgumentsTypes.ValidPath)
 COM_get.add_key_position(["name"], ArgumentsTypes.All)
+COM_get.add_flag_position(["s"])
 CommandsList.append(COM_get)
 
 # Создание команды: getcov.
@@ -180,7 +192,7 @@ InFuncMessage_ForceMode = ""
 Cls()
 
 # Обработка флага: режим перезаписи.
-if "f" in CommandDataStruct.flags and CommandDataStruct.name not in ["convert", "manage", "repair"]:
+if "f" in CommandDataStruct.flags and CommandDataStruct.name not in ["build", "convert", "manage", "repair"]:
 	# Включение режима перезаписи.
 	IsForceModeActivated = True
 	# Запись в лог сообщения: включён режим перезаписи.
@@ -188,7 +200,7 @@ if "f" in CommandDataStruct.flags and CommandDataStruct.name not in ["convert", 
 	# Установка сообщения для внутренних функций.
 	InFuncMessage_ForceMode = "Force mode: ON\n"
 
-else:
+elif CommandDataStruct.name not in ["build", "convert", "manage", "repair"]:
 	# Запись в лог сообщения об отключённом режиме перезаписи.
 	logging.info("Force mode: OFF.")
 	# Установка сообщения для внутренних функций.
@@ -206,6 +218,38 @@ if "s" in CommandDataStruct.flags:
 #==========================================================================================#
 # >>>>> ОБРАБОТКА КОММАНД <<<<< #
 #==========================================================================================#
+
+# Обработка команды: build.
+if "build" == CommandDataStruct.name:
+	# Запись в лог сообщения: построение тайтла.
+	logging.info("====== Building ======")	
+	# Инициализация билдера.
+	BuilderObject = Builder(Settings, CommandDataStruct.arguments[0], InFuncMessage_Shutdown)
+	# Если задан флаг, изменить выходной формат на *.CBZ.
+	if "cbz" in CommandDataStruct.flags: BuilderObject.setOutputFormat("cbz")
+	# Если задан флаг, отключить фильтрацию.
+	if "no-filters" in CommandDataStruct.flags: BuilderObject.setFilterStatus(False)
+	# Если задан флаг, отключить интервал.
+	if "no-delay" in CommandDataStruct.flags: BuilderObject.setDelayStatus(False)
+	
+	# Если ключом указан ID главы для сборки.
+	if "chapter" in CommandDataStruct.keys:
+		# Построение главы.
+		BuilderObject.buildChapter(int(CommandDataStruct.values["chapter"]))
+	
+	# Если ключом указан номер тома для сборки.
+	elif "volume" in CommandDataStruct.keys:
+		# Построение тома.
+		BuilderObject.buildVolume(None, CommandDataStruct.values["volume"])
+	
+	# Если ключом указан номер ветви для сборки.
+	elif "branch" in CommandDataStruct.keys:
+		# Построение ветви.
+		BuilderObject.buildBranch(CommandDataStruct.values["branch"])
+	
+	else:
+		# Построение всего тайтла.
+		BuilderObject.buildBranch()
 
 # Обработка команды: collect.
 if "collect" == CommandDataStruct.name:
