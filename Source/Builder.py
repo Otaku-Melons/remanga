@@ -10,19 +10,29 @@ import os
 # >>>>> ИСКЛЮЧЕНИЯ <<<<< #
 #==========================================================================================#
 
-# Исключение: использован устаревший формат.
+# Исключение: не найдена цель для сборки.
 class BuildTargetNotFound(Exception):
 
-	# Конструктор: вызывается при обработке исключения.
-	def __init__(self, Format: str | None, Version: str):
-		# Название парсера.
-		Parser = "RemangaParser"
+	# Конструктор.
+	def __init__(self, Type: str, Value: str):
 		# Добавление данных в сообщение об ошибке.
-		self.__Message = f"Format \"{Format}\" is depreacted. Use {Parser} v{Version}."
+		self.__Message = f"Target \"{Type}\" with value \"{Value}\" not found."
 		# Обеспечение доступа к оригиналу наследованного свойства.
 		super().__init__(self.__Message) 
 			
-	# Преобразователь: представляет содержимое класса как строку.
+	def __str__(self):
+		return self.__Message
+	
+# Исключение: неподдерживаемый формат.
+class UnsupportedFormat(Exception):
+
+	# Конструктор.
+	def __init__(self):
+		# Добавление данных в сообщение об ошибке.
+		self.__Message = f"File format unsupported. Convert it to DMP-V1 or RN-V2."
+		# Обеспечение доступа к оригиналу наследованного свойства.
+		super().__init__(self.__Message) 
+			
 	def __str__(self):
 		return self.__Message
 
@@ -34,7 +44,7 @@ class BuildTargetNotFound(Exception):
 class Builder:
 	
 	# Возвращает главу с ID.
-	def __GetChapterByID(self, ChapterID: int) -> dict | None:
+	def __GetChapterByID(self, ChapterID: int) -> dict:
 		
 		# Для каждой ветви.
 		for BranchID in self.__Title["chapters"].keys():
@@ -45,7 +55,8 @@ class Builder:
 				# Если глава найдена, вернуть главу.
 				if Chapter["id"] == ChapterID: return Chapter
 				
-		return None
+		# Если глава не найдена, выбросить исключение.
+		raise BuildTargetNotFound("chapter", ChapterID)
 	
 	# Возвращает список глав в томе.
 	def __GetVolumeChapters(self, BranchID: str, Volume: str) -> list[dict]:
@@ -57,6 +68,9 @@ class Builder:
 			
 			# Если глава принадлежит указанному тому.
 			if str(Chapter["volume"]) == Volume: Chapters.append(Chapter)
+			
+		# Если том не найден, выбросить исключение.
+		if len(Chapters) > 0: raise BuildTargetNotFound("volume", Volume)
 			
 		return Chapters
 	
@@ -144,6 +158,8 @@ class Builder:
 		MakeRootDirectories(["Output", "Temp"])
 		# Инициализация запросчика.
 		self.__Requestor.initialize()
+		# Если формат не поддерживается, выбросить исключение.
+		if "format" not in self.__Title.keys() or self.__Title["format"].lower() not in ["dmp-v1", "rn-v1"]: raise UnsupportedFormat()
 		
 	# Загружает главу.
 	def buildChapter(self, ChapterID: int, Output: str | None = None, Message: str = "") -> bool:
@@ -238,6 +254,8 @@ class Builder:
 		if BranchID == None: BranchID = str(max(self.__Title["branches"], key = lambda Branch: Branch["chapters-count"])["id"])
 		# Количество ошибок.
 		ErrorsCount = 0
+		# Если ветвь не найдена, выбросить исключение.
+		if BranchID not in self.__Title["chapters"].keys(): raise BuildTargetNotFound("branch", BranchID)
 		
 		# Для каждого тома.
 		for Volume in self.__GetVolumesList(BranchID):
