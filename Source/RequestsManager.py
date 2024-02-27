@@ -33,16 +33,19 @@ class RequestsManager:
 	
 	# Перемещает активный прокси в список.
 	def __MoveCurrentProxyToList(self, List: str, From: str = "proxies", Initialize: bool = True):
-		# Помещение активного прокси в список.
-		self.__Proxies[List].append(self.__CurrentProxy)
-		# Удаление активного прокси из валидных.
-		self.__Proxies[From].remove(self.__CurrentProxy)
-		# Сохранение списка прокси.
-		WriteJSON("Proxies.json", self.__Proxies)
-		# Выбор нового прокси.
-		self.__SelectProxy()
-		# Если указано, инициализировать запросчик.
-		if Initialize == True: self.__Initialize()
+		
+		# Если установлен прокси.
+		if self.__CurrentProxy != None:
+			# Помещение активного прокси в список.
+			self.__Proxies[List].append(self.__CurrentProxy)
+			# Удаление активного прокси из валидных.
+			self.__Proxies[From].remove(self.__CurrentProxy)
+			# Сохранение списка прокси.
+			WriteJSON("Proxies.json", self.__Proxies)
+			# Выбор нового прокси.
+			self.__SelectProxy()
+			# Если указано, инициализировать запросчик.
+			if Initialize == True: self.__Initialize()
 	
 	# Инициализирует запросчик.
 	def __Initialize(self):

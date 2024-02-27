@@ -114,7 +114,7 @@ class TitleParser:
 				BranchData[Index]["slides"] = list()
 				
 			# Запись в лог сообщения: завершено получение данных о ветвях.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Request title branches... Done.")
+			logging.info("Title: " + self.__TitleHeader + ". Request title branches... Done.")
 
 		return BranchData
 
@@ -142,21 +142,21 @@ class TitleParser:
 			# Сохранение форматированного результата.
 			Description = dict(json.loads(Response.text))["content"]
 			# Запись в лог сообщения о запросе описания тайтла.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Request title description... Done.")
+			logging.info("Title: " + self.__TitleHeader + ". Request title description... Done.")
 
 		# Обработка ошибки доступа в виду отсутствия токена авторизации.
 		elif Response.status_code == 401:
 			# Перекючение парсера в неактивное состояние.
 			self.__IsActive = False
 			# Запись в лог предупреждения: невозможно получить доступ к 18+ тайтлу без токена авторизации.
-			logging.warning("Title: \"" + self.__TitleHeader + "\". Authorization token required. Skipped.")
+			logging.warning("Title: " + self.__TitleHeader + ". Authorization token required. Skipped.")
 
 		# Обработка ошибки запроса отсутствующего на сервере тайтла.
 		elif Response.status_code == 404:
 			# Перекючение парсера в неактивное состояние.
 			self.__IsActive = False
 			# Запись в лог предупреждения: тайтл не найден.
-			logging.warning("Title: \"" + self.__TitleHeader + "\". Not found. Skipped.")
+			logging.warning("Title: " + self.__TitleHeader + ". Not found. Skipped.")
 
 		# Обработка любой другой ошибки запроса.
 		else:
@@ -218,7 +218,7 @@ class TitleParser:
 					# Перевод парсера в неактивное состояние.
 					self.__IsActive = False
 					# Запись в лог сообщения: наследуемая ветвь была удалена на сайте.
-					logging.warning("Title: \"" + self.__TitleHeader + "\". Legacy branch was removed from site!")
+					logging.warning("Title: " + self.__TitleHeader + ". Legacy branch was removed from site!")
 
 			# Если формат не HTMP-V1.
 			else:
@@ -272,11 +272,11 @@ class TitleParser:
 									# Получение ID ветви с большим количеством глав.
 									BranchID = str(BranchesBufer[0]["id"])
 									# Запись в лог: доступна ветвь с большим количеством глав.
-									logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with more chapters count (BID: {BranchID}) available!")
+									logging.warning("Title: " + self.__TitleHeader + f". Branch with more chapters count (BID: {BranchID}) available!")
 									
 					else:
 						# Запись в лог предупреждения: ветвь была удалена.
-						logging.warning("Title: \"" + self.__TitleHeader + f"\". Branch with ID {BranchID} was removed on site.")
+						logging.warning("Title: " + self.__TitleHeader + f". Branch with ID {BranchID} was removed on site.")
 						
 						# Если есть определение контента в локальном файле, то скопировать его.
 						if BranchID in LocalTitle["chapters"].keys():
@@ -301,7 +301,7 @@ class TitleParser:
 							})
 						
 				# Запись в лог сообщения: завершение слияния.
-				logging.info("Title: \"" + self.__TitleHeader + "\". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
+				logging.info("Title: " + self.__TitleHeader + ". Merged chapters: " + str(self.__MergedChaptersCount) + ".")
 
 		return RemangaTitle
 
@@ -315,7 +315,7 @@ class TitleParser:
 		# Менеджер запросов через прокси.
 		self.__RequestsManager = RequestsManager(Settings)
 		# Заголовок тайтла для логов и вывода в терминал.
-		self.__TitleHeader = Slug
+		self.__TitleHeader = f"\"{Slug}\""
 		# Состояние: включена ли перезапись файлов.
 		self.__ForceMode = ForceMode
 		# Глобальные настройки.
@@ -336,12 +336,10 @@ class TitleParser:
 			"Referer": "https://remanga.org/",
 		}
 
-		# Если токена авторизации нет, то удалить заголовок.
-		if self.__RequestHeaders["Authorization"] == "":
-			del self.__RequestHeaders["Authorization"]
-
+		# Если токена авторизации нет, удалить заголовок.
+		if self.__RequestHeaders["Authorization"] == "": del self.__RequestHeaders["Authorization"]
 		# Запись в лог сообщения о начале парсинга.
-		logging.info("Title: \"" + self.__TitleHeader + "\". Parsing...")
+		logging.info("Title: " + self.__TitleHeader + ". Parsing...")
 
 		#---> Построение каркаса словаря.
 		#==========================================================================================#
@@ -404,7 +402,7 @@ class TitleParser:
 			# Количество глав во всех ветвях тайтла.
 			AllBranchesChaptersCount = self.__GetChaptersCountInAllBranches()
 			# Запись в лог сообщения о старте получения информации о страницах глав.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Amending...")
+			logging.info("Title: " + self.__TitleHeader + ". Amending...")
 
 			# Получение списка ID ветвей.
 			for Branch in self.__Title["branches"]:
@@ -429,7 +427,7 @@ class TitleParser:
 							# Получение информации о страницах главы.
 							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["slides"]
 							# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
-							logging.info("Title: \"" + self.__TitleHeader + "\". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
+							logging.info("Title: " + self.__TitleHeader + ". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
 							# Инкремент счётчика.
 							UpdatedChaptersCounter += 1
 							# Выжидание указанного интервала.
@@ -440,7 +438,7 @@ class TitleParser:
 							logging.info("Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " is paid. Skipped.")
 
 			# Запись в лог сообщения о количестве дополненных глав.
-			logging.info("Title: \"" + self.__TitleHeader + "\". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
+			logging.info("Title: " + self.__TitleHeader + ". Amended chapters: " + str(UpdatedChaptersCounter) + ".")
 
 	# Загружает обложки тайтла.
 	def downloadCovers(self):
@@ -496,7 +494,7 @@ class TitleParser:
 				# Проверка существования файла.
 				if os.path.exists(CoverFilename) == False:
 					# Вывод в терминал URL загружаемой обложки.
-					print("Downloading cover: \"" + CoversURL[Index] + "\"... ", end = "")
+					print("Downloading cover: \" + CoversURL[Index] + \"... ", end = "")
 
 					# Выполнение запроса.
 					Response = self.__RequestsManager.request(CoversURL[Index], Headers = ImageRequestHeaders)
@@ -523,7 +521,7 @@ class TitleParser:
 
 					else:
 						# Запись в лог ошибки: не удалось загрузить обложку.
-						logging.error("Title: \"" + self.__TitleHeader + "\". Unable download cover: \"" + CoversURL[Index] + "\". Response code: " + str(Response.status_code) + ".")
+						logging.error("Title: " + self.__TitleHeader + ". Unable download cover: \"" + CoversURL[Index] + "\". Response code: " + str(Response.status_code) + ".")
 						# Вывод в терминал: ошибка загрузки.
 						print("Failure!")
 
@@ -551,11 +549,11 @@ class TitleParser:
 				# Вывод в терминал: обложки отфильтрованы.
 				print(f"\nAll covers filtered as stubs!")
 				# Запись в лог сообщения: обложки отфильтрованы.
-				logging.info("Title: \"" + self.__TitleHeader + "\". Covers filtered as stubs.")
+				logging.info("Title: " + self.__TitleHeader + ". Covers filtered as stubs.")
 				
 			else:
 				# Запись в лог сообщения: количество загруженных обложек.
-				logging.info("Title: \"" + self.__TitleHeader + "\". Covers downloaded: " + str(DownloadedCoversCount) + ".")
+				logging.info("Title: " + self.__TitleHeader + ". Covers downloaded: " + str(DownloadedCoversCount) + ".")
 			
 	# Заменяет главу свежей версией с сервера.
 	def repairChapter(self, ChapterID: str):
@@ -652,9 +650,9 @@ class TitleParser:
 
 				# Запись в лог сообщения: создан или обновлён локальный файл.
 				if self.__MergedChaptersCount > 0:
-					logging.info("Title: \"" + self.__TitleHeader + "\". Updated.")
+					logging.info("Title: " + self.__TitleHeader + ". Updated.")
 				else:
-					logging.info("Title: \"" + self.__TitleHeader + "\". Parsed.")
+					logging.info("Title: " + self.__TitleHeader + ". Parsed.")
 					
 	# Фильтрует заглушки обложек.
 	def unstub(self) -> bool:
