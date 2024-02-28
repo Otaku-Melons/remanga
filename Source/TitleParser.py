@@ -54,7 +54,7 @@ class TitleParser:
 			del ChapterData["pages"]
 			
 		else:
-			# Запись в лог сообщения о том, что не удалось выполнить запрос.
+			# Запись в лог предупреждения: не удалось запросить данные главы.
 			logging.error("Unable to request chapter data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
 
 		# Выжидание указанного интервала.
@@ -460,12 +460,24 @@ class TitleParser:
 			DownloadedCoversCount = 0
 			# Состояние: отфильтрованы ли обложки.
 			IsCoversFiltered = False
-			# Запись URL обложек.
-			CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
-			CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
-			CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
 			# Используемое имя тайтла: ID или алиас.
 			UsedTitleName = self.__Slug if self.__Settings["use-id-instead-slug"] == False else self.__ID
+			# Типы обложек.
+			CoversTypes = ["high", "mid", "low"]
+			
+			# Для каждого типа обложки.
+			for Type in CoversTypes:
+				
+				# Если указан URL обложки.
+				if self.__Title["img"]["high"] not in ["/media/None", None]:
+					# Запись URL обложки.
+					CoversURL.append("https://remanga.org" + self.__Title["img"][Type])
+					
+				else:
+					# Запись в лог предупреждения: отсутствует URL обложки.
+					logging.warning("Title: " + self.__TitleHeader + f". Missing \"{Type}\" cover URL.")
+					# Вывод в терминал данных обложки.
+					print(f"Missing \"{Type}\" cover URL. Skipped.")
 
 			# Скачивание обложек.
 			for Index in range(0, len(CoversURL)):
@@ -494,7 +506,7 @@ class TitleParser:
 				# Проверка существования файла.
 				if os.path.exists(CoverFilename) == False:
 					# Вывод в терминал URL загружаемой обложки.
-					print("Downloading cover: \" + CoversURL[Index] + \"... ", end = "")
+					print("Downloading cover: \"" + CoversURL[Index] + "\"... ", end = "")
 
 					# Выполнение запроса.
 					Response = self.__RequestsManager.request(CoversURL[Index], Headers = ImageRequestHeaders)
