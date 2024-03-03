@@ -71,6 +71,8 @@ Settings["format"] = Settings["format"].lower()
 logging.info("Output file format: \"" + Settings["format"] + "\".")
 # Запись в лог сообщения: использование ID вместо алиаса.
 logging.info("Using ID instead slug: ON." if Settings["use-id-instead-slug"] == True else "Using ID instead slug: OFF.")
+# Запись в лог сообщения: использование менеджера прокси.
+logging.info("Proxy manager: ON." if Settings["proxy-manager"] == True else "Proxy manager: OFF.")
 
 #==========================================================================================#
 # >>>>> НАСТРОЙКА ОБРАБОТЧИКА КОМАНД <<<<< #

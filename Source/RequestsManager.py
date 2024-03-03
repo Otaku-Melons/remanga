@@ -232,7 +232,7 @@ class RequestsManager:
 		# Выполнение запроса.
 		Response = self.__Requestor.get(URL, headers = Headers, tries = self.__Settings["tries"])
 		# Если использовался прокси, обработать код.
-		if self.__CurrentProxy != None: self.__ProcessStatusCode(Response.status_code)
+		if self.__CurrentProxy != None and self.__Settings["proxy-manager"] == True: self.__ProcessStatusCode(Response.status_code)
 
 		return Response
 

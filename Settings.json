@@ -3,6 +3,7 @@
 	"format": "rn-v2",
 	"use-proxy": false,
 	"ru-links": true,
+	"proxy-manager": false,
 	"check-updates-period": 60,
 	"use-id-instead-slug": false,
 	"titles-directory": "",
