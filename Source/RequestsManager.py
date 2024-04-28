@@ -188,7 +188,7 @@ class RequestsManager:
 		Path = Path.replace('\\', '/')
 		
 		# Если задано название и не указано расширение.
-		if Filename.endswith(".jpeg") == False and Filename.endswith(".jpg") == False:
+		if Filename.split(".")[-1] not in ["jpeg", "jpg", "webp"]:
 			# Добавление расширения к названию файла.
 			Filename += "." + URL.split('.')[-1]
 	
