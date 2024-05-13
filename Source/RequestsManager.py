@@ -1,4 +1,4 @@
-from dublib.WebRequestor import Protocols, WebRequestor
+from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
 from dublib.Methods import ReadJSON, WriteJSON
 from fake_useragent import UserAgent
 
@@ -57,8 +57,13 @@ class RequestsManager:
 			# Обнуление старого запросчика.
 			self.__Requestor = None
 			
+		# Конфигурация менеджера запросов.
+		Config = WebConfig()
+		Config.select_lib(WebLibs.curl_cffi)
+		Config.generate_user_agent("pc")
+		Config.curl_cffi.enable_http2(True)
 		# Запросчик.
-		self.__Requestor = WebRequestor()
+		self.__Requestor = WebRequestor(Config)
 		
 		# Если выбран прокси.
 		if self.__CurrentProxy != None:
@@ -66,9 +71,6 @@ class RequestsManager:
 			Data = self.__ParseProxy(self.__CurrentProxy["https"])
 			# Добавление прокси.
 			self.__Requestor.add_proxy(Protocols.HTTPS, Data["host"], Data["port"], Data["login"], Data["password"])
-			
-		# Инициализация запросчика.
-		self.__Requestor.initialize()
 	
 	# Парсит прокси.
 	def __ParseProxy(self, Proxy: str) -> dict:
