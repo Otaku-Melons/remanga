@@ -2,11 +2,11 @@ from dublib.Methods import CheckPythonMinimalVersion, Cls, MakeRootDirectories, 
 from Source.Functions import ManageOtherFormatsFiles, SecondsToTimeString
 from dublib.Terminalyzer import ArgumentsTypes, Terminalyzer, Command
 from Source.RequestsManager import RequestsManager
-from Source.TitleParser import TitleParser
 from Source.Collector import Collector
 from Source.Formatter import Formatter
 from Source.Builder import Builder
 from Source.Updater import Updater
+from Source.Parser import Parser
 from time import sleep
 
 import datetime
@@ -56,14 +56,12 @@ logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 # Глобальные настройки.
 Settings = ReadJSON("Settings.json")
 
-# Форматирование путей.
-if Settings["covers-directory"] == "": Settings["covers-directory"] = "Covers/"
-if Settings["covers-directory"].endswith("/") == False: Settings["covers-directory"] += "/"
-if Settings["titles-directory"] == "": Settings["titles-directory"] = "Titles/"
-if Settings["titles-directory"].endswith("/") == False: Settings["titles-directory"] += "/"
-
-# Форматирование токена.
-if Settings["authorization-token"].startswith("bearer ") == False and len(Settings["authorization-token"]) > 0: Settings["authorization-token"] = "bearer " + Settings["authorization-token"]
+# Форматирование настроек.
+if not Settings["authorization-token"].startswith("bearer "): Settings["authorization-token"] = "bearer " + Settings["authorization-token"]
+if Settings["covers-directory"] == "": Settings["covers-directory"] = "Covers"
+Settings["covers-directory"] = Settings["covers-directory"].replace("\\", "/").rstrip("/")
+if Settings["titles-directory"] == "": Settings["titles-directory"] = "Titles"
+Settings["titles-directory"] = Settings["titles-directory"].replace("\\", "/").rstrip("/")
 
 # Приведение формата описательного файла к нижнему регистру.
 Settings["format"] = Settings["format"].lower()
@@ -228,30 +226,30 @@ if "build" == CommandDataStruct.name:
 	# Инициализация билдера.
 	BuilderObject = Builder(Settings, CommandDataStruct.arguments[0], InFuncMessage_Shutdown)
 	# Если задан флаг, изменить выходной формат на *.CBZ.
-	if "cbz" in CommandDataStruct.flags: BuilderObject.setOutputFormat("cbz")
+	if "cbz" in CommandDataStruct.flags: BuilderObject.set_output_format("cbz")
 	# Если задан флаг, отключить фильтрацию.
-	if "no-filters" in CommandDataStruct.flags: BuilderObject.setFilterStatus(False)
+	if "no-filters" in CommandDataStruct.flags: BuilderObject.set_filter_status(False)
 	# Если задан флаг, отключить интервал.
-	if "no-delay" in CommandDataStruct.flags: BuilderObject.setDelayStatus(False)
+	if "no-delay" in CommandDataStruct.flags: BuilderObject.set_delay_status(False)
 	
 	# Если ключом указан ID главы для сборки.
 	if "chapter" in CommandDataStruct.keys:
 		# Построение главы.
-		BuilderObject.buildChapter(int(CommandDataStruct.values["chapter"]))
+		BuilderObject.build_chapter(int(CommandDataStruct.values["chapter"]))
 	
 	# Если ключом указан номер тома для сборки.
 	elif "volume" in CommandDataStruct.keys:
 		# Построение тома.
-		BuilderObject.buildVolume(None, CommandDataStruct.values["volume"])
+		BuilderObject.build_volume(None, CommandDataStruct.values["volume"])
 	
 	# Если ключом указан номер ветви для сборки.
 	elif "branch" in CommandDataStruct.keys:
 		# Построение ветви.
-		BuilderObject.buildBranch(CommandDataStruct.values["branch"])
+		BuilderObject.build_branch(CommandDataStruct.values["branch"])
 	
 	else:
 		# Построение всего тайтла.
-		BuilderObject.buildBranch()
+		BuilderObject.build_branch()
 
 # Обработка команды: collect.
 if "collect" == CommandDataStruct.name:
@@ -358,7 +356,7 @@ if "getcov" == CommandDataStruct.name:
 	# Запись в лог сообщения: заголовок парсинга.
 	logging.info("====== Parsing ======")
 	# Парсинг тайтла (без глав).
-	LocalTitle = TitleParser(Settings, CommandDataStruct.arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
+	LocalTitle = Parser(Settings, CommandDataStruct.arguments[0], ForceMode = IsForceModeActivated, Message = InFuncMessage_Shutdown + InFuncMessage_ForceMode, Amending = False)
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.downloadCovers()
 
@@ -467,11 +465,11 @@ if "parse" == CommandDataStruct.name:
 		# Если включён парсинг только описания.
 		if "onlydesc" in CommandDataStruct.flags:
 			# Парсинг тайтла (без глав).
-			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
+			LocalTitle = Parser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
 				
 		else:
 			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
+			LocalTitle = Parser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()
@@ -533,7 +531,7 @@ if "repair" == CommandDataStruct.name:
 		TitleSlug = TitleContent["dir"]
 
 	# Парсинг тайтла.
-	LocalTitle = TitleParser(Settings, TitleSlug, ForceMode = False, Message = ExternalMessage, Amending = False)
+	LocalTitle = Parser(Settings, TitleSlug, ForceMode = False, Message = ExternalMessage, Amending = False)
 	
 	# Если указано, восстановить главу.
 	if "chapter" in CommandDataStruct.keys:
@@ -564,7 +562,7 @@ if "unstub" == CommandDataStruct.name:
 		# Вывод в консоль: прогресс.
 		print("Progress: " + str(Index + 1) + " / " + str(len(TitlesSlugs)), "\nStubs removed: " + str(FilteredCoversCount))
 		# Инициализация парсера.
-		Parser = TitleParser(Settings, TitlesSlugs[Index], Unstub = True)
+		Parser = Parser(Settings, TitlesSlugs[Index], Unstub = True)
 		# Если произошла фильтрация, произвести инкремент количества удалённых заглушек.
 		if Parser.unstub() == True: FilteredCoversCount += 1
 			
@@ -612,11 +610,11 @@ if "update" == CommandDataStruct.name:
 		# Если включено обновление только описания.
 		if "onlydesc" in CommandDataStruct.flags:
 			# Парсинг тайтла (без глав).
-			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
+			LocalTitle = Parser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage, Amending = False)
 				
 		else:
 			# Парсинг тайтла.
-			LocalTitle = TitleParser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
+			LocalTitle = Parser(Settings, TitlesList[Index], ForceMode = IsForceModeActivated, Message = ExternalMessage)
 				
 		# Сохранение локальных файлов тайтла.
 		LocalTitle.save()

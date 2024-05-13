@@ -54,7 +54,7 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 	# Для каждого файла.
 	for Filename in FilesList:
 		# Чтение файла.
-		File = ReadJSON(Settings["titles-directory"] + Filename)
+		File = ReadJSON(Settings["titles-directory"] + "/" + Filename)
 		# Формат файла.
 		FileFormat = None
 		
@@ -75,7 +75,7 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 				# Если целевая директория существует.
 				if os.path.exists(TargetDirectory):
 					# Переместить файл.
-					shutil.move(Settings["titles-directory"] + Filename, TargetDirectory + Filename)
+					shutil.move(Settings["titles-directory"] + "/" + Filename, TargetDirectory + Filename)
 					
 					# Запись в лог сообщения: файл перемещён.
 					if Format != None:
@@ -89,7 +89,7 @@ def ManageOtherFormatsFiles(Settings: dict, Format: str, TargetDirectory: str | 
 			# Иначе удалить.
 			else:
 				# Удаление файла.
-				os.remove(Settings["titles-directory"] + Filename)
+				os.remove(Settings["titles-directory"] + "/" + Filename)
 				
 				# Запись в лог сообщения: файл удалён.
 				if Format != None:

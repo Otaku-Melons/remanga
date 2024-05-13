@@ -10,7 +10,7 @@ import json
 import os
 
 # Обработчик взаимодействий парсера и сайта.
-class TitleParser:
+class Parser:
 	
 	# Фильтрует заглушки для тайтлов без собственной обложки.
 	def __FilterCovers(self, CoverPath: str, CoverIndex: int) -> bool:
@@ -190,7 +190,7 @@ class TitleParser:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
 			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Merging...")
 			# Чтение локального описательного файла JSON.
-			LocalTitle = ReadJSON(self.__Settings["titles-directory"] + UsedTitleName + ".json")
+			LocalTitle = ReadJSON(self.__Settings["titles-directory"] + "/" + UsedTitleName + ".json")
 
 			# Для каждой ветви на сайте записать ID.
 			for Branch in RemangaTitle["branches"]:
@@ -378,9 +378,9 @@ class TitleParser:
 				for Filename in [Slug, self.__ID]:
 
 					# Если существует файл с названием таким же, как вариант написания.
-					if os.path.exists(self.__Settings["titles-directory"] + Filename + ".json"):
+					if os.path.exists(self.__Settings["titles-directory"] + "/" + Filename + ".json"):
 						# Чтение файла.
-						File = ReadJSON(self.__Settings["titles-directory"] + Filename + ".json")
+						File = ReadJSON(self.__Settings["titles-directory"] + "/" + Filename + ".json")
 
 						# Если алиас тайтла совпадает с целевым, то выполнить слияние с локальным описательным файлом.
 						if "slug" in File.keys() and File["slug"] == Slug or "dir" in File.keys() and File["dir"] == Slug:
@@ -482,22 +482,22 @@ class TitleParser:
 			# Скачивание обложек.
 			for Index in range(0, len(CoversURL)):
 				# Имя файла обложки.
-				CoverFilename = self.__Settings["covers-directory"] + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
+				CoverFilename = self.__Settings["covers-directory"] + "/" + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
 				
 				# Если включен режим перезаписи, то удалить файлы обложек.
 				if self.__ForceMode == True:
 					
 					# Удалить файл обложки.
-					if os.path.exists(self.__Settings["covers-directory"] + self.__Slug + "/" + CoversURL[Index].split('/')[-1]):
-						shutil.rmtree(self.__Settings["covers-directory"] + self.__Slug) 
+					if os.path.exists(self.__Settings["covers-directory"] + "/"+ self.__Slug + "/" + CoversURL[Index].split('/')[-1]):
+						shutil.rmtree(self.__Settings["covers-directory"] + "/" + self.__Slug) 
 						
-					elif os.path.exists(self.__Settings["covers-directory"] + self.__ID + "/" + CoversURL[Index].split('/')[-1]):
-						shutil.rmtree(self.__Settings["covers-directory"] + self.__ID) 
+					elif os.path.exists(self.__Settings["covers-directory"] + "/"+ self.__ID + "/" + CoversURL[Index].split('/')[-1]):
+						shutil.rmtree(self.__Settings["covers-directory"] + "/"+ self.__ID) 
 
 				# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
 				for State in [True, False]:
 					# Установка устаревшего имени папки с обложками в зависимости от статуса.
-					Foldername = self.__Settings["covers-directory"] + self.__Slug if State == True else self.__ID
+					Foldername = self.__Settings["covers-directory"] + "/" + self.__Slug if State == True else self.__ID
 
 					# Удаление папки для обложек с устаревшим названием.
 					if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Foldername + "/" + CoversURL[Index].split('/')[-1]):
@@ -515,12 +515,11 @@ class TitleParser:
 					if Response.status_code == 200:
 
 						# Создание папки для обложек.
-						if os.path.exists(self.__Settings["covers-directory"]) == False:
-							os.makedirs("Covers")
+						if os.path.exists(self.__Settings["covers-directory"]) == False: os.makedirs("Covers")
 
 						# Создание папки с алиасом тайтла в качестве названия.
-						if os.path.exists(self.__Settings["covers-directory"] + UsedTitleName) == False:
-							os.makedirs(self.__Settings["covers-directory"] + UsedTitleName)
+						if os.path.exists(self.__Settings["covers-directory"] + "/" + UsedTitleName) == False:
+							os.makedirs(self.__Settings["covers-directory"] + "/" + UsedTitleName)
 
 						# Открытие потока записи.
 						with open(CoverFilename, "wb") as FileWrite:
@@ -546,7 +545,7 @@ class TitleParser:
 					# Переключение статуса фильтрации.
 					IsCoversFiltered = True
 					# Удаление файлов обложек.
-					RemoveFolderContent(self.__Settings["covers-directory"] + UsedTitleName)
+					RemoveFolderContent(self.__Settings["covers-directory"] + "/" + UsedTitleName)
 					# Очистка записей об обложках.
 					self.__Title["img"]["high"] = ""
 					self.__Title["img"]["mid"] = ""
@@ -633,7 +632,7 @@ class TitleParser:
 			# Для каждого состояния переключателя, указывающего, что использовать для названия файла.
 			for State in [True, False]:
 				# Установка устаревшего имени файла в зависимости от статуса.
-				Filename = self.__Settings["titles-directory"] + (self.__Slug if State == True else self.__ID) + ".json" 
+				Filename = self.__Settings["titles-directory"] + "/" + (self.__Slug if State == True else self.__ID) + ".json" 
 
 				# Если существует файл тайтла с альтернативным названием.
 				if self.__Settings["use-id-instead-slug"] == State and os.path.exists(Filename):
@@ -645,8 +644,7 @@ class TitleParser:
 						os.remove(Filename)
 
 			# Создание папки для тайтлов.
-			if os.path.exists(self.__Settings["titles-directory"]) == False:
-				os.makedirs(self.__Settings["titles-directory"])
+			if os.path.exists(self.__Settings["titles-directory"]) == False: os.makedirs(self.__Settings["titles-directory"])
 
 			# Если указано, скачать обложки.
 			if DownloadCovers == True:
@@ -657,7 +655,7 @@ class TitleParser:
 			FormattedTitle = FormatterObject.convert(self.__Settings["format"])
 
 			# Сохранение локального файла JSON.
-			with open(self.__Settings["titles-directory"] + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
+			with open(self.__Settings["titles-directory"] + "/" + UsedTitleName + ".json", "w", encoding = "utf-8") as FileWrite:
 				json.dump(FormattedTitle, FileWrite, ensure_ascii = False, indent = '\t', separators = (',', ': '))
 
 				# Запись в лог сообщения: создан или обновлён локальный файл.
@@ -671,7 +669,7 @@ class TitleParser:
 		# Используемое имя тайтла.
 		UsedTitleName = self.__Slug.replace(".json", "")
 		# Чтение тайтла.
-		self.__Title = ReadJSON(self.__Settings["titles-directory"] + self.__Slug)
+		self.__Title = ReadJSON(self.__Settings["titles-directory"] + "/" + self.__Slug)
 		# Инициализатора конвертера.
 		Converter = Formatter(self.__Settings, self.__Title)
 		# Конвертирование формата в совместимый.
@@ -688,14 +686,14 @@ class TitleParser:
 		# Скачивание обложек.
 		for Index in range(0, len(CoversURL)):
 			# Имя файла обложки.
-			CoverFilename = self.__Settings["covers-directory"] + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
+			CoverFilename = self.__Settings["covers-directory"] + "/" + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
 			
 			# Если обложка отфильтрована.
 			if self.__FilterCovers(CoverFilename, Index) == True:
 				# Переключение состояния.
 				IsFiltered = True
 				# Удаление файлов обложек.
-				RemoveFolderContent(self.__Settings["covers-directory"] + UsedTitleName)
+				RemoveFolderContent(self.__Settings["covers-directory"] + "/" + UsedTitleName)
 				# Очистка записей об обложках.
 				self.__Title["img"]["high"] = ""
 				self.__Title["img"]["mid"] = ""
@@ -710,7 +708,7 @@ class TitleParser:
 		# Конвертирование формата в совместимый.
 		self.__Title = Converter.convert(self.__Settings["format"])
 		# Сохранение файла.
-		WriteJSON(self.__Settings["titles-directory"] + self.__Slug, self.__Title)
+		WriteJSON(self.__Settings["titles-directory"] + "/" + self.__Slug, self.__Title)
 		# Если обложки не были отфильтрованы, записать сообщение в лог.
 		if IsFiltered == False: logging.info("Title: \"" + self.__Slug + "\". Filtering done.")
 
