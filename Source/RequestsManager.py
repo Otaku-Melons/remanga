@@ -147,7 +147,7 @@ class RequestsManager:
 		self.__Proxies = dict()
 		# Заголовки запроса.
 		self.__Headers = {
-			"Authorization": self.__Settings["authorization-token"],
+			"Authorization": self.__Settings["token"],
 			"Referer": "https://remanga.org/",
 			"User-Agent": UserAgent().chrome
 		}

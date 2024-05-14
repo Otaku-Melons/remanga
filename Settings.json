@@ -1,5 +1,6 @@
 {
-	"authorization-token": "",
+	"token": "",
+	"subscription": false,
 	"format": "rn-v2",
 	"use-proxy": false,
 	"ru-links": true,

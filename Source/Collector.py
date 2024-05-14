@@ -85,7 +85,7 @@ class Collector:
 		self.__Settings = Settings.copy()
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"Authorization": self.__Settings["authorization-token"],
+			"Authorization": self.__Settings["token"],
 			"Referer": "https://remanga.org/"
 		}
 		

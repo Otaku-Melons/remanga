@@ -36,13 +36,13 @@ class Parser:
 		return IsFiltered
 		
 	# Возвращает структуру главы.
-	def __GetChapterData(self, ChepterID: str) -> dict:
+	def __GetChapterData(self, ChepterID: str) -> dict | None:
 		# Модификатор для доступа к API глав.
 		ChaptersAPI = "https://api.remanga.org/api/titles/chapters/" + str(ChepterID)
 		# Описание ветви перевода.
 		ChapterData = None
 		# Выполнение запроса.
-		Response = self.__RequestsManager.request(ChaptersAPI)
+		Response = self.__RequestsManager.request(ChaptersAPI, Headers = {"Authorization": self.__Settings["token"]})
 
 		# Проверка успешности запроса.
 		if Response.status_code == 200:
@@ -52,10 +52,15 @@ class Parser:
 			ChapterData["slides"] = MergeListOfLists(ChapterData["pages"])
 			# Удаление старого ключа.
 			del ChapterData["pages"]
+
+		# Если не удалось получить доступ к платной главе.
+		elif Response.status_code == 423 and self.__Settings["subscription"]:
+			# Запись в лог предупреждения: не удалось запросить данные палтной главы.
+			logging.warning(f"Unable to request paid chapter data: \"{ChaptersAPI}\". Check account subscription.")
 			
 		else:
 			# Запись в лог предупреждения: не удалось запросить данные главы.
-			logging.error("Unable to request chapter data: \"" + ChaptersAPI + "\". Response code: " + str(Response.status_code) + ".")
+			logging.warning(f"Unable to request chapter data: \"{ChaptersAPI}\". Response code: {Response.status_code}.")
 
 		# Выжидание указанного интервала.
 		sleep(self.__Settings["delay"])
@@ -184,54 +189,23 @@ class Parser:
 		# Если включён режим перезаписи.
 		if self.__ForceMode == True:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
-			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Will be overwritten...")
+			logging.info("Title: " + self.__TitleHeader + ". Local JSON already exists. Will be overwritten...")
 			
 		else:
 			# Запись в лог сообщения: найден локальный описательный файл тайтла.
-			logging.info("Title: \"" + self.__Slug + "\". Local JSON already exists. Merging...")
+			logging.info("Title: " + self.__TitleHeader + ". Local JSON already exists. Merging...")
 			# Чтение локального описательного файла JSON.
 			LocalTitle = ReadJSON(self.__Settings["titles-directory"] + "/" + UsedTitleName + ".json")
-
 			# Для каждой ветви на сайте записать ID.
-			for Branch in RemangaTitle["branches"]:
-				RemangaBranchesID.append(str(Branch["id"]))
-
-			# Если формат HTMP-V1.
-			if LocalTitle["format"].upper() == "HTMP-V1":
-				# Инициализатора конвертера.
-				Converter = Formatter(self.__Settings, LocalTitle, "htmp-v1")
-				# Конвертирование формата в HTCRN-V1.
-				LocalTitle = Converter.convert("htcrn-v1")
-				# Список ID всех ветвей.
-				AllBranchesID = list()
-				
-				# Получение списка ID локальных ветвей.
-				for Branch in LocalTitle["branches"]:
-					LocalBranchesID.append(str(Branch["id"]))
-				
-				# Получение списка ID всех ветвей.
-				for Branch in self.__Title["branches"]:
-					AllBranchesID.append(Branch["id"])
-
-				# Проверка: существует ли наследуемая ветвь на сайте.
-				if LocalTitle["branchId"] not in AllBranchesID:
-					# Перевод парсера в неактивное состояние.
-					self.__IsActive = False
-					# Запись в лог сообщения: наследуемая ветвь была удалена на сайте.
-					logging.warning("Title: " + self.__TitleHeader + ". Legacy branch was removed from site!")
-
-			# Если формат не HTMP-V1.
-			else:
-				# Исходный формат.
-				OriginalFormat = LocalTitle["format"] if "format" in LocalTitle.keys() else "rn-v1"
-				# Инициализатора конвертера.
-				Converter = Formatter(self.__Settings, LocalTitle, OriginalFormat)
-				# Конвертирование формата в совместимый.
-				LocalTitle = Converter.convert("rn-v1")
-
-				# Получение списка ветвей.
-				for Branch in LocalTitle["branches"]:
-					LocalBranchesID.append(str(Branch["id"]))
+			for Branch in RemangaTitle["branches"]: RemangaBranchesID.append(str(Branch["id"]))
+			# Исходный формат.
+			OriginalFormat = LocalTitle["format"] if "format" in LocalTitle.keys() else "rn-v1"
+			# Инициализатора конвертера.
+			Converter = Formatter(self.__Settings, LocalTitle, OriginalFormat)
+			# Конвертирование формата в совместимый.
+			LocalTitle = Converter.convert("rn-v1")
+			# Получение списка ветвей.
+			for Branch in LocalTitle["branches"]: LocalBranchesID.append(str(Branch["id"]))
 
 			# Если тайтл активен.
 			if self.__IsActive == True:
@@ -245,34 +219,15 @@ class Parser:
 						# Для каждой главы в локальной ветви.
 						for ChapterIndex in range(0, len(LocalTitle["chapters"][BranchID])):
 
-							# Проверка главы на платность (первое условие нужно для совместимости со старыми форматами без данных о донатном статусе главы).
-							if "is_paid" not in LocalTitle["chapters"][BranchID][ChapterIndex].keys() or LocalTitle["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
-								# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
-								RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
+							# Поиск индекса главы с таким же ID в структуре, полученной с сервера.
+							RemangaTitleChapterIndex = self.__GetChapterIndex(RemangaTitle["chapters"][BranchID], LocalTitle["chapters"][BranchID][ChapterIndex]["id"])
 
-								# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
-								if RemangaTitleChapterIndex != None:
-									# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
-									RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
-									# Инкремент счётчика.
-									self.__MergedChaptersCount += 1
-									
-							#---> Проверка: является ли текущая ветвь HTMP-V1 самой длинной.
-							#==========================================================================================#
-
-							# Если формат HTMP-V1.
-							if LocalTitle["format"].upper() == "HTMP-V1":
-								# Копия ветвей тайтла.
-								BranchesBufer = RemangaTitle["branches"]
-								# Сортировка копии по количеству глав.
-								BranchesBufer = sorted(BranchesBufer, key = lambda d: d["count_chapters"])
-
-								# Проверка несоответствия текущей ветви и длиннейшей при обработке форматов с одной активной ветвью.
-								if LocalTitle["branchId"] != BranchesBufer[0]["id"]:
-									# Получение ID ветви с большим количеством глав.
-									BranchID = str(BranchesBufer[0]["id"])
-									# Запись в лог: доступна ветвь с большим количеством глав.
-									logging.warning("Title: " + self.__TitleHeader + f". Branch with more chapters count (BID: {BranchID}) available!")
+							# Если нашли главу с таким же ID, то переместить в неё информацию о слайдах.
+							if RemangaTitleChapterIndex != None:
+								# Перемещение данных о слайдах из локального файла в новый, полученный с сервера.
+								RemangaTitle["chapters"][BranchID][RemangaTitleChapterIndex]["slides"] = LocalTitle["chapters"][BranchID][ChapterIndex]["slides"]
+								# Инкремент счётчика.
+								self.__MergedChaptersCount += 1
 									
 					else:
 						# Запись в лог предупреждения: ветвь была удалена.
@@ -314,7 +269,7 @@ class Parser:
 		self.__MergedChaptersCount  = 0
 		# Менеджер запросов через прокси.
 		self.__RequestsManager = RequestsManager(Settings)
-		# Заголовок тайтла для логов и вывода в терминал.
+		# Заголовок тайтла для логов.
 		self.__TitleHeader = f"\"{Slug}\""
 		# Состояние: включена ли перезапись файлов.
 		self.__ForceMode = ForceMode
@@ -325,14 +280,14 @@ class Parser:
 		# Словарь описания тайтла.
 		self.__Title = dict()
 		# Сообщение из внешнего обработчика.
-		self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
+		self.__Message = Message + "Current title: " + Slug + "\n\n"
 		# Алиас тайтла.
 		self.__Slug = Slug
 		# ID тайтла.
 		self.__ID = None
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"Authorization": self.__Settings["authorization-token"],
+			"Authorization": self.__Settings["token"],
 			"Referer": "https://remanga.org/",
 		}
 
@@ -419,15 +374,25 @@ class Parser:
 					if AllBranchesChaptersCount - self.__MergedChaptersCount > 0:
 						print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
 
-					# Проверка отсутствия описанных страниц.
-					if self.__Title["chapters"][BranchID][ChapterIndex]["slides"] == list():
+					# Если не описано ни одного слайда.
+					if not self.__Title["chapters"][BranchID][ChapterIndex]["slides"]:
+						# Состояние: платная ли глава.
+						IsChapterPaid = self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"]
 
-						# Проверка главы на платность.
-						if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
-							# Получение информации о страницах главы.
-							self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])["slides"]
-							# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
-							logging.info("Title: " + self.__TitleHeader + ". Chapter " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
+						# Если глава бесплатная или включено получение глав по подписке.
+						if not IsChapterPaid or IsChapterPaid and self.__Settings["subscription"]:
+							# Тип главы.
+							ChapterType = "Paid chapter" if IsChapterPaid and self.__Settings["subscription"] else "Chapter" 
+							# Получение информации о главе.
+							ChapterData = self.__GetChapterData(self.__Title["chapters"][BranchID][ChapterIndex]["id"])
+
+							# Если запрос успешен.
+							if ChapterData:
+								# Получение информации о страницах главы.
+								self.__Title["chapters"][BranchID][ChapterIndex]["slides"] = ChapterData["slides"]
+								# Запись в лог сообщения об успешном добавлинии информации о страницах главы.
+								logging.info(f"Title: {self.__TitleHeader}. {ChapterType} " + str(self.__Title["chapters"][BranchID][ChapterIndex]["id"]) + " amended.")
+
 							# Инкремент счётчика.
 							UpdatedChaptersCounter += 1
 							# Выжидание указанного интервала.
@@ -571,21 +536,30 @@ class Parser:
 		# Состояние: восстановлена ли глава.
 		IsRepaired = False
 		
-		# Для каждой главы в каждой ветви.
+		# Для каждой ветви.
 		for BranchID in self.__Title["chapters"].keys():
+
+			# Для каждой главы.
 			for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
 				
 				# Если ID главы совпадает с целевым.
 				if self.__Title["chapters"][BranchID][ChapterIndex]["id"] == int(ChapterID):
-					# Переключить состояние в успешное.
+					# Состояние: бесплатная ли глава.
+					IsChapterPaid = self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"]
+					# Переключение состояния.
 					IsRepaired = True
-					
+
 					# Если глава бесплатная.
-					if self.__Title["chapters"][BranchID][ChapterIndex]["is_paid"] == False:
-						# Запрос данных главы и переименование ключа со слайдами.
-						self.__Title["chapters"][BranchID][ChapterIndex] = self.__GetChapterData(ChapterID)
-						# Запись в лог сообщения: глава восстановлена.
-						logging.info(f"Chapter {ChapterID} repaired.")
+					if not IsChapterPaid or IsChapterPaid and self.__Settings["subscription"]:
+						# Получение данных главы.
+						ChapterData = self.__GetChapterData(ChapterID)
+
+						# Если запрос успешен.
+						if ChapterData:
+							# Запрос данных главы и переименование ключа со слайдами.
+							self.__Title["chapters"][BranchID][ChapterIndex] = ChapterData
+							# Запись в лог сообщения: глава восстановлена.
+							logging.info(f"Chapter {ChapterID} repaired.")
 						
 					else:
 						# Запись в лог сообщения: глава платная.

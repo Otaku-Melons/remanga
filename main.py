@@ -57,7 +57,7 @@ logging.info("Launch command: \"" + " ".join(sys.argv[1:len(sys.argv)]) + "\".")
 Settings = ReadJSON("Settings.json")
 
 # Форматирование настроек.
-if not Settings["authorization-token"].startswith("bearer "): Settings["authorization-token"] = "bearer " + Settings["authorization-token"]
+if not Settings["token"].startswith("bearer "): Settings["token"] = "bearer " + Settings["token"]
 if Settings["covers-directory"] == "": Settings["covers-directory"] = "Covers"
 Settings["covers-directory"] = Settings["covers-directory"].replace("\\", "/").rstrip("/")
 if Settings["titles-directory"] == "": Settings["titles-directory"] = "Titles"
@@ -295,7 +295,7 @@ if "convert" == CommandDataStruct.name:
 		# Вывод в консоль: прогресс.
 		print("Progress: " + str(Index + 1) + " / " + str(len(TitlesSlugs)))
 		# Чтение описательного файла.
-		LocalTitle = ReadJSON(Settings["titles-directory"] + TitlesSlugs[Index])
+		LocalTitle = ReadJSON(Settings["titles-directory"] + "/" + TitlesSlugs[Index])
 		# Исходный формат.
 		SourceFormat = None
 
@@ -321,7 +321,7 @@ if "convert" == CommandDataStruct.name:
 			
 		else:
 			# Сохранение переформатированного описательного файла.
-			WriteJSON(Settings["titles-directory"] + TitlesSlugs[Index], LocalTitle)
+			WriteJSON(Settings["titles-directory"] + "/" + TitlesSlugs[Index], LocalTitle)
 			# Запись в лог сообщения: файл преобразован.
 			logging.info("File: \"" + TitlesSlugs[Index].replace(".json", "") + "\". Converted.")
 
@@ -421,7 +421,7 @@ if "parse" == CommandDataStruct.name:
 		# Чтение всех алиасов из локальных файлов.
 		for File in TitlesSlugs:
 			# Открытие локального описательного файла JSON.
-			with open(Settings["titles-directory"] + File, encoding = "utf-8") as FileRead:
+			with open(Settings["titles-directory"] + "/" + File, encoding = "utf-8") as FileRead:
 				# JSON файл тайтла.
 				LocalTitle = json.load(FileRead)
 				# Помещение алиаса в список.
@@ -517,7 +517,7 @@ if "repair" == CommandDataStruct.name:
 	# Название файла тайтла с расширением.
 	Filename = (CommandDataStruct.arguments[0] + ".json") if ".json" not in CommandDataStruct.arguments[0] else CommandDataStruct.arguments[0]
 	# Чтение тайтла.
-	TitleContent = ReadJSON(Settings["titles-directory"] + Filename)
+	TitleContent = ReadJSON(Settings["titles-directory"] + "/" + Filename)
 	# Генерация сообщения.
 	ExternalMessage = InFuncMessage_Shutdown
 	# Вывод в консоль: идёт процесс восстановления главы.
