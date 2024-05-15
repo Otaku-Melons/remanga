@@ -26,7 +26,7 @@ class Updater:
 		self.__RequestsManager = RequestsManager(Settings)
 		# Заголовки запроса.
 		self.__RequestHeaders = {
-			"Authorization": self.__Settings["-token"],
+			"Authorization": self.__Settings["token"],
 			"Referer": "https://remanga.org/"
 		}
 		

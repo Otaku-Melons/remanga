@@ -539,6 +539,8 @@ if "repair" == CommandDataStruct.name:
 	
 	# Сохранение локальных файлов тайтла.
 	LocalTitle.save(DownloadCovers = False)
+	# Переключение удаление лога.
+	REMOVE_LOGFILE = True
 
 # Обработка команды: unstub.
 if "unstub" == CommandDataStruct.name:
@@ -644,6 +646,6 @@ if IsShutdowAfterEnd == True:
 # Выключение логгирования.
 logging.shutdown()
 # Если указано, удалить файл лога.
-if REMOVE_LOGFILE == True: os.remove(LogFilename)
+if REMOVE_LOGFILE == True and os.path.exists(LogFilename): os.remove(LogFilename)
 # Завершение главного процесса.
 sys.exit(EXIT_CODE)
