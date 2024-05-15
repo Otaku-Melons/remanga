@@ -67,16 +67,28 @@ class Parser:
 
 		return ChapterData
 
-	# Возвращает количество глав во всех ветвях тайтла.
-	def __GetChaptersCountInAllBranches(self) -> int:
+	# Возвращает количество глав во всех ветях.
+	def __GetChaptersCount(self, OnlyWithoutContent: bool = False) -> int:
 		# Количество глав.
-		AllBranchesChaptersCount = 0
+		ChaptersCount = 0
 
-		# Подсчёт.
-		for Branch in self.__Title["chapters"].keys():
-			AllBranchesChaptersCount += len(self.__Title["chapters"][str(Branch)])
+		# Если требуется получить только главы без контента.
+		if OnlyWithoutContent:
 
-		return AllBranchesChaptersCount
+			# Для каждой ветви.
+			for BranchID in self.__Title["chapters"].keys():
+				
+				# Для каждой главы.
+				for Chapter in self.__Title["chapters"][BranchID]:
+					# Если глава не содержит слайдов, подсчитать её.
+					if not Chapter["slides"]: ChaptersCount += 1
+
+		else:
+
+			# Для каждой ветви подсчитать количество глав.
+			for Branch in self.__Title["chapters"].keys(): ChaptersCount += len(self.__Title["chapters"][str(Branch)])
+
+		return ChaptersCount
 
 	# Возвращает описание ветви перевода.
 	def __GetBranchData(self, BranchID: str, ChaptersCount: int) -> dict:
@@ -354,14 +366,12 @@ class Parser:
 			BranchesID = list()
 			# Счётчик глав, для которых были получены страницы.
 			UpdatedChaptersCounter = 0
-			# Количество глав во всех ветвях тайтла.
-			AllBranchesChaptersCount = self.__GetChaptersCountInAllBranches()
+			# Количество глав, требующих дополнения.
+			ChaptersToAmendCount = self.__GetChaptersCount(True)
 			# Запись в лог сообщения о старте получения информации о страницах глав.
 			logging.info("Title: " + self.__TitleHeader + ". Amending...")
-
-			# Получение списка ID ветвей.
-			for Branch in self.__Title["branches"]:
-				BranchesID.append(str(Branch["id"]))
+			# Для каждой ветви записать её ID.
+			for Branch in self.__Title["branches"]: BranchesID.append(str(Branch["id"]))
 			
 			# В каждой ветви проверить каждую главу на отсутствие описанных страниц и дополнить.
 			for BranchID in BranchesID:
@@ -369,10 +379,8 @@ class Parser:
 				for ChapterIndex in range(0, len(self.__Title["chapters"][BranchID])):
 					# Очистка терминала.
 					Cls()
-
-					# Вывод в терминал прогресса.
-					if AllBranchesChaptersCount - self.__MergedChaptersCount > 0:
-						print(self.__Message + "Amending chapters: " + str(UpdatedChaptersCounter + 1) + " / " + str(AllBranchesChaptersCount - self.__MergedChaptersCount))
+					# Вывод в терминал: прогресс дополнения.
+					if ChaptersToAmendCount > 0: print(f"{self.__Message}Amending chapters: " + str(UpdatedChaptersCounter + 1) + f" / {ChaptersToAmendCount}")
 
 					# Если не описано ни одного слайда.
 					if not self.__Title["chapters"][BranchID][ChapterIndex]["slides"]:
