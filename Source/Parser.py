@@ -320,7 +320,7 @@ class Parser:
 			# Формирование заголовка тайтла для вывода в консоль.
 			self.__TitleHeader = self.__TitleHeader + f" (ID: {self.__ID})"
 			# Изменение заголовка тайтла.
-			self.__Message = Message + "Current title: " + self.__TitleHeader + "\n\n"
+			self.__Message = Message + "Current title: " + self.__Slug + f" (ID: {self.__ID})" + "\n\n"
 
 			# Создание ключа для последующего помещения туда глав.
 			self.__Title["chapters"] = dict()

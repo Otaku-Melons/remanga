@@ -59,9 +59,8 @@ class RequestsManager:
 			
 		# Конфигурация менеджера запросов.
 		Config = WebConfig()
-		Config.select_lib(WebLibs.curl_cffi)
+		Config.select_lib(WebLibs.requests)
 		Config.generate_user_agent("pc")
-		Config.curl_cffi.enable_http2(True)
 		# Запросчик.
 		self.__Requestor = WebRequestor(Config)
 		
@@ -190,7 +189,7 @@ class RequestsManager:
 		Path = Path.replace('\\', '/')
 		
 		# Если задано название и не указано расширение.
-		if Filename.split(".")[-1] not in ["jpeg", "jpg", "webp"]:
+		if Filename.split(".")[-1] not in ["gif", "jpeg", "jpg", "webp"]:
 			# Добавление расширения к названию файла.
 			Filename += "." + URL.split('.')[-1]
 	
