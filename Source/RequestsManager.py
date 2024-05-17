@@ -187,11 +187,8 @@ class RequestsManager:
 		Filename = URL.split('/')[-1] if Filename == "" else Filename
 		# Конвертирование косых черт.
 		Path = Path.replace('\\', '/')
-		
-		# Если задано название и не указано расширение.
-		if Filename.split(".")[-1] not in ["gif", "jpeg", "jpg", "webp"]:
-			# Добавление расширения к названию файла.
-			Filename += "." + URL.split('.')[-1]
+		# Если задано название и не указано расширение, добавить расширение из URL к названию файла.
+		if "." not in Filename: Filename += "." + URL.split('.')[-1]
 	
 		# Если путь не зананчивается косой чертой и не пуст.
 		if Path.endswith('/') == False and Path.endswith('\\') == False and Path != "":
