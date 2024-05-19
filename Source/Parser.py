@@ -442,7 +442,7 @@ class Parser:
 			for Type in CoversTypes:
 				
 				# Если указан URL обложки.
-				if self.__Title["img"]["high"] not in ["/media/None", None]:
+				if self.__Title["img"]["high"] not in ["/media/None", None, "/media/no-image/title.svg"]:
 					# Запись URL обложки.
 					CoversURL.append("https://remanga.org" + self.__Title["img"][Type])
 					
@@ -661,9 +661,9 @@ class Parser:
 		# Состояние: отфильтрованы ли обложки.
 		IsFiltered = False
 		# Запись URL обложек.
-		if self.__Title["img"]["high"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
-		if self.__Title["img"]["mid"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
-		if self.__Title["img"]["low"] != "": CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
+		if self.__Title["img"]["high"]: CoversURL.append("https://remanga.org" + self.__Title["img"]["high"])
+		if self.__Title["img"]["mid"]: CoversURL.append("https://remanga.org" + self.__Title["img"]["mid"])
+		if self.__Title["img"]["low"]: CoversURL.append("https://remanga.org" + self.__Title["img"]["low"])
 		
 		# Скачивание обложек.
 		for Index in range(0, len(CoversURL)):
@@ -671,7 +671,7 @@ class Parser:
 			CoverFilename = self.__Settings["covers-directory"] + "/" + UsedTitleName + "/" + CoversURL[Index].split('/')[-1]
 			
 			# Если обложка отфильтрована.
-			if self.__FilterCovers(CoverFilename, Index) == True:
+			if self.__FilterCovers(CoverFilename, Index) == True or "/no-image/title.svg" in CoversURL:
 				# Переключение состояния.
 				IsFiltered = True
 				# Удаление файлов обложек.
