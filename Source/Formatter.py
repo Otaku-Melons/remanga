@@ -499,7 +499,7 @@ class Formatter:
 		FormattedTitle["author"] = None
 		FormattedTitle["publication-year"] = self.__OriginalTitle["issue_year"]
 		FormattedTitle["age-rating"] = self.__OriginalTitle["age_limit"]
-		FormattedTitle["description"] = HTML(self.__OriginalTitle["description"]).plain_text.replace("\r\n\r\n", "\n")
+		FormattedTitle["description"] = HTML(self.__OriginalTitle["description"]).plain_text.replace("\r\n\r\n", "\n") if self.__OriginalTitle["description"] else ""
 		FormattedTitle["type"] = IdentifyTitleType(self.__OriginalTitle["type"])
 		FormattedTitle["status"] = IdentifyTitleStatus(self.__OriginalTitle["status"])
 		FormattedTitle["is-licensed"] = self.__OriginalTitle["is_licensed"]
