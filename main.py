@@ -8,7 +8,6 @@ from Source.CLI.Templates import *
 from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
 from skimage.metrics import structural_similarity
-from dublib.Methods.JSON import ReadJSON
 from dublib.Polyglot import HTML
 from skimage import io
 from time import sleep
@@ -540,8 +539,6 @@ class Parser:
 
 		# Если тайтл не найден.
 		elif Response.status_code == 404:
-			# Запись в лог ошибки: не удалось найти тайтл в источнике.
-			self.__SystemObjects.logger.title_not_found(self.__Slug)
 			# Выброс исключения.
 			raise TitleNotFound(self.__Slug)
 
