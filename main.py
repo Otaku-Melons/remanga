@@ -309,7 +309,7 @@ class Parser:
 			# Для каждой страницы ветви.
 			for BranchPage in range(0, int(ChaptersCount / 100) + 1):
 				# Выполнение запроса.
-				Response = self.__Requestor.get(f"https://api.remanga.org/api/titles/chapters/?branch_id={BranchID}&count=100&ordering=-index&page=" + str(BranchPage + 1) + "&user_data=1")
+				Response = self.__Requestor.get(f"https://remanga.org/api/titles/chapters/?branch_id={BranchID}&count=100&ordering=-index&page=" + str(BranchPage + 1) + "&user_data=1")
 
 				# Если запрос успешен.
 				if Response.status_code == 200:
@@ -441,7 +441,7 @@ class Parser:
 		# Список слайдов.
 		Slides = list()
 		# Выполнение запроса.
-		Response = self.__Requestor.get(f"https://api.remanga.org/api/titles/chapters/{chapter_id}")
+		Response = self.__Requestor.get(f"https://remanga.org/api/titles/chapters/{chapter_id}")
 
 		# Если запрос успешен.
 		if Response.status_code == 200:
@@ -526,10 +526,10 @@ class Parser:
 		Получает данные тайтла.
 			slug – алиас.
 		"""
-		
+
 		# Выполнение запроса.
-		Response = self.__Requestor.get(f"https://api.remanga.org/api/titles/{self.__Slug}")
-		
+		Response = self.__Requestor.get(f"https://remanga.org/api/titles/{self.__Slug}/")
+
 		# Если запрос успешен.
 		if Response.status_code == 200:
 			# Парсинг ответа.
@@ -699,7 +699,7 @@ class Parser:
 		# Пока не достигнута последняя страница или не получены все требуемые страницы.
 		while not IsLastPage:
 			# Выполнение запроса.
-			Response = self.__Requestor.get(f"https://api.remanga.org/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
+			Response = self.__Requestor.get(f"https://remanga.org/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
 			
 			# Если запрос успешен.
 			if Response.status_code == 200:
@@ -730,7 +730,7 @@ class Parser:
 
 		return Slugs
 
-	def get_updates(self, hours: int) -> list[str]:
+	def updates(self, hours: int) -> list[str]:
 		"""
 		Возвращает список алиасов тайтлов, обновлённых на сервере за указанный период времени.
 			hours – количество часов, составляющих период для получения обновлений.
@@ -750,7 +750,7 @@ class Parser:
 		# Проверка обновлений за указанный промежуток времени.
 		while not IsUpdatePeriodOut:
 			# Выполнение запроса.
-			Response = self.__Requestor.get(f"https://api.remanga.org/api/titles/last-chapters/?page={Page}&count=20")
+			Response = self.__Requestor.get(f"https://remanga.org/api/titles/last-chapters/?page={Page}&count=20")
 			
 			# Если запрос успешен.
 			if Response.status_code == 200:
