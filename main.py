@@ -32,7 +32,7 @@ class Parser:
 	"""Модульный парсер."""
 
 	#==========================================================================================#
-	# >>>>> СВОЙСТВА ТОЛЬКО ДЛЯ ЧТЕНИЯ <<<<< #
+	# >>>>> СВОЙСТВА <<<<< #
 	#==========================================================================================#
 
 	@property
@@ -156,15 +156,11 @@ class Parser:
 	def __CalculateEmptyChapters(self, content: dict) -> int:
 		"""Подсчитывает количество глав без слайдов."""
 
-		# Количество глав.
 		ChaptersCount = 0
 
-		# Для каждой ветви.
 		for BranchID in content.keys():
 
-			# Для каждой главы.
 			for Chapter in content[BranchID]:
-				# Если глава не содержит слайдов, подсчитать её.
 				if not Chapter["slides"]: ChaptersCount += 1
 
 		return ChaptersCount
@@ -172,14 +168,12 @@ class Parser:
 	def __InitializeRequestor(self) -> WebRequestor:
 		"""Инициализирует модуль WEB-запросов."""
 
-		# Инициализация и настройка объекта.
 		Config = WebConfig()
 		Config.select_lib(WebLibs.requests)
-		Config.set_tries_count(self.__Settings.common.tries)
+		Config.set_retries_count(self.__Settings.common.retries)
 		Config.add_header("Authorization", self.__Settings.custom["token"])
 		WebRequestorObject = WebRequestor(Config)
 
-		# Установка прокси.
 		if self.__Settings.proxy.enable: WebRequestorObject.add_proxy(
 			Protocols.HTTPS,
 			host = self.__Settings.proxy.host,
@@ -193,15 +187,13 @@ class Parser:
 	def __InitializeCoversRequestor(self) -> WebRequestor:
 		"""Инициализирует модуль WEB-запросов обложек."""
 
-		# Инициализация и настройка объекта.
 		Config = WebConfig()
 		Config.select_lib(WebLibs.requests)
-		Config.set_tries_count(self.__Settings.common.tries)
+		Config.set_retries_count(self.__Settings.common.retries)
 		Config.requests.enable_proxy_protocol_switching(True)
 		Config.add_header("Referer", f"https://{SITE}/")
 		WebRequestorObject = WebRequestor(Config)
 
-		# Установка прокси.
 		if self.__Settings.proxy.enable: WebRequestorObject.add_proxy(
 			Protocols.HTTP,
 			host = self.__Settings.proxy.host,
@@ -222,22 +214,84 @@ class Parser:
 			url – ссылка на обложку.
 		"""
 
-		# Список индексов фильтров.
 		FiltersDirectories = os.listdir(f"Parsers/{NAME}/Filters")
 
-		# Для каждого фильтра.
 		for FilterIndex in FiltersDirectories:
-			# Список щаблонов.
 			Patterns = os.listdir(f"Parsers/{NAME}/Filters/{FilterIndex}")
 			
-			# Для каждого фильтра.
 			for Pattern in Patterns:
-				# Сравнение изображений.
 				Result = self.__CompareImages(f"Parsers/{NAME}/Filters/{FilterIndex}/{Pattern}")
-				# Если разница между обложкой и шаблоном составляет менее 50%.
 				if Result != None and Result < 50.0: return True
 		
 		return False
+
+	def __Collect(self, filters: str | None = None, pages: int | None = None) -> list[str]:
+		"""
+		Собирает список тайтлов по заданным параметрам.
+			filters – строка из URI каталога, описывающая параметры запроса;\n
+			pages – количество запрашиваемых страниц.
+		"""
+
+		Slugs = list()
+		IsCollected = False
+		Page = 1
+		
+		while not IsCollected:
+			Response = self.__Requestor.get(f"https://remanga.org/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
+			
+			if Response.status_code == 200:
+				PrintCollectingStatus(Page)
+				PageContent = Response.json["content"]
+				for Note in PageContent: Slugs.append(Note["dir"])
+				if not PageContent or pages and Page == pages: IsCollected = True
+				if IsCollected: self.__SystemObjects.logger.titles_collected(len(Slugs))
+				Page += 1
+				sleep(self.__Settings.common.delay)
+
+			else:
+				self.__SystemObjects.logger.request_error(Response, "Unable to request catalog.")
+				raise Exception("Unable to request catalog.")
+
+		return Slugs
+	
+	def __CollectUpdates(self, period: int | None = None, pages: int | None = None) -> list[str]:
+		"""
+		Собирает список обновлений тайтлов по заданным параметрам.
+			period – количество часов до текущего момента, составляющее период получения данных;\n
+			pages – количество запрашиваемых страниц.
+		"""
+
+		Slugs = list()
+		period *= 3600000
+		IsCollected = False
+		Page = 1
+		
+		while not IsCollected:
+			Response = self.__Requestor.get(f"https://remanga.org/api/titles/last-chapters/?page={Page}&count=30")
+			
+			if Response.status_code == 200:
+				PrintCollectingStatus(Page)
+				PageContent = Response.json["content"]
+
+				for Note in PageContent:
+
+					if not period or Note["upload_date"] <= period:
+						Slugs.append(Note["dir"])
+
+					else:
+						IsCollected = True
+						break
+					
+				if not PageContent or pages and Page == pages: IsCollected = True
+				if IsCollected: self.__SystemObjects.logger.titles_collected(len(Slugs))
+				Page += 1
+				sleep(self.__Settings.common.delay)
+
+			else:
+				self.__SystemObjects.logger.request_error(Response, "Unable to request catalog.")
+				raise Exception("Unable to request catalog.")
+
+		return Slugs
 
 	def __CompareImages(self, pattern_path: str) -> float | None:
 		"""
@@ -246,33 +300,23 @@ class Parser:
 			pattern_path – путь к шаблону.
 		"""
 
-		# Процент отличия.
 		Differences = None
 
 		try:
-			# Получение пути к каталогу временных файлов.
 			Temp = self.__SystemObjects.temper.get_parser_temp(NAME)
-			# Чтение изображений.
 			Pattern = io.imread(f"{Temp}cover")
 			Image = cv2.imread(pattern_path)
-			# Преобразование изображений в чёрно-белый формат.
 			Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
 			Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
-			# Получение разрешений изображений.
 			PatternHeight, PatternWidth = Pattern.shape
 			ImageHeight, ImageWidth = Image.shape
 		
-			# Если шаблон и изображение имеют одинаковое разрешение.
 			if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
-				# Сравнение двух изображений.
 				(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
-				# Конвертирование в проценты.
 				Differences = 100.0 - (float(Similarity) * 100.0)
 
 		except Exception as ExceptionData:
-			# Запись в лог ошибки: исключение.
 			self.__SystemObjects.logger.error("Problem occurred during filtering stubs: \"" + str(ExceptionData) + "\".")		
-			# Обнуление процента отличий.
 			Differences = None
 
 		return Differences
@@ -283,13 +327,11 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Определения возрастных ограничений.
 		Ratings = {
 			0: 0,
 			1: 16,
 			2: 18
 		}
-		# Возрастной рейтинг.
 		Rating = Ratings[data["age_limit"]]
 
 		return Rating 
@@ -297,32 +339,21 @@ class Parser:
 	def __GetContent(self, data: str) -> dict:
 		"""Получает содержимое тайтла."""
 
-		# Структура содержимого.
 		Content = dict()
 
-		# Для каждой ветви.
 		for Branch in data["branches"]:
-			# ID ветви и количество глав.
 			BranchID = Branch["id"]
 			ChaptersCount = Branch["count_chapters"]
 
-			# Для каждой страницы ветви.
 			for BranchPage in range(0, int(ChaptersCount / 100) + 1):
-				# Выполнение запроса.
 				Response = self.__Requestor.get(f"https://remanga.org/api/titles/chapters/?branch_id={BranchID}&count=100&ordering=-index&page=" + str(BranchPage + 1) + "&user_data=1")
 
-				# Если запрос успешен.
 				if Response.status_code == 200:
-					# Парсинг данных в JSON.
 					Data = Response.json["content"]
 					
-					# Для каждой главы.
 					for Chapter in Data:
-						# Если ветвь не существует, создать её.
 						if str(BranchID) not in Content.keys(): Content[str(BranchID)] = list()
-						# Переводчики.
 						Translators = [sub["name"] for sub in Chapter["publishers"]]
-						# Буфер главы.
 						Buffer = {
 							"id": Chapter["id"],
 							"volume": str(Chapter["tome"]),
@@ -334,20 +365,15 @@ class Parser:
 							"slides": []	
 						}
 
-						# Если включено добавление времени бесплатного времени публикации.
 						if self.__Settings.custom["add_free_publication_date"]:
-							# Если глава платная, записать время публикации.
 							if Buffer["is_paid"]: Buffer["free-publication-date"] = Chapter["pub_date"]
 
 						else:
-							# Удаление ключа. 
 							del Buffer["free-publication-date"]
 
-						# Запись главы.
 						Content[str(BranchID)].append(Buffer)
 
 				else:
-					# Запись в лог ошибки.
 					self.__SystemObjects.logger.request_error(Response, "Unable to request chapter.")
 
 		return Content			
@@ -355,32 +381,23 @@ class Parser:
 	def __GetCovers(self, data: dict) -> list[str]:
 		"""Получает список обложек."""
 
-		# Список обложек.
 		Covers = list()
 
-		# Для каждой обложки.
 		for CoverURI in data["img"].values():
 
-			# Если обложка имеет правильный URI.
 			if CoverURI not in ["/media/None"]:
-				# Буфер.
 				Buffer = {
 					"link": f"https://{SITE}{CoverURI}",
 					"filename": CoverURI.split("/")[-1]
 				}
 
-				# Если включен режим получения размеров обложек.
 				if self.__Settings.common.sizing_images:
-					# Дополнение структуры размерами.
 					Buffer["width"] = None
 					Buffer["height"] = None
 
-				# Дополнение структуры.
 				Covers.append(Buffer)
 
-				# Если включена фильтрация заглушек.
 				if self.__Settings.custom["unstub"]:
-					# Скачивание обложки.
 					Downloader(self.__SystemObjects, self.__CoversRequestor).image(
 						url = Buffer["link"],
 						directory = self.__SystemObjects.temper.get_parser_temp(NAME),
@@ -389,13 +406,9 @@ class Parser:
 						referer = SITE
 					)
 					
-					# Если обложка является заглушкой.
 					if self.__CheckForStubs(Buffer["link"]):
-						# Очистка данных обложек.
 						Covers = list()
-						# Запись в лог информации обложки помечены как заглушки.
 						self.__SystemObjects.logger.covers_unstubbed(self.__Slug, self.__Title["id"])
-						# Прерывание цикла.
 						break
 
 		return Covers
@@ -406,15 +419,10 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Описание.
 		Description = None
-		# Удаление тегов и спецсимволов HTML. 
 		Description = HTML(data["description"]).plain_text
-		# Удаление ненужных символов.
 		Description = Description.replace("\r", "").replace("\xa0", " ").strip()
-		# Удаление повторяющихся символов новой строки.
 		Description = RemoveRecurringSubstrings(Description, "\n")
-		# Обнуление пустого описания.
 		Description = Zerotify(Description)
 
 		return Description
@@ -425,9 +433,7 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Описание.
 		Genres = list()
-		# Для каждого жанра записать имя.
 		for Genre in data["genres"]: Genres.append(Genre["name"])
 
 		return Genres
@@ -438,48 +444,32 @@ class Parser:
 			chapter_id – идентификатор главы.
 		"""
 
-		# Список слайдов.
 		Slides = list()
-		# Выполнение запроса.
 		Response = self.__Requestor.get(f"https://remanga.org/api/titles/chapters/{chapter_id}")
 
-		# Если запрос успешен.
 		if Response.status_code == 200:
-			# Парсинг данных в JSON.
 			Data = Response.json["content"]
-			# Объединение групп страниц.
 			Data["pages"] = self.__MergeListOfLists(Data["pages"])
 
-			# Для каждого слайда.
 			for SlideIndex in range(len(Data["pages"])):
-				# Буфер слайда.
 				Buffer = {
 					"index": SlideIndex + 1,
 					"link": Data["pages"][SlideIndex]["link"]
 				}
-				# Состояние: отфильтрован ли слайд.
 				IsFiltered = False
-				# Если указано настройками, русифицировать ссылку на слайд.
 				if self.__Settings.custom["ru_links"]: Buffer["link"] = self.__RusificateLink(Buffer["link"])
 
-				# Если включен режим получения размеров обложек.
 				if self.__Settings.common.sizing_images:
-					# Дополнение структуры размерами.
 					Buffer["width"] = Data["pages"][SlideIndex]["width"]
 					Buffer["height"] = Data["pages"][SlideIndex]["height"]
 
-				# Если включена фильтрация узких слайдов и высота меньше требуемой, отфильтровать слайд.
 				if self.__Settings.custom["min_height"] and Data["pages"][SlideIndex]["height"] <= self.__Settings.custom["min_height"]: IsFiltered = True
-				# Если слайд не отфильтрован, записать его.
 				if not IsFiltered: Slides.append(Buffer)
 
-		# Если глава является платной или лицензированной.
 		elif Response.status_code in [401, 423]:
-			# Запись в лог информации: глава пропущена.
 			self.__SystemObjects.logger.chapter_skipped(self.__Slug, self.__Title["id"], chapter_id, True)
 
 		else:
-			# Запись в лог ошибки.
 			self.__SystemObjects.logger.request_error(Response, "Unable to request chapter content.")
 
 		return Slides
@@ -490,9 +480,7 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Статус тайтла.
 		Status = None
-		# Статусы тайтлов.
 		StatusesDetermination = {
 			"Продолжается": Statuses.ongoing,
 			"Закончен": Statuses.completed,
@@ -501,9 +489,7 @@ class Parser:
 			"Нет переводчика": Statuses.dropped,
 			"Не переводится (лицензировано)": Statuses.dropped
 		}
-		# Индекс статуса на сайте.
 		SiteStatusIndex = data["status"]["name"]
-		# Если индекс статуса валиден, преобразовать его в поддерживаемый статус.
 		if SiteStatusIndex in StatusesDetermination.keys(): Status = StatusesDetermination[SiteStatusIndex]
 
 		return Status
@@ -514,9 +500,7 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Описание.
 		Tags = list()
-		# Для каждого тега записать имя.
 		for Tag in data["categories"]: Tags.append(Tag["name"])
 
 		return Tags
@@ -527,25 +511,17 @@ class Parser:
 			slug – алиас.
 		"""
 
-		# Выполнение запроса.
 		Response = self.__Requestor.get(f"https://remanga.org/api/titles/{self.__Slug}/")
 
-		# Если запрос успешен.
 		if Response.status_code == 200:
-			# Парсинг ответа.
 			Response = Response.json["content"]
-			# Запись в лог информации: начало парсинга.
 			self.__SystemObjects.logger.parsing_start(self.__Slug, Response["id"])
 
-		# Если тайтл не найден.
 		elif Response.status_code == 404:
-			# Выброс исключения.
 			raise TitleNotFound(self.__Slug)
 
 		else:
-			# Запись в лог ошибки.
 			self.__SystemObjects.logger.request_error(Response, "Unable to request title data.")
-			# Обнуление ответа.
 			Response = None
 
 		return Response
@@ -556,9 +532,7 @@ class Parser:
 			data – словарь данных тайтла.
 		"""
 
-		# Тип тайтла.
 		Type = None
-		# Типы тайтлов.
 		TypesDeterminations = {
 			"Манга": Types.manga,
 			"Манхва": Types.manhwa,
@@ -567,9 +541,7 @@ class Parser:
 			"Западный комикс": Types.western_comic,
 			"Индонезийский комикс": Types.indonesian_comic
 		}
-		# Определение с сайта.
 		SiteType = data["type"]["name"]
-		# Если определение с сайта валидно, преобразовать его.
 		if SiteType in TypesDeterminations.keys(): Type = TypesDeterminations[SiteType]
 
 		return Type
@@ -580,16 +552,12 @@ class Parser:
 			list_of_lists – список списоков.
 		"""
 		
-		# Если список не пустой и включает списки, то объединить.
 		if len(list_of_lists) > 0 and type(list_of_lists[0]) is list:
-			# Результат объединения.
 			Result = list()
-			# Объединить все списки в один список.
 			for List in list_of_lists: Result.extend(List)
 
 			return Result
 
-		# Если список включет словари, то вернуть без изменений.
 		else: return list_of_lists
 
 	def __RusificateLink(self, link: str) -> str:
@@ -598,9 +566,7 @@ class Parser:
 			link – ссылка на слайд.
 		"""
 
-		# Если слайд на пятом международном сервере, заменить его.
 		if link.startswith("https://img5.reimg.org"): link = link.replace("https://img5.reimg.org", "https://reimg2.org")
-		# Замена других серверов.
 		link = link.replace("reimg.org", "reimg2.org")
 
 		return link
@@ -616,22 +582,15 @@ class Parser:
 			settings – настройки парсера.
 		"""
 
-		# Выбор парсера для системы логгирования.
 		system_objects.logger.select_parser(NAME)
 
 		#---> Генерация динамических свойств.
 		#==========================================================================================#
-		# Настройки парсера.
 		self.__Settings = settings
-		# Менеджер WEB-запросов.
 		self.__Requestor = self.__InitializeRequestor()
-		# Менеджер WEB-запросов обложек.
 		self.__CoversRequestor = self.__InitializeCoversRequestor()
-		# Структура данных.
 		self.__Title = None
-		# Алиас тайтла.
 		self.__Slug = None
-		# Коллекция системных объектов.
 		self.__SystemObjects = system_objects
 
 	def amend(self, content: dict | None = None, message: str = "") -> dict:
@@ -641,153 +600,52 @@ class Parser:
 			message – сообщение для портов CLI.
 		"""
 
-		# Если содержимое не указано, использовать текущее.
 		if content == None: content = self.content
-		# Подсчёт количества глав для дополнения.
 		ChaptersToAmendCount = self.__CalculateEmptyChapters(content)
-		# Количество дополненных глав.
 		AmendedChaptersCount = 0
-		# Индекс прогресса.
 		ProgressIndex = 0
 
-		# Для каждой ветви.
 		for BranchID in content.keys():
 			
-			# Для каждый главы.
 			for ChapterIndex in range(0, len(content[BranchID])):
 				
-				# Если слайды не описаны или включён режим перезаписи.
 				if content[BranchID][ChapterIndex]["slides"] == []:
-					# Инкремент прогресса.
 					ProgressIndex += 1
-					# Получение списка слайдов главы.
 					Slides = self.__GetSlides(content[BranchID][ChapterIndex]["id"])
 
-					# Если получены слайды.
 					if Slides:
-						# Инкремент количества дополненных глав.
 						AmendedChaptersCount += 1
-						# Запись информации о слайде.
 						content[BranchID][ChapterIndex]["slides"] = Slides
-						# Запись в лог информации: глава дополнена.
 						self.__SystemObjects.logger.chapter_amended(self.__Slug, self.__Title["id"], content[BranchID][ChapterIndex]["id"], content[BranchID][ChapterIndex]["is_paid"])
 
-					# Вывод в консоль: прогресс дополнения.
 					PrintAmendingProgress(message, ProgressIndex, ChaptersToAmendCount)
-					# Выжидание интервала.
 					sleep(self.__Settings.common.delay)
 
-		# Запись в лог информации: количество дополненных глав.
 		self.__SystemObjects.logger.amending_end(self.__Slug, self.__Title["id"], AmendedChaptersCount)
 
 		return content
 
-	def collect(self, filters: str | None = None, pages_count: int | None = None) -> list[str]:
+	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
 		"""
-		Собирает список тайтлов по заданным параметром из каталога источника.
+		Собирает список тайтлов по заданным параметрам.
+			period – количество часов до текущего момента, составляющее период получения данных;\n
 			filters – строка из URI каталога, описывающая параметры запроса;\n
-			pages_count – количество запрашиваемых страниц.
+			pages – количество запрашиваемых страниц.
 		"""
 
-		# Список тайтлов.
-		Slugs = list()
-		# Состояние: достигнута ли последняя страница католога.
-		IsLastPage = False		
-		# Текущая страница каталога.
-		Page = 1
+		if filters and not period:
+			self.__SystemObjects.logger.collect_filters(filters)
 
-		# Пока не достигнута последняя страница или не получены все требуемые страницы.
-		while not IsLastPage:
-			# Выполнение запроса.
-			Response = self.__Requestor.get(f"https://remanga.org/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
-			
-			# Если запрос успешен.
-			if Response.status_code == 200:
-				# Вывод в консоль: прогресс сбора коллекции.
-				PrintCollectingStatus(Page)
-				# Парсинг ответа.
-				PageContent = Response.json["content"]
-				# Для каждой записи получить алиас.
-				for Note in PageContent: Slugs.append(Note["dir"])
+		elif filters and period:
+			self.__SystemObjects.logger.collect_filters_ignored()
+			self.__SystemObjects.logger.collect_period(period)
 
-				# Если контента нет или достигнута последняя страница.
-				if not PageContent or pages_count and Page == pages_count:
-					# Завершение сбора.
-					IsLastPage = True
-					# Запись в лог информации: количество собранных тайтлов.
-					self.__SystemObjects.logger.titles_collected(len(Slugs))
+		if pages:
+			self.__SystemObjects.logger.collect_pages(period)
 
-				# Выжидание интервала.
-				sleep(self.__Settings.common.delay)
-				# Инкремент номера страницы.
-				Page += 1
-
-			else:
-				# Завершение сбора
-				self.__SystemObjects.logger.request_error(Response, "Unable to collect titles.")
-				# Выброс исключения.
-				raise Exception("Unable to collect titles.")
+		Slugs: list[str] = self.__Collect(filters, pages) if not period else self.__CollectUpdates(period, pages)
 
 		return Slugs
-
-	def updates(self, hours: int) -> list[str]:
-		"""
-		Возвращает список алиасов тайтлов, обновлённых на сервере за указанный период времени.
-			hours – количество часов, составляющих период для получения обновлений.
-		"""
-
-		# Список алиасов.
-		Updates = list()
-		# Промежуток времени для проверки обновлений (в миллисекундах).
-		UpdatesPeriod = hours * 3600000
-		# Состояние: достигнут ли конец проверяемого диапазона.
-		IsUpdatePeriodOut = False
-		# Счётчик страницы.
-		Page = 1
-		# Количество обновлённых тайтлов.
-		UpdatesCount = 0
-
-		# Проверка обновлений за указанный промежуток времени.
-		while not IsUpdatePeriodOut:
-			# Выполнение запроса.
-			Response = self.__Requestor.get(f"https://remanga.org/api/titles/last-chapters/?page={Page}&count=20")
-			
-			# Если запрос успешен.
-			if Response.status_code == 200:
-				# Парсинг ответа.
-				UpdatesPage = Response.json["content"]
-				
-				# Для каждой записи об обновлении.
-				for UpdateNote in UpdatesPage:
-					
-					# Если запись не выходит за пределы интервала.
-					if UpdateNote["upload_date"] < UpdatesPeriod:
-						# Сохранение алиаса обновлённого тайтла.
-						Updates.append(UpdateNote["dir"])
-						# Инкремент обновлённых тайтлов.
-						UpdatesCount += 1
-
-					else:
-						# Завершение цикла обновления.
-						IsUpdatePeriodOut = True
-
-			else:
-				# Завершение цикла обновления.
-				IsUpdatePeriodOut = True
-				# Запись в лог ошибки.
-				self.__SystemObjects.logger.request_error(Response, f"Unable to request updates page {Page}.")
-
-			# Если цикл завершён.
-			if not IsUpdatePeriodOut:
-				# Инкремент страницы.
-				Page += 1
-				# Выжидание указанного интервала.
-				sleep(self.__Settings.common.delay)
-
-		# Запись в лог информации: количество собранных обновлений.
-		self.__SystemObjects.logger.updates_collected(len(Updates))
-
-		return Updates
 
 	def parse(self, slug: str, message: str | None = None):
 		"""
@@ -796,16 +654,11 @@ class Parser:
 			message – сообщение для портов CLI.
 		"""
 
-		# Преобразование сообщения в строку.
 		message = message or ""
-		# Заполнение базовых данных.
 		self.__Title = BaseStructs().manga
 		self.__Slug = slug
-		# Вывод в консоль: статус парсинга.
 		PrintParsingStatus(message)
-		# Получение описания.
 		Data = self.__GetTitleData()
-		# Занесение данных.
 		self.__Title["site"] = SITE
 		self.__Title["id"] = Data["id"]
 		self.__Title["slug"] = slug
@@ -833,19 +686,13 @@ class Parser:
 			chapter_id – идентификатор главы.
 		"""
 
-		# Для каждой ветви.
 		for BranchID in content.keys():
 			
-			# Для каждый главы.
 			for ChapterIndex in range(len(content[BranchID])):
 				
-				# Если ID совпадает с искомым.
 				if content[BranchID][ChapterIndex]["id"] == chapter_id:
-					# Получение списка слайдов главы.
 					Slides = self.__GetSlides(content[BranchID][ChapterIndex]["id"])
-					# Запись в лог информации: глава восстановлена.
 					self.__SystemObjects.logger.chapter_repaired(self.__Slug, self.__Title["id"], chapter_id, content[BranchID][ChapterIndex]["is_paid"])
-					# Запись восстановленной главы.
 					content[BranchID][ChapterIndex]["slides"] = Slides
 
 		return content
