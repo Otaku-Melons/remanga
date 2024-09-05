@@ -262,7 +262,7 @@ class Parser:
 		"""
 
 		Slugs = list()
-		period *= 3600000
+		period *= 3_600_000
 		IsCollected = False
 		Page = 1
 		
@@ -279,6 +279,7 @@ class Parser:
 						Slugs.append(Note["dir"])
 
 					else:
+						Slugs = list(set(Slugs))
 						IsCollected = True
 						break
 					
@@ -304,7 +305,7 @@ class Parser:
 
 		try:
 			Temp = self.__SystemObjects.temper.get_parser_temp(NAME)
-			Pattern = io.imread(f"{Temp}cover")
+			Pattern = io.imread(f"{Temp}/cover")
 			Image = cv2.imread(pattern_path)
 			Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
 			Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
