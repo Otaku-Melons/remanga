@@ -195,7 +195,7 @@ class Parser:
 		WebRequestorObject = WebRequestor(Config)
 
 		if self.__Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTP,
+			Protocols.HTTPS,
 			host = self.__Settings.proxy.host,
 			port = self.__Settings.proxy.port,
 			login = self.__Settings.proxy.login,
@@ -404,7 +404,8 @@ class Parser:
 						directory = self.__SystemObjects.temper.get_parser_temp(NAME),
 						filename = "cover",
 						is_full_filename = True,
-						referer = SITE
+						referer = SITE,
+						bad_image_stub = self.__Settings.common.bad_image_stub
 					)
 					
 					if self.__CheckForStubs(Buffer["link"]):
