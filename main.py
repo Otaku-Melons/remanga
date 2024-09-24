@@ -305,14 +305,14 @@ class Parser(MangaParser):
 
 		return Genres
 
-	def __GetSlides(self, chapter_id: int) -> list[dict]:
+	def __GetSlides(self, chapter: Chapter) -> list[dict]:
 		"""
 		Получает данные о слайдах главы.
-			chapter_id – идентификатор главы.
+			chapter – данные главы.
 		"""
 
 		Slides = list()
-		Response = self._Requestor.get(f"https://remanga.org/api/titles/chapters/{chapter_id}")
+		Response = self._Requestor.get(f"https://remanga.org/api/titles/chapters/{chapter.id}")
 
 		if Response.status_code == 200:
 			Data = Response.json["content"]
@@ -331,7 +331,7 @@ class Parser(MangaParser):
 				if not IsFiltered: Slides.append(Buffer)
 
 		elif Response.status_code in [401, 423]:
-			self._SystemObjects.logger.chapter_skipped(self._Title.slug, self._Title.id, chapter_id, True)
+			self._SystemObjects.logger.chapter_skipped(self._Title, chapter)
 
 		else:
 			self._SystemObjects.logger.request_error(Response, "Unable to request chapter content.")
@@ -425,7 +425,7 @@ class Parser(MangaParser):
 			chapter – данные главы.
 		"""
 
-		Slides = self.__GetSlides(chapter.id)
+		Slides = self.__GetSlides(chapter)
 		for Slide in Slides: chapter.add_slide(Slide["link"], Slide["width"], Slide["height"])
 
 	def collect(self, period: int | None = None, filters: str | None = None, pages: int | None = None) -> list[str]:
