@@ -4,6 +4,8 @@
 		"archives_directory": "",
 		"covers_directory": "",
 		"titles_directory": "",
+		"bad_image_stub": null,
+		"pretty": false,
 		"use_id_as_filename": false,
 		"sizing_images": false,
 		"legacy": false,
@@ -21,7 +23,6 @@
 		"token": "",
 		"ru_links": false,
 		"unstub": true,
-		"min_height": 10,
 		"add_free_publication_date": false
 	}
 }
