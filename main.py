@@ -327,7 +327,6 @@ class Parser(MangaParser):
 				}
 				IsFiltered = False
 				if self._Settings.custom["ru_links"]: Buffer["link"] = self.__RusificateLink(Buffer["link"])
-				if self._Settings.common.pretty and Data["pages"][SlideIndex]["height"] <= 10: IsFiltered = True
 				if not IsFiltered: Slides.append(Buffer)
 
 		elif Response.status_code in [401, 423]:
