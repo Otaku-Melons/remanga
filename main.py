@@ -287,10 +287,12 @@ class Parser(MangaParser):
 		"""
 
 		Description = None
-		Description = HTML(data["description"]).plain_text
-		Description = Description.replace("\r", "").replace("\xa0", " ").strip()
-		Description = RemoveRecurringSubstrings(Description, "\n")
-		Description = Zerotify(Description)
+
+		if data["description"]:
+			Description = HTML(data["description"]).plain_text
+			Description = Description.replace("\r", "").replace("\xa0", " ").strip()
+			Description = RemoveRecurringSubstrings(Description, "\n")
+			Description = Zerotify(Description)
 
 		return Description
 
