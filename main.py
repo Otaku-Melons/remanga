@@ -226,7 +226,7 @@ class Parser(MangaParser):
 						Buffer = {
 							"id": CurrentChapter["id"],
 							"volume": str(CurrentChapter["tome"]),
-							"number": CurrentChapter["chapter"],
+							"number": CurrentChapter["chapter"].rstrip("."),
 							"name": Zerotify(CurrentChapter["name"]),
 							"is_paid": CurrentChapter["is_paid"],
 							"free-publication-date": None,
