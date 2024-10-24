@@ -223,10 +223,16 @@ class Parser(MangaParser):
 					
 					for CurrentChapter in Data:
 						Translators = [sub["name"] for sub in CurrentChapter["publishers"]]
+
+						Number = CurrentChapter["chapter"]
+						if "-" in Number: Number = Number.split("-")[0]
+						Number = Number.rstrip(".")
+						if not Number: Number = "0"
+						
 						Buffer = {
 							"id": CurrentChapter["id"],
 							"volume": str(CurrentChapter["tome"]),
-							"number": CurrentChapter["chapter"].rstrip("."),
+							"number": Number,
 							"name": Zerotify(CurrentChapter["name"]),
 							"is_paid": CurrentChapter["is_paid"],
 							"free-publication-date": None,
