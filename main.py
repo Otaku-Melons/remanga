@@ -223,16 +223,10 @@ class Parser(MangaParser):
 					
 					for CurrentChapter in Data:
 						Translators = [sub["name"] for sub in CurrentChapter["publishers"]]
-
-						Number = CurrentChapter["chapter"]
-						if "-" in Number: Number = Number.split("-")[0]
-						Number = Number.rstrip(".")
-						if not Number: Number = "0"
-						
 						Buffer = {
 							"id": CurrentChapter["id"],
 							"volume": str(CurrentChapter["tome"]),
-							"number": Number,
+							"number": CurrentChapter["chapter"],
 							"name": Zerotify(CurrentChapter["name"]),
 							"is_paid": CurrentChapter["is_paid"],
 							"free-publication-date": None,
@@ -439,8 +433,8 @@ class Parser(MangaParser):
 		"""
 		Собирает список тайтлов по заданным параметрам.
 			period – количество часов до текущего момента, составляющее период получения данных;\n
-			filters – строка из URI каталога, описывающая параметры запроса;\n
-			pages – количество запрашиваемых страниц.
+			filters – строка, описывающая фильтрацию (подробнее в README.md);\n
+			pages – количество запрашиваемых страниц каталога.
 		"""
 
 		if filters and not period:

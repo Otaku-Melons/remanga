@@ -7,7 +7,6 @@
 		"pretty": false,
 		"use_id_as_filename": false,
 		"sizing_images": false,
-		"legacy": false,
 		"retries": 1,
 		"delay": 1
 	},
