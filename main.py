@@ -1,7 +1,6 @@
 from Source.Core.Formats.Manga import Branch, Chapter, Manga, Statuses, Types
-from Source.Core.Base.MangaParser import MangaParser
 from Source.Core.ImagesDownloader import ImagesDownloader
-from Source.Core.Exceptions import TitleNotFound
+from Source.Core.Base.MangaParser import MangaParser
 
 from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
@@ -56,156 +55,11 @@ class Parser(MangaParser):
 	def _PostInitMethod(self):
 		"""Метод, выполняющийся после инициализации объекта."""
 	
-		self.__CoversRequestor = self.__InitializeCoversRequestor()
+		self.__CoversRequestor = self._InitializeCoversRequestor()
 
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
-
-	def __InitializeCoversRequestor(self) -> WebRequestor:
-		"""Инициализирует модуль WEB-запросов обложек."""
-
-		Config = WebConfig()
-		Config.select_lib(WebLibs.requests)
-		Config.set_retries_count(self._Settings.common.retries)
-		Config.requests.enable_proxy_protocol_switching(True)
-		Config.add_header("Referer", f"https://{SITE}/")
-		WebRequestorObject = WebRequestor(Config)
-
-		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
-			Protocols.HTTPS,
-			host = self._Settings.proxy.host,
-			port = self._Settings.proxy.port,
-			login = self._Settings.proxy.login,
-			password = self._Settings.proxy.password
-		)
-
-		return WebRequestorObject
-
-	def __CheckForStubs(self) -> bool:
-		"""Проверяет, является ли обложка заглушкой."""
-
-		FiltersDirectories = os.listdir(f"Parsers/{NAME}/Filters")
-
-		for FilterIndex in FiltersDirectories:
-			Patterns = os.listdir(f"Parsers/{NAME}/Filters/{FilterIndex}")
-			
-			for Pattern in Patterns:
-				Result = self.__CompareImages(f"Parsers/{NAME}/Filters/{FilterIndex}/{Pattern}")
-				if Result != None and Result < 50.0: return True
-		
-		return False
-
-	def __Collect(self, filters: str | None = None, pages: int | None = None) -> list[str]:
-		"""
-		Собирает список тайтлов по заданным параметрам.
-			filters – строка из URI каталога, описывающая параметры запроса;\n
-			pages – количество запрашиваемых страниц.
-		"""
-
-		Slugs = list()
-		IsCollected = False
-		Page = 1
-		
-		while not IsCollected:
-			Response = self._Requestor.get(f"https://{SITE}/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
-			
-			if Response.status_code == 200:
-				self._PrintCollectingStatus(Page)
-				PageContent = Response.json["content"]
-				for Note in PageContent: Slugs.append(Note["dir"])
-				if not PageContent or pages and Page == pages: IsCollected = True
-				Page += 1
-				sleep(self._Settings.common.delay)
-
-			else:
-				self._SystemObjects.logger.request_error(Response, "Unable to request catalog.")
-				raise Exception("Unable to request catalog.")
-
-		return Slugs
-	
-	def __CollectUpdates(self, period: int | None = None, pages: int | None = None) -> list[str]:
-		"""
-		Собирает список обновлений тайтлов по заданным параметрам.
-			period – количество часов до текущего момента, составляющее период получения данных;\n
-			pages – количество запрашиваемых страниц.
-		"""
-
-		Slugs = list()
-		period *= 3_600_000
-		IsCollected = False
-		Page = 1
-		
-		while not IsCollected:
-			Response = self._Requestor.get(f"https://{SITE}/api/titles/last-chapters/?page={Page}&count=30")
-			
-			if Response.status_code == 200:
-				self._PrintCollectingStatus(Page)
-				PageContent = Response.json["content"]
-
-				for Note in PageContent:
-
-					if not period or Note["upload_date"] <= period:
-						Slugs.append(Note["dir"])
-
-					else:
-						Slugs = list(set(Slugs))
-						IsCollected = True
-						break
-					
-				if not PageContent or pages and Page == pages: IsCollected = True
-				if IsCollected: self._SystemObjects.logger.titles_collected(len(Slugs))
-				Page += 1
-				sleep(self._Settings.common.delay)
-
-			else:
-				self._SystemObjects.logger.request_error(Response, "Unable to request catalog.")
-				raise Exception("Unable to request catalog.")
-
-		return Slugs
-
-	def __CompareImages(self, pattern_path: str) -> float | None:
-		"""
-		Сравнивает изображение с фильтром.
-			url – ссылка на обложку;\n
-			pattern_path – путь к шаблону.
-		"""
-
-		Differences = None
-
-		try:
-			Temp = self._SystemObjects.temper.get_parser_temp(NAME)
-			Pattern = io.imread(f"{Temp}/cover")
-			Image = cv2.imread(pattern_path)
-			Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
-			Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
-			PatternHeight, PatternWidth = Pattern.shape
-			ImageHeight, ImageWidth = Image.shape
-		
-			if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
-				(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
-				Differences = 100.0 - (float(Similarity) * 100.0)
-
-		except Exception as ExceptionData:
-			self._SystemObjects.logger.error("Problem occurred during filtering stubs: \"" + str(ExceptionData) + "\".")		
-			Differences = None
-
-		return Differences
-
-	def __GetAgeLimit(self, data: dict) -> int:
-		"""
-		Получает возрастной рейтинг.
-			data – словарь данных тайтла.
-		"""
-
-		Ratings = {
-			0: 0,
-			1: 16,
-			2: 18
-		}
-		Rating = Ratings[data["age_limit"]]
-
-		return Rating 
 
 	def __GetBranches(self, data: str):
 		"""Получает ветви тайтла."""
@@ -244,68 +98,9 @@ class Parser(MangaParser):
 						ChapterObject.set_dict(Buffer)
 						CurrentBranch.add_chapter(ChapterObject)
 
-				else: self._SystemObjects.logger.request_error(Response, "Unable to request chapter.")
+				else: self._Portals.request_error(Response, "Unable to request chapter.", exception = False)
 
-			self._Title.add_branch(CurrentBranch)		
-
-	def __GetCovers(self, data: dict) -> list[str]:
-		"""Получает список обложек."""
-
-		Covers = list()
-
-		for CoverURI in data["img"].values():
-
-			if CoverURI not in ["/media/None"]:
-				Buffer = {
-					"link": f"https://{SITE}{CoverURI}",
-					"filename": CoverURI.split("/")[-1]
-				}
-
-				if self._Settings.common.sizing_images:
-					Buffer["width"] = None
-					Buffer["height"] = None
-
-				Covers.append(Buffer)
-
-				if self._Settings.custom["unstub"]:
-					ImagesDownloader(self._SystemObjects, self.__CoversRequestor).temp_image(
-						url = Buffer["link"],
-						filename = "cover"
-					)
-					
-					if self.__CheckForStubs():
-						Covers = list()
-						self._SystemObjects.logger.covers_unstubbed(self._Title.slug, self._Title.id)
-						break
-
-		return Covers
-
-	def __GetDescription(self, data: dict) -> str | None:
-		"""
-		Получает описание.
-			data – словарь данных тайтла.
-		"""
-
-		Description = None
-
-		if data["description"]:
-			Description = HTML(data["description"]).plain_text
-			Description = Description.replace("\r", "").replace("\xa0", " ").strip()
-			Description = RemoveRecurringSubstrings(Description, "\n")
-			Description = Zerotify(Description)
-
-		return Description
-
-	def __GetGenres(self, data: dict) -> list[str]:
-		"""
-		Получает список жанров.
-			data – словарь данных тайтла.
-		"""
-
-		Genres = list()
-		for Genre in data["genres"]: Genres.append(Genre["name"])
-
-		return Genres
+			self._Title.add_branch(CurrentBranch)	
 
 	def __GetSlides(self, chapter: Chapter) -> list[dict]:
 		"""
@@ -314,8 +109,8 @@ class Parser(MangaParser):
 		"""
 
 		Slides = list()
-		Response = self._Requestor.get(f"https://{SITE}/api/titles/chapters/{chapter.id}")
-
+		Response = self._Requestor.get(f"https://{SITE}/api/titles/chapters/{chapter.id}/")
+		
 		if Response.status_code == 200:
 			Data = Response.json["content"]
 			Data["pages"] = self.__MergeListOfLists(Data["pages"])
@@ -331,44 +126,10 @@ class Parser(MangaParser):
 				if self._Settings.custom["ru_links"]: Buffer["link"] = self.__RusificateLink(Buffer["link"])
 				if not IsFiltered: Slides.append(Buffer)
 
-		elif Response.status_code in [401, 423]:
-			self._SystemObjects.logger.chapter_skipped(self._Title, chapter)
-
-		else:
-			self._SystemObjects.logger.request_error(Response, "Unable to request chapter content.")
+		elif Response.status_code in [401, 423]: self._Portals.chapter_skipped(self._Title, chapter)
+		else: self._Portals.request_error(Response, "Unable to request chapter content.", exception = False)
 
 		return Slides
-
-	def __GetStatus(self, data: dict) -> str:
-		"""
-		Получает статус.
-			data – словарь данных тайтла.
-		"""
-
-		Status = None
-		StatusesDetermination = {
-			"Продолжается": Statuses.ongoing,
-			"Закончен": Statuses.completed,
-			"Анонс": Statuses.announced,
-			"Заморожен": Statuses.dropped,
-			"Нет переводчика": Statuses.dropped,
-			"Не переводится (лицензировано)": Statuses.dropped
-		}
-		SiteStatusIndex = data["status"]["name"]
-		if SiteStatusIndex in StatusesDetermination.keys(): Status = StatusesDetermination[SiteStatusIndex]
-
-		return Status
-
-	def __GetTags(self, data: dict) -> list[str]:
-		"""
-		Получает список тегов.
-			data – словарь данных тайтла.
-		"""
-
-		Tags = list()
-		for Tag in data["categories"]: Tags.append(Tag["name"])
-
-		return Tags
 
 	def __GetType(self, data: dict) -> str:
 		"""
@@ -416,6 +177,245 @@ class Parser(MangaParser):
 		return link
 
 	#==========================================================================================#
+	# >>>>> НАСЛЕДУЕМЫЕ МЕТОДЫ <<<<< #
+	#==========================================================================================#
+
+	def _InitializeCoversRequestor(self) -> WebRequestor:
+		"""Инициализирует модуль WEB-запросов обложек."""
+
+		Config = WebConfig()
+		Config.select_lib(WebLibs.requests)
+		Config.set_retries_count(self._Settings.common.retries)
+		Config.requests.enable_proxy_protocol_switching(True)
+		Config.add_header("Referer", f"https://{SITE}/")
+		WebRequestorObject = WebRequestor(Config)
+
+		if self._Settings.proxy.enable: WebRequestorObject.add_proxy(
+			Protocols.HTTPS,
+			host = self._Settings.proxy.host,
+			port = self._Settings.proxy.port,
+			login = self._Settings.proxy.login,
+			password = self._Settings.proxy.password
+		)
+
+		return WebRequestorObject
+	
+	def _CheckForStubs(self) -> bool:
+		"""Проверяет, является ли обложка заглушкой."""
+
+		FiltersDirectories = os.listdir(f"Parsers/{NAME}/Filters")
+
+		for FilterIndex in FiltersDirectories:
+			Patterns = os.listdir(f"Parsers/{NAME}/Filters/{FilterIndex}")
+			
+			for Pattern in Patterns:
+				Result = self._CompareImages(f"Parsers/{NAME}/Filters/{FilterIndex}/{Pattern}")
+				if Result != None and Result < 50.0: return True
+		
+		return False
+	
+	def _Collect(self, filters: str | None = None, pages: int | None = None) -> list[str]:
+		"""
+		Собирает список тайтлов по заданным параметрам.
+			filters – строка из URI каталога, описывающая параметры запроса;\n
+			pages – количество запрашиваемых страниц.
+		"""
+
+		Slugs = list()
+		IsCollected = False
+		Page = 1
+		
+		while not IsCollected:
+			Response = self._Requestor.get(f"https://{SITE}/api/search/catalog/?page={Page}&count=30&ordering=-id&{filters}")
+			
+			if Response.status_code == 200:
+				PageContent = Response.json["content"]
+				for Note in PageContent: Slugs.append(Note["dir"])
+				if not PageContent or pages and Page == pages: IsCollected = True
+				self._Logger.c
+				Page += 1
+				sleep(self._Settings.common.delay)
+
+			else:
+				self._Portals.request_error(Response, "Unable to request catalog.")
+				raise Exception("Unable to request catalog.")
+
+		return Slugs
+	
+	def _CollectUpdates(self, period: int | None = None, pages: int | None = None) -> list[str]:
+		"""
+		Собирает список обновлений тайтлов по заданным параметрам.
+			period – количество часов до текущего момента, составляющее период получения данных;\n
+			pages – количество запрашиваемых страниц.
+		"""
+
+		Slugs = list()
+		period *= 3_600_000
+		IsCollected = False
+		Page = 1
+		
+		while not IsCollected:
+			Response = self._Requestor.get(f"https://{SITE}/api/titles/last-chapters/?page={Page}&count=30")
+			
+			if Response.status_code == 200:
+				PageContent = Response.json["content"]
+
+				for Note in PageContent:
+
+					if not period or Note["upload_date"] <= period:
+						Slugs.append(Note["dir"])
+
+					else:
+						Slugs = list(set(Slugs))
+						IsCollected = True
+						break
+					
+				if not PageContent or pages and Page == pages: IsCollected = True
+				self._Portals.collect_progress_by_page(Page)
+				Page += 1
+				sleep(self._Settings.common.delay)
+
+			else:
+				self._Portals.request_error(Response, "Unable to request catalog.")
+				raise Exception("Unable to request catalog.")
+
+		return Slugs
+
+	def _CompareImages(self, pattern_path: str) -> float | None:
+		"""
+		Сравнивает изображение с фильтром.
+			url – ссылка на обложку;\n
+			pattern_path – путь к шаблону.
+		"""
+
+		Differences = None
+
+		try:
+			Temp = self._SystemObjects.temper.get_parser_temp(NAME)
+			Pattern = io.imread(f"{Temp}/cover")
+			Image = cv2.imread(pattern_path)
+			Pattern = cv2.cvtColor(Pattern, cv2.COLOR_BGR2GRAY)
+			Image = cv2.cvtColor(Image, cv2.COLOR_BGR2GRAY)
+			PatternHeight, PatternWidth = Pattern.shape
+			ImageHeight, ImageWidth = Image.shape
+		
+			if PatternHeight == ImageHeight and PatternWidth == ImageWidth:
+				(Similarity, Differences) = structural_similarity(Pattern, Image, full = True)
+				Differences = 100.0 - (float(Similarity) * 100.0)
+
+		except Exception as ExceptionData:
+			self._Portals.error("Problem occurred during filtering stubs: \"" + str(ExceptionData) + "\".")		
+			Differences = None
+
+		return Differences
+
+	def _GetAgeLimit(self, data: dict) -> int:
+		"""
+		Получает возрастной рейтинг.
+			data – словарь данных тайтла.
+		"""
+
+		Ratings = {
+			0: 0,
+			1: 16,
+			2: 18
+		}
+		Rating = Ratings[data["age_limit"]]
+
+		return Rating 	
+
+	def _GetCovers(self, data: dict) -> list[str]:
+		"""Получает список обложек."""
+
+		Covers = list()
+
+		for CoverURI in data["img"].values():
+
+			if CoverURI not in ["/media/None"]:
+				Buffer = {
+					"link": f"https://{SITE}{CoverURI}",
+					"filename": CoverURI.split("/")[-1]
+				}
+
+				if self._Settings.common.sizing_images:
+					Buffer["width"] = None
+					Buffer["height"] = None
+
+				Covers.append(Buffer)
+
+				if self._Settings.custom["unstub"]:
+					ImagesDownloader(self._SystemObjects, self.__CoversRequestor).temp_image(
+						url = Buffer["link"],
+						filename = "cover",
+						is_full_filename = True
+					)
+					
+					if self._CheckForStubs():
+						Covers = list()
+						self._Portals.covers_unstubbed(self._Title.slug, self._Title.id)
+						break
+
+		return Covers
+
+	def _GetDescription(self, data: dict) -> str | None:
+		"""
+		Получает описание.
+			data – словарь данных тайтла.
+		"""
+
+		Description = None
+
+		if data["description"]:
+			Description = HTML(data["description"]).plain_text
+			Description = Description.replace("\r", "").replace("\xa0", " ").strip()
+			Description = RemoveRecurringSubstrings(Description, "\n")
+			Description = Zerotify(Description)
+
+		return Description
+
+	def _GetGenres(self, data: dict) -> list[str]:
+		"""
+		Получает список жанров.
+			data – словарь данных тайтла.
+		"""
+
+		Genres = list()
+		for Genre in data["genres"]: Genres.append(Genre["name"])
+
+		return Genres
+
+	def _GetStatus(self, data: dict) -> str:
+		"""
+		Получает статус.
+			data – словарь данных тайтла.
+		"""
+
+		Status = None
+		StatusesDetermination = {
+			"Продолжается": Statuses.ongoing,
+			"Закончен": Statuses.completed,
+			"Анонс": Statuses.announced,
+			"Заморожен": Statuses.dropped,
+			"Нет переводчика": Statuses.dropped,
+			"Не переводится (лицензировано)": Statuses.dropped
+		}
+		SiteStatusIndex = data["status"]["name"]
+		if SiteStatusIndex in StatusesDetermination.keys(): Status = StatusesDetermination[SiteStatusIndex]
+
+		return Status
+
+	def _GetTags(self, data: dict) -> list[str]:
+		"""
+		Получает список тегов.
+			data – словарь данных тайтла.
+		"""
+
+		Tags = list()
+		for Tag in data["categories"]: Tags.append(Tag["name"])
+
+		return Tags
+
+	#==========================================================================================#
 	# >>>>> ПУБЛИЧНЫЕ МЕТОДЫ <<<<< #
 	#==========================================================================================#
 
@@ -437,17 +437,7 @@ class Parser(MangaParser):
 			pages – количество запрашиваемых страниц каталога.
 		"""
 
-		if filters and not period:
-			self._SystemObjects.logger.collect_filters(filters)
-
-		elif filters and period:
-			self._SystemObjects.logger.collect_filters_ignored()
-			self._SystemObjects.logger.collect_period(period)
-
-		if pages:
-			self._SystemObjects.logger.collect_pages(pages)
-
-		Slugs: list[str] = self.__Collect(filters, pages) if not period else self.__CollectUpdates(period, pages)
+		Slugs: list[str] = self._Collect(filters, pages) if not period else self._CollectUpdates(period, pages)
 
 		return Slugs
 	
@@ -461,22 +451,21 @@ class Parser(MangaParser):
 			
 			self._Title.set_site(SITE)
 			self._Title.set_id(Data["id"])
-			self._SystemObjects.logger.parsing_start(self._Title)
 			self._Title.set_content_language("rus")
 			self._Title.set_localized_name(Data["main_name"])
 			self._Title.set_eng_name(Data["secondary_name"])
 			self._Title.set_another_names(Data["another_name"].split(" / "))
-			self._Title.set_covers(self.__GetCovers(Data))
+			self._Title.set_covers(self._GetCovers(Data))
 			self._Title.set_publication_year(Data["issue_year"])
-			self._Title.set_description(self.__GetDescription(Data))
-			self._Title.set_age_limit(self.__GetAgeLimit(Data))
+			self._Title.set_description(self._GetDescription(Data))
+			self._Title.set_age_limit(self._GetAgeLimit(Data))
 			self._Title.set_type(self.__GetType(Data))
-			self._Title.set_status(self.__GetStatus(Data))
+			self._Title.set_status(self._GetStatus(Data))
 			self._Title.set_is_licensed(Data["is_licensed"])
-			self._Title.set_genres(self.__GetGenres(Data))
-			self._Title.set_tags(self.__GetTags(Data))
+			self._Title.set_genres(self._GetGenres(Data))
+			self._Title.set_tags(self._GetTags(Data))
 			
 			self.__GetBranches(Data)
 
-		elif Response.status_code == 404: raise TitleNotFound(self._Title)
-		else: self._SystemObjects.logger.request_error(Response, "Unable to request title data.", exception = True)
+		elif Response.status_code == 404: self._Portals.title_not_found(self._Title)
+		else: self._Portals.request_error(Response, "Unable to request title data.")
