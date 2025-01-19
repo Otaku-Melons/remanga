@@ -16,7 +16,6 @@ import os
 # >>>>> ОПРЕДЕЛЕНИЯ <<<<< #
 #==========================================================================================#
 
-VERSION = "2.0.0"
 NAME = "remanga"
 SITE = "remanga.org"
 TYPE = Manga
@@ -38,7 +37,7 @@ class Parser(MangaParser):
 		Config = WebConfig()
 		Config.select_lib(WebLibs.requests)
 		Config.set_retries_count(self._Settings.common.retries)
-		Config.add_header("Authorization", self._Settings.custom["token"])
+		if self._Settings.custom["token"]: Config.add_header("Authorization", self._Settings.custom["token"])
 		Config.add_header("Referer", f"https://{SITE}/")
 		WebRequestorObject = WebRequestor(Config)
 
@@ -56,6 +55,7 @@ class Parser(MangaParser):
 		"""Метод, выполняющийся после инициализации объекта."""
 	
 		self.__CoversRequestor = self._InitializeCoversRequestor()
+		self.__IsPaidChaptersLocked = False
 
 	#==========================================================================================#
 	# >>>>> ПРИВАТНЫЕ МЕТОДЫ <<<<< #
@@ -109,6 +109,11 @@ class Parser(MangaParser):
 		"""
 
 		Slides = list()
+
+		if chapter.is_paid and self.__IsPaidChaptersLocked:
+			self._Portals.chapter_skipped(self._Title, chapter)
+			return Slides
+
 		Response = self._Requestor.get(f"https://{SITE}/api/titles/chapters/{chapter.id}/")
 		
 		if Response.status_code == 200:
@@ -126,8 +131,12 @@ class Parser(MangaParser):
 				if self._Settings.custom["ru_links"]: Buffer["link"] = self.__RusificateLink(Buffer["link"])
 				if not IsFiltered: Slides.append(Buffer)
 
-		elif Response.status_code in [401, 423]: self._Portals.chapter_skipped(self._Title, chapter)
-		else: self._Portals.request_error(Response, "Unable to request chapter content.", exception = False)
+		elif Response.status_code in [401, 423]:
+			if chapter.is_paid: self.__IsPaidChaptersLocked = True
+			self._Portals.chapter_skipped(self._Title, chapter)
+
+		else:
+			self._Portals.request_error(Response, "Unable to request chapter content.", exception = False)
 
 		return Slides
 
@@ -232,7 +241,7 @@ class Parser(MangaParser):
 				PageContent = Response.json["content"]
 				for Note in PageContent: Slugs.append(Note["dir"])
 				if not PageContent or pages and Page == pages: IsCollected = True
-				self._Logger.c
+				self._Portals.collect_progress_by_page(Page)
 				Page += 1
 				sleep(self._Settings.common.delay)
 
