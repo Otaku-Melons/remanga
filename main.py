@@ -1,4 +1,4 @@
-from Source.Core.Formats.Manga import Branch, Chapter, Manga, Statuses, Types
+from Source.Core.Formats.Manga import Branch, Chapter, Manga, Person, Statuses, Types
 from Source.Core.ImagesDownloader import ImagesDownloader
 from Source.Core.Base.MangaParser import MangaParser
 
@@ -393,6 +393,27 @@ class Parser(MangaParser):
 
 		return Genres
 
+	def _GetPersons(self) -> list[Person]:
+		"""Получает список персонажей."""
+
+		Persons = list()
+		Response = self._Requestor.get(f"https://{SITE}/api/v2/titles/{self._Title.id}/characters/?")
+		
+		if Response.status_code == 200:
+
+			for PersonData in Response.json:
+				Buffer = Person(PersonData["name"])
+				Buffer.add_another_name(PersonData["alt_name"])
+
+				if PersonData["cover"]:
+					Buffer.add_image(f"https://{SITE}/media/" + PersonData["cover"]["high"])
+					Buffer.add_image(f"https://{SITE}/media/" + PersonData["cover"]["mid"])
+					
+				Buffer.set_description(HTML(PersonData["description"]).plain_text if PersonData["description"] else None)
+				Persons.append(Buffer)
+
+		return Persons
+
 	def _GetStatus(self, data: dict) -> str:
 		"""
 		Получает статус.
@@ -473,7 +494,7 @@ class Parser(MangaParser):
 			self._Title.set_is_licensed(Data["is_licensed"])
 			self._Title.set_genres(self._GetGenres(Data))
 			self._Title.set_tags(self._GetTags(Data))
-			
+			self._Title.set_persons(self._GetPersons())
 			self.__GetBranches(Data)
 
 		elif Response.status_code == 404: self._Portals.title_not_found(self._Title)
