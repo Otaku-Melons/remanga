@@ -4,8 +4,9 @@ from Source.Core.Base.MangaParser import MangaParser
 
 from dublib.WebRequestor import Protocols, WebConfig, WebLibs, WebRequestor
 from dublib.Methods.Data import RemoveRecurringSubstrings, Zerotify
-from skimage.metrics import structural_similarity
 from dublib.Polyglot import HTML
+
+from skimage.metrics import structural_similarity
 from skimage import io
 from time import sleep
 

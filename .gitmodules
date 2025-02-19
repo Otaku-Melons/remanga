@@ -1,3 +1,3 @@
-[submodule "extensions/remanga.cards"]
-	path = extensions/remanga.cards
-	url = https://github.com/Otaku-Melons/remanga.cards.git
+[submodule "extensions/remanga-cards"]
+	path = extensions/remanga-cards
+	url = https://github.com/Otaku-Melons/remanga-cards.git
